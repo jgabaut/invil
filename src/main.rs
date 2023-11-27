@@ -18,6 +18,7 @@ use std::ffi::OsStr;
 use std::{env, fs};
 #[macro_use] extern crate log;
 use simplelog::*;
+use toml::Table;
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -371,13 +372,6 @@ fn check_passed_args(args: &mut Args) {
 
     print_grouped_args(&args);
 
-    //Process arguments
-    if args.ignore_gitcheck {
-        info!("Ignoring git check.");
-    } else {
-        todo!("Gitcheck function");
-    }
-
     match args.gen_c_header {
         Some(ref x) => {
             info!("C header dir: {{{}}}", x.display());
@@ -391,11 +385,36 @@ fn check_passed_args(args: &mut Args) {
     match args.linter {
         Some(ref x) => {
             info!("Linter for file: {{{}}}", x.display());
-            todo!("Validate linter file arg");
+            if x.exists() {
+                trace!("Found {}", x.display());
+                let x_contents = fs::read_to_string(x).expect("Could not read file contents");
+                trace!("Stego contents: {{{}}}", x_contents);
+                let toml_value = x_contents.parse::<Table>();
+                match toml_value {
+                    Ok(y) => {
+                        debug!("Toml value: {{{}}}", y);
+                        return
+                    }
+                    Err(e) => {
+                        error!("Failed parsing {{{}}}  as TOML. Err: [{}]", x.display(), e);
+                        return
+                    }
+                }
+            } else {
+                error!("Could not find file: {{{}}}", x.display());
+                return
+            }
         }
         None => {
             trace!("-x not asserted.");
         }
+    }
+
+    //Process env arguments
+    if args.ignore_gitcheck {
+        info!("Ignoring git check.");
+    } else {
+        todo!("Gitcheck function");
     }
 
     match args.amboso_dir {
