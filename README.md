@@ -6,6 +6,7 @@
 
 + [What is this thing?](#witt)
 + [Supported amboso features](#supported_amboso)
++ [See how it behaves](#try_anvil)
 + [Todo](#todo)
 
 ## What is this thing? <a name = "witt"></a>
@@ -19,6 +20,18 @@
   - Basic arguments parsing that complies with the bash implementation
     - Atm the `verbose` flag expects a `u8` argument, while bash parses multiple flag occurrences.
   - Same default for amboso directory (`./bin`).
+
+## See how it behaves <a name = "try_anvil"></a>
+
+To see how this marvelous work of art works, run:
+
+```sh
+  cd try-anvil
+  ./try_anvil_auto
+```
+Refer to amboso info about this test script: [link](https://github.com/jgabaut/amboso#tryanvil)
+
+Our version was slightly modified to actually make cargo build the release version of the binary we want to symlink to `anvil`.
 
 ## Todo <a name = "todo"></a>
 
