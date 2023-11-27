@@ -495,7 +495,9 @@ fn main() {
     }
 
     let invil_splash: String = format!("{}, version {}\nCopyright (C) 2023  jgabaut\n\n  This program comes with ABSOLUTELY NO WARRANTY; for details type `{} -W`.\n  This is free software, and you are welcome to redistribute it\n  under certain conditions; see file `LICENSE` for details.\n\n  Full source is available at https://github.com/jgabaut/invil\n", INVIL_NAME, INVIL_VERSION, prog_name().expect("Could not determine program name"));
-    println!("{}", invil_splash);
+    if ! args.quiet {
+        println!("{}", invil_splash);
+    }
     check_passed_args(&mut args);
 }
 
