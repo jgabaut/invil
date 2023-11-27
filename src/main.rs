@@ -377,6 +377,27 @@ fn check_passed_args(args: &mut Args) {
     } else {
         todo!("Gitcheck function");
     }
+
+    match args.gen_c_header {
+        Some(ref x) => {
+            info!("C header dir: {{{}}}", x.display());
+            todo!("Validate C header dir");
+        }
+        None => {
+            trace!("-G not asserted.");
+        }
+    }
+
+    match args.linter {
+        Some(ref x) => {
+            info!("Linter for file: {{{}}}", x.display());
+            todo!("Validate linter file arg");
+        }
+        None => {
+            trace!("-x not asserted.");
+        }
+    }
+
     match args.amboso_dir {
         Some(ref x) => {
             info!("Amboso dir {{{}}}", x.display());
@@ -441,27 +462,6 @@ fn check_passed_args(args: &mut Args) {
             debug!("TODO:    Get maketag arg from stego.lock");
         }
     }
-
-    match args.gen_c_header {
-        Some(ref x) => {
-            info!("C header dir: {{{}}}", x.display());
-            debug!("TODO:    Validate C header dir");
-        }
-        None => {
-            trace!("-G not asserted.");
-        }
-    }
-
-    match args.linter {
-        Some(ref x) => {
-            info!("Linter for file: {{{}}}", x.display());
-            debug!("TODO:    Validate linter file arg");
-        }
-        None => {
-            trace!("-x not asserted.");
-        }
-    }
-
     todo!("Check all required arguments are usable, and if they aren't either set them or fail");
 }
 
