@@ -74,23 +74,23 @@ struct Args {
     tag: Option<String>,
 
     /// Build all tags for current mode
-    #[arg(short = 'i', long, default_value = "false", conflicts_with_all(["purge", "delete", "build", "run"]))]
+    #[arg(short = 'i', long, default_value = "false", conflicts_with_all(["gen_c_header", "linter"]))]
     init: bool,
 
     /// Delete binaries for all tags for current mode
-    #[arg(short = 'p', long, default_value = "false", conflicts_with_all(["init", "delete", "build", "run"]))]
+    #[arg(short = 'p', long, default_value = "false", conflicts_with_all(["delete", "gen_c_header", "linter"]))]
     purge: bool,
 
     /// Delete binary for passed tag
-    #[arg(short = 'd', long, default_value = "false", conflicts_with_all(["init", "purge", "build", "run"]))]
+    #[arg(short = 'd', long, default_value = "false", conflicts_with_all(["test", "testmacro", "gen_c_header", "linter"]))]
     delete: bool,
 
     /// Build binary for passed tag
-    #[arg(short = 'b', long, default_value = "false", conflicts_with_all(["init", "purge", "delete"]))]
+    #[arg(short = 'b', long, default_value = "false", conflicts_with_all(["gen_c_header", "linter"]))]
     build: bool,
 
     /// Run binary for passed tag
-    #[arg(short = 'r', long, default_value = "false", conflicts_with_all(["init", "purge", "delete"]))]
+    #[arg(short = 'r', long, default_value = "false", conflicts_with_all(["test", "testmacro", "gen_c_header", "linter"]))]
     run: bool,
 
     /// Print supported tags for current mode
