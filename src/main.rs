@@ -74,23 +74,23 @@ struct Args {
     tag: Option<String>,
 
     /// Build all tags for current mode
-    #[arg(short = 'i', long, default_value = "false", conflicts_with_all(["purge", "delete", "build", "run"]))]
+    #[arg(short = 'i', long, default_value = "false", conflicts_with_all(["gen_c_header", "linter"]))]
     init: bool,
 
     /// Delete binaries for all tags for current mode
-    #[arg(short = 'p', long, default_value = "false", conflicts_with_all(["init", "delete", "build", "run"]))]
+    #[arg(short = 'p', long, default_value = "false", conflicts_with_all(["delete", "gen_c_header", "linter"]))]
     purge: bool,
 
     /// Delete binary for passed tag
-    #[arg(short = 'd', long, default_value = "false", conflicts_with_all(["init", "purge", "build", "run"]))]
+    #[arg(short = 'd', long, default_value = "false", conflicts_with_all(["test", "testmacro", "gen_c_header", "linter"]))]
     delete: bool,
 
     /// Build binary for passed tag
-    #[arg(short = 'b', long, default_value = "false", conflicts_with_all(["init", "purge", "delete"]))]
+    #[arg(short = 'b', long, default_value = "false", conflicts_with_all(["gen_c_header", "linter"]))]
     build: bool,
 
     /// Run binary for passed tag
-    #[arg(short = 'r', long, default_value = "false", conflicts_with_all(["init", "purge", "delete"]))]
+    #[arg(short = 'r', long, default_value = "false", conflicts_with_all(["test", "testmacro", "gen_c_header", "linter"]))]
     run: bool,
 
     /// Print supported tags for current mode
@@ -495,7 +495,9 @@ fn main() {
     }
 
     let invil_splash: String = format!("{}, version {}\nCopyright (C) 2023  jgabaut\n\n  This program comes with ABSOLUTELY NO WARRANTY; for details type `{} -W`.\n  This is free software, and you are welcome to redistribute it\n  under certain conditions; see file `LICENSE` for details.\n\n  Full source is available at https://github.com/jgabaut/invil\n", INVIL_NAME, INVIL_VERSION, prog_name().expect("Could not determine program name"));
-    println!("{}", invil_splash);
+    if ! args.quiet {
+        println!("{}", invil_splash);
+    }
     check_passed_args(&mut args);
 }
 
