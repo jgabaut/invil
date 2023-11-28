@@ -408,7 +408,7 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
     Ok(true)
 }
 
-fn check_amboso_dir(dir: &PathBuf) -> bool {
+fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
     if dir.exists() {
         info!("Found {}", dir.display());
         let mut stego_path = dir.clone();
@@ -419,21 +419,17 @@ fn check_amboso_dir(dir: &PathBuf) -> bool {
             match res {
                 Ok(a) => {
                     debug!("Stego contents: {{{:#?}}}", a);
-                    debug!("TODO:    Validate amboso_env");
-                    return true
+                    return Ok(a);
                 }
                 Err(e) => {
-                    error!("check_amboso_dir():  [{}]", e);
-                    return false
+                    return Err(e);
                 }
             }
         } else {
-            error!("Can't find {}. Quitting", stego_path.display());
-            return false
+            return Err(format!("Can't find {}. Quitting", stego_path.display()));
         }
     } else {
-        error!("Can't find {}. Quitting", dir.display());
-        return false
+        return Err(format!("Can't find {}. Quitting", dir.display()));
     }
 }
 
@@ -635,12 +631,16 @@ fn check_passed_args(args: &mut Args) {
         Some(ref x) => {
             info!("Amboso dir {{{}}}", x.display());
             let res = check_amboso_dir(x);
-            if res {
-                debug!("Check pass: amboso_dir");
-                debug!("TODO:    Validate amboso_env and use it to set missing arguments");
-            } else {
-                error!("Check fail: amboso_dir");
-                return
+            match res {
+                Ok(a) => {
+                    trace!("{:#?}", a);
+                    debug!("Check pass: amboso_dir");
+                    debug!("TODO:    Validate amboso_env and use it to set missing arguments");
+                }
+                Err(e) => {
+                    error!("Check fail: {e}");
+                    return
+                }
             }
         }
         None => {
