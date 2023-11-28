@@ -460,8 +460,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 versions_table: HashMap::new(),
             };
             trace!("Toml value: {{{}}}", y);
-            let build_section = y["build"].as_table();
-            if let Some(build_table) = build_section {
+            if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
                 if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
                     trace!("ANVIL_SOURCE: {{{source_name}}}");
                     anvil_env.source = Some(format!("{}", source_name.as_str().expect("toml conversion failed")));
@@ -499,8 +498,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             } else {
                 warn!("Missing ANVIL_BUILD section.");
             }
-            let tests_section = y["tests"].as_table();
-            if let Some(tests_table) = tests_section {
+            if let Some(tests_table) = y.get("tests").and_then(|v| v.as_table()) {
                 if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
                     trace!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
                     let mut path = PathBuf::new();
@@ -524,8 +522,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             } else {
                 warn!("Missing ANVIL_TESTS section.");
             }
-            let versions_section = y["versions"].as_table();
-            if let Some(versions_tab) = versions_section {
+            if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
                 anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (key.to_string(), value.as_str().unwrap().to_string()))
                     .collect();
             } else {
