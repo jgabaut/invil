@@ -9,9 +9,9 @@ repository = "https://github.com/jgabaut/invil"
 documentation = "https://github.com/jgabaut/invil"
 readme = "README.md"
 exclude = [
-    ".github/*",
-    "bin/*",
-    "try-anvil/*",
+    ".github/**",
+    "bin/**",
+    "try-anvil/**",
     "CODEOWNERS",
 ]
 
