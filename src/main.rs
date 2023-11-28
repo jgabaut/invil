@@ -172,8 +172,14 @@ struct AmbosoEnv {
     /// First tag supporting automake for current project
     mintag_automake: Option<String>,
 
-    /// Table with supported versions and description
+    /// Table with all supported versions and description
     versions_table: HashMap<String, String>,
+
+    /// Table with supported versions for base mode and description
+    basemode_versions_table: HashMap<String, String>,
+
+    /// Table with supported versions for git mode and description
+    gitmode_versions_table: HashMap<String, String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -457,7 +463,9 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 tests_dir : None,
                 bonetests_dir : None,
                 kulpotests_dir : None,
-                versions_table: HashMap::new(),
+                versions_table: HashMap::with_capacity(100),
+                basemode_versions_table: HashMap::with_capacity(50),
+                gitmode_versions_table: HashMap::with_capacity(50),
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -527,6 +535,15 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     .collect();
                 if anvil_env.versions_table.len() == 0 {
                     warn!("versions_table is empty.");
+                } else {
+                    for (key, value) in anvil_env.versions_table.iter() {
+                        if key.starts_with('-') {
+                            let trimmed_key = key.trim_start_matches('-').to_string();
+                            anvil_env.basemode_versions_table.insert(trimmed_key, value.clone());
+                        } else {
+                            anvil_env.gitmode_versions_table.insert(key.clone(), value.clone());
+                        }
+                    }
                 }
             } else {
                 warn!("Missing ANVIL_VERSIONS section.");
