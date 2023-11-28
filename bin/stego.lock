@@ -1,1 +1,12 @@
-TODO: parse stego.lock
+[build]
+
+source = "main.rs"
+bin = "invil"
+makevers = "2.0.0"
+automakevers = "3.0.0"
+tests = "kazoj"
+
+[tests]
+
+testsdir = "bone"
+errortestsdir = "kulpo"
