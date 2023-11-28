@@ -386,8 +386,8 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
         match entry.status() {
             Status::WT_MODIFIED | Status::WT_NEW | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
                 // There are uncommitted changes
-                warn!("Repository has uncommitted changes:");
-                warn!("  {}", entry.path().unwrap());
+                info!("Uncommitted changes:");
+                info!("  {}", entry.path().unwrap());
                 return Ok(false);
             }
             _ => (),
@@ -607,11 +607,11 @@ fn check_passed_args(args: &mut Args) {
             let res = check_amboso_dir(x);
             if res {
                 debug!("Check pass: amboso_dir");
+                debug!("TODO:    Validate amboso_env and use it to set missing arguments");
             } else {
                 error!("Check fail: amboso_dir");
                 return
             }
-            debug!("TODO:    Validate amboso_dir and check its contained stego.lock");
         }
         None => {
             error!("Missing amboso dir argument. Quitting.");
