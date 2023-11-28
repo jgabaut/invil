@@ -525,6 +525,9 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
                 anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (key.to_string(), value.as_str().unwrap().to_string()))
                     .collect();
+                if anvil_env.versions_table.len() == 0 {
+                    warn!("versions_table is empty.");
+                }
             } else {
                 warn!("Missing ANVIL_VERSIONS section.");
             }
