@@ -19,7 +19,7 @@ use std::{env, fs};
 #[macro_use] extern crate log;
 use simplelog::*;
 use toml::Table;
-use git2::{Repository, RepositoryState, Error, Status};
+use git2::{Repository, Error, Status};
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -376,40 +376,26 @@ fn print_grouped_args(args: &Args) {
 }
 
 fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
-
-    debug!("Checking if {{{}}} is a clean repo", path.display());
     // Open the repository
     let repo = Repository::discover(path)?;
 
-    // Check if we're inside a repo
-    let repo_state = repo.state();
-    match repo_state {
-        RepositoryState::Clean => {
-            println!("Repository is clean.");
-            Ok(true)
-        }
-        _ => {
-            println!("Repository has changes:");
+    // Check if there are any modified files in the working directory
+    let statuses = repo.statuses(None)?;
 
-            // Print out the statuses
-            let statuses = repo.statuses(None)?;
-
-            for entry in statuses.iter() {
-                match entry.status() {
-                    Status::CURRENT => print!("  Current: "),
-                    Status::INDEX_NEW => print!("  New in index: "),
-                    Status::INDEX_MODIFIED => print!("  Modified in index: "),
-                    Status::WT_NEW => print!("  New in working tree: "),
-                    Status::WT_MODIFIED => print!("  Modified in working tree: "),
-                    _ => print!("  Other: "),
-                }
-
-                println!("{}", entry.path().unwrap());
+    for entry in statuses.iter() {
+        match entry.status() {
+            Status::WT_MODIFIED | Status::WT_NEW | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
+                // There are uncommitted changes
+                warn!("Repository has uncommitted changes:");
+                warn!("  {}", entry.path().unwrap());
+                return Ok(false);
             }
-
-            Ok(false)
+            _ => (),
         }
     }
+
+    // No uncommitted changes
+    Ok(true)
 }
 
 fn check_amboso_dir(dir: &PathBuf) -> bool {
