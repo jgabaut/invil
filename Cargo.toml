@@ -8,6 +8,9 @@ homepage = "https://github.com/jgabaut/invil"
 repository = "https://github.com/jgabaut/invil"
 documentation = "https://github.com/jgabaut/invil"
 readme = "README.md"
+exclude = [
+    ".github/*",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
