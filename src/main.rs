@@ -426,10 +426,10 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
                 }
             }
         } else {
-            return Err(format!("Can't find {}. Quitting", stego_path.display()));
+            return Err(format!("Can't find {}. Quitting.", stego_path.display()));
         }
     } else {
-        return Err(format!("Can't find {}. Quitting", dir.display()));
+        return Err(format!("Can't find {}. Quitting.", dir.display()));
     }
 }
 
