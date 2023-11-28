@@ -19,7 +19,7 @@ use std::{env, fs};
 #[macro_use] extern crate log;
 use simplelog::*;
 use toml::Table;
-use git2::{Repository, RepositoryState, Error};
+use git2::{Repository, RepositoryState, Error, Status};
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -376,6 +376,8 @@ fn print_grouped_args(args: &Args) {
 }
 
 fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
+
+    debug!("Checking if {{{}}} is a clean repo", path.display());
     // Open the repository
     let repo = Repository::discover(path)?;
 
@@ -383,16 +385,28 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
     let repo_state = repo.state();
     match repo_state {
         RepositoryState::Clean => {
-            // Check if status is clean
-            let statuses = repo.statuses(None)?;
-            if statuses.is_empty() {
-                Ok(true)
-            } else {
-                Ok(false)
-            }
+            println!("Repository is clean.");
+            Ok(true)
         }
         _ => {
-            eprintln!("\n[ERROR] Not running in a git repo. Try running with -B to use base mode.\n");
+            println!("Repository has changes:");
+
+            // Print out the statuses
+            let statuses = repo.statuses(None)?;
+
+            for entry in statuses.iter() {
+                match entry.status() {
+                    Status::CURRENT => print!("  Current: "),
+                    Status::INDEX_NEW => print!("  New in index: "),
+                    Status::INDEX_MODIFIED => print!("  Modified in index: "),
+                    Status::WT_NEW => print!("  New in working tree: "),
+                    Status::WT_MODIFIED => print!("  Modified in working tree: "),
+                    _ => print!("  Other: "),
+                }
+
+                println!("{}", entry.path().unwrap());
+            }
+
             Ok(false)
         }
     }
