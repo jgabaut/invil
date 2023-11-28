@@ -144,6 +144,33 @@ struct Args {
     command: Option<Commands>,
 }
 
+#[derive(Debug)]
+struct AmbosoEnv {
+    /// Path to builds dir from wd
+    builds_dir: Option<PathBuf>,
+
+    /// Path to tests dir from wd
+    tests_dir: Option<PathBuf>,
+
+    /// Path to success tests dir from wd
+    bonetests_dir: Option<PathBuf>,
+
+    /// Path to error tests dir from wd
+    kulpotests_dir: Option<PathBuf>,
+
+    /// Main source name for queried tag
+    source: Option<String>,
+
+    /// Bin name for queried tag
+    bin: Option<String>,
+
+    /// First tag supporting make for current project
+    mintag_make: Option<String>,
+
+    /// First tag supporting automake for current project
+    mintag_automake: Option<String>,
+}
+
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// does testing things
@@ -354,9 +381,18 @@ fn check_amboso_dir(dir: &PathBuf) -> bool {
         stego_path.push("stego.lock");
         if stego_path.exists() {
             info!("Found {}", stego_path.display());
-            let stego_contents = fs::read_to_string(stego_path).expect("Could not read stego contents");
-            debug!("Stego contents: {{{}}}", stego_contents);
-            todo!("Parsing stego info");
+            let res = parse_stego_toml(&stego_path);
+            match res {
+                Ok(a) => {
+                    debug!("Stego contents: {{{:#?}}}", a);
+                    debug!("TODO:    Validate amboso_env");
+                    return true
+                }
+                Err(e) => {
+                    error!("check_amboso_dir():  [{}]", e);
+                    return false
+                }
+            }
         } else {
             error!("Can't find {}. Quitting", stego_path.display());
             return false
@@ -367,37 +403,67 @@ fn check_amboso_dir(dir: &PathBuf) -> bool {
     }
 }
 
-fn parse_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
+fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
+    let mut stego_dir = stego_path.clone();
+    if ! stego_dir.pop() {
+        error!("Failed pop for {{{}}}", stego_dir.display());
+        return Err("Unexpected stego_dir value: {{{stego_dir.display()}}}".to_string());
+    }
+    if stego_dir.exists() {
+        trace!("Setting ANVIL_BINDIR to {{{}}}", stego_dir.display());
+    } else {
+        error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
+        return Err("Could not get stego_dir from {{{stego_path.display()}}}".to_string());
+    }
     match toml_value {
         Ok(y) => {
+            let mut anvil_env: AmbosoEnv = AmbosoEnv {
+                builds_dir: Some(stego_dir),
+                source : None,
+                bin : None,
+                mintag_make : None,
+                mintag_automake : None,
+                tests_dir : None,
+                bonetests_dir : None,
+                kulpotests_dir : None,
+            };
             trace!("Toml value: {{{}}}", y);
             let build_section = y["build"].as_table();
             if let Some(build_table) = build_section {
                 if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
-                    debug!("ANVIL_SOURCE: {{{source_name}}}");
+                    trace!("ANVIL_SOURCE: {{{source_name}}}");
+                    anvil_env.source = Some(format!("{}", source_name.as_str().expect("toml conversion failed")));
                 } else {
                     warn!("Missing ANVIL_SOURCE definition.");
                 }
                 if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
-                    debug!("ANVIL_BIN: {{{binary_name}}}");
+                    trace!("ANVIL_BIN: {{{binary_name}}}");
+                    anvil_env.bin = Some(format!("{}", binary_name.as_str().expect("toml conversion failed")));
                 } else {
                     warn!("Missing ANVIL_BIN definition.");
                 }
                 if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
-                    debug!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
+                    trace!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
+                    anvil_env.mintag_make = Some(format!("{}", anvil_make_vers_tag.as_str().expect("toml conversion failed")));
                 } else {
                     warn!("Missing ANVIL_MAKE_VERS definition.");
                 }
                 if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
-                    debug!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
+                    trace!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
+                    anvil_env.mintag_automake = Some(format!("{}", anvil_automake_vers_tag.as_str().expect("toml conversion failed")));
                 } else {
                     warn!("Missing ANVIL_AUTOMAKE_VERS definition.");
                 }
                 if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
-                    debug!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
+                    trace!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
+                    let mut path = PathBuf::new();
+                    path.push(".");
+                    let testdir_lit = format!("{}", anvil_testsdir.as_str().expect("toml conversion failed"));
+                    path.push(testdir_lit);
+                    anvil_env.tests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_TESTDIR definition.");
                 }
@@ -407,19 +473,29 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
             let tests_section = y["tests"].as_table();
             if let Some(tests_table) = tests_section {
                 if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
-                    debug!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
+                    trace!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
+                    let mut path = PathBuf::new();
+                    path.push(".");
+                    let bonetestdir_lit = format!("{}", anvil_bonetests_dir.as_str().expect("toml conversion failed"));
+                    path.push(bonetestdir_lit);
+                    anvil_env.bonetests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_BONEDIR definition.");
                 }
                 if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
-                    debug!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
+                    trace!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
+                    let mut path = PathBuf::new();
+                    path.push(".");
+                    let kulpotestdir_lit = format!("{}", anvil_kulpotests_dir.as_str().expect("toml conversion failed"));
+                    path.push(kulpotestdir_lit);
+                    anvil_env.kulpotests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_KULPODIR definition.");
                 }
             } else {
                 warn!("Missing ANVIL_TESTS section.");
             }
-            return Ok("Success".to_string());
+            return Ok(anvil_env);
         }
         Err(e) => {
             error!("Failed parsing {{{}}}  as TOML. Err: [{}]", stego, e);
