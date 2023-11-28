@@ -22,6 +22,13 @@ use toml::Table;
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
+const ANVIL_SOURCE_KEYNAME: &str = "source";
+const ANVIL_BIN_KEYNAME: &str = "bin";
+const ANVIL_MAKE_VERS_KEYNAME: &str = "makevers";
+const ANVIL_AUTOMAKE_VERS_KEYNAME: &str = "automakevers";
+const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
+const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
+const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 
 
 #[derive(Parser, Debug)]
@@ -392,7 +399,52 @@ fn check_passed_args(args: &mut Args) {
                 let toml_value = x_contents.parse::<Table>();
                 match toml_value {
                     Ok(y) => {
-                        debug!("Toml value: {{{}}}", y);
+                        trace!("Toml value: {{{}}}", y);
+                        let build_section = y["build"].as_table();
+                        if let Some(build_table) = build_section {
+                            if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
+                                debug!("ANVIL_SOURCE: {{{source_name}}}");
+                            } else {
+                                warn!("Missing ANVIL_SOURCE definition.");
+                            }
+                            if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
+                                debug!("ANVIL_BIN: {{{binary_name}}}");
+                            } else {
+                                warn!("Missing ANVIL_BIN definition.");
+                            }
+                            if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
+                                debug!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
+                            } else {
+                                warn!("Missing ANVIL_MAKE_VERS definition.");
+                            }
+                            if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
+                                debug!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
+                            } else {
+                                warn!("Missing ANVIL_AUTOMAKE_VERS definition.");
+                            }
+                            if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
+                                debug!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
+                            } else {
+                                warn!("Missing ANVIL_TESTDIR definition.");
+                            }
+                        } else {
+                            warn!("Missing ANVIL_BUILD section.");
+                        }
+                        let tests_section = y["tests"].as_table();
+                        if let Some(tests_table) = tests_section {
+                            if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
+                                debug!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
+                            } else {
+                                warn!("Missing ANVIL_BONEDIR definition.");
+                            }
+                            if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
+                                debug!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
+                            } else {
+                                warn!("Missing ANVIL_KULPODIR definition.");
+                            }
+                        } else {
+                            warn!("Missing ANVIL_TESTS section.");
+                        }
                         return
                     }
                     Err(e) => {
