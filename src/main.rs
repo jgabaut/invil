@@ -367,6 +367,67 @@ fn check_amboso_dir(dir: &PathBuf) -> bool {
     }
 }
 
+fn parse_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
+    let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
+    trace!("Stego contents: {{{}}}", stego);
+    let toml_value = stego.parse::<Table>();
+    match toml_value {
+        Ok(y) => {
+            trace!("Toml value: {{{}}}", y);
+            let build_section = y["build"].as_table();
+            if let Some(build_table) = build_section {
+                if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
+                    debug!("ANVIL_SOURCE: {{{source_name}}}");
+                } else {
+                    warn!("Missing ANVIL_SOURCE definition.");
+                }
+                if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
+                    debug!("ANVIL_BIN: {{{binary_name}}}");
+                } else {
+                    warn!("Missing ANVIL_BIN definition.");
+                }
+                if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
+                    debug!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
+                } else {
+                    warn!("Missing ANVIL_MAKE_VERS definition.");
+                }
+                if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
+                    debug!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
+                } else {
+                    warn!("Missing ANVIL_AUTOMAKE_VERS definition.");
+                }
+                if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
+                    debug!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
+                } else {
+                    warn!("Missing ANVIL_TESTDIR definition.");
+                }
+            } else {
+                warn!("Missing ANVIL_BUILD section.");
+            }
+            let tests_section = y["tests"].as_table();
+            if let Some(tests_table) = tests_section {
+                if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
+                    debug!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
+                } else {
+                    warn!("Missing ANVIL_BONEDIR definition.");
+                }
+                if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
+                    debug!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
+                } else {
+                    warn!("Missing ANVIL_KULPODIR definition.");
+                }
+            } else {
+                warn!("Missing ANVIL_TESTS section.");
+            }
+            return Ok("Success".to_string());
+        }
+        Err(e) => {
+            error!("Failed parsing {{{}}}  as TOML. Err: [{}]", stego, e);
+            return Err("Failed parsing TOML".to_string());
+        }
+    }
+}
+
 fn check_passed_args(args: &mut Args) {
 
     if args.warranty {
@@ -394,61 +455,14 @@ fn check_passed_args(args: &mut Args) {
             info!("Linter for file: {{{}}}", x.display());
             if x.exists() {
                 trace!("Found {}", x.display());
-                let x_contents = fs::read_to_string(x).expect("Could not read file contents");
-                trace!("Stego contents: {{{}}}", x_contents);
-                let toml_value = x_contents.parse::<Table>();
-                match toml_value {
-                    Ok(y) => {
-                        trace!("Toml value: {{{}}}", y);
-                        let build_section = y["build"].as_table();
-                        if let Some(build_table) = build_section {
-                            if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
-                                debug!("ANVIL_SOURCE: {{{source_name}}}");
-                            } else {
-                                warn!("Missing ANVIL_SOURCE definition.");
-                            }
-                            if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
-                                debug!("ANVIL_BIN: {{{binary_name}}}");
-                            } else {
-                                warn!("Missing ANVIL_BIN definition.");
-                            }
-                            if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
-                                debug!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
-                            } else {
-                                warn!("Missing ANVIL_MAKE_VERS definition.");
-                            }
-                            if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
-                                debug!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
-                            } else {
-                                warn!("Missing ANVIL_AUTOMAKE_VERS definition.");
-                            }
-                            if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
-                                debug!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
-                            } else {
-                                warn!("Missing ANVIL_TESTDIR definition.");
-                            }
-                        } else {
-                            warn!("Missing ANVIL_BUILD section.");
-                        }
-                        let tests_section = y["tests"].as_table();
-                        if let Some(tests_table) = tests_section {
-                            if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
-                                debug!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
-                            } else {
-                                warn!("Missing ANVIL_BONEDIR definition.");
-                            }
-                            if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
-                                debug!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
-                            } else {
-                                warn!("Missing ANVIL_KULPODIR definition.");
-                            }
-                        } else {
-                            warn!("Missing ANVIL_TESTS section.");
-                        }
+                let res = parse_stego_toml(x);
+                match res {
+                    Ok(_) => {
+                        info!("Lint successful for {{{}}}.", x.display());
                         return
                     }
                     Err(e) => {
-                        error!("Failed parsing {{{}}}  as TOML. Err: [{}]", x.display(), e);
+                        error!("Failed lint for {{{}}}.\nError was:    {e}",x.display());
                         return
                     }
                 }
