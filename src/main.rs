@@ -19,6 +19,7 @@ use std::{env, fs};
 #[macro_use] extern crate log;
 use simplelog::*;
 use toml::Table;
+use git2::{Repository, RepositoryState, Error};
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -374,6 +375,29 @@ fn print_grouped_args(args: &Args) {
     print_op_args(&args);
 }
 
+fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
+    // Open the repository
+    let repo = Repository::discover(path)?;
+
+    // Check if we're inside a repo
+    let repo_state = repo.state();
+    match repo_state {
+        RepositoryState::Clean => {
+            // Check if status is clean
+            let statuses = repo.statuses(None)?;
+            if statuses.is_empty() {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+        _ => {
+            eprintln!("\n[ERROR] Not running in a git repo. Try running with -B to use base mode.\n");
+            Ok(false)
+        }
+    }
+}
+
 fn check_amboso_dir(dir: &PathBuf) -> bool {
     if dir.exists() {
         info!("Found {}", dir.display());
@@ -556,7 +580,21 @@ fn check_passed_args(args: &mut Args) {
     if args.ignore_gitcheck || ! args.git{
         info!("Ignoring git check.");
     } else {
-        todo!("Gitcheck function");
+        let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"));
+        match gitcheck_res {
+            Ok(s) => {
+                if s {
+                    debug!("Repo is clean.");
+                } else {
+                    warn!("Repo has uncommitted changes.");
+                    return
+                }
+            }
+            Err(e) => {
+                error!("Failed git check. Error was: {{{}}}", e);
+                return
+            }
+        }
     }
 
     match args.amboso_dir {
