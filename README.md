@@ -11,14 +11,13 @@
 
 ## What is this thing? <a name = "witt"></a>
 
-  This is a Rust implementation of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and upporting git tags.
+  This is a Rust implementation of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
   It's in a early stage, and there isn't any functionality yet.
 
 ## Supported amboso features <a name = "supported_amboso"></a>
 
   - Basic arguments parsing that complies with the bash implementation
-    - Atm the `verbose` flag expects a `u8` argument, while bash parses multiple flag occurrences.
   - Same default for amboso directory (`./bin`).
 
 ## See how it behaves <a name = "try_anvil"></a>
