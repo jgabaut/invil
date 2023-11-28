@@ -538,8 +538,6 @@ fn check_passed_args(args: &mut Args) {
         return
     }
 
-    print_grouped_args(&args);
-
     match args.gen_c_header {
         Some(ref x) => {
             info!("C header dir: {{{}}}", x.display());
@@ -575,6 +573,12 @@ fn check_passed_args(args: &mut Args) {
             trace!("-x not asserted.");
         }
     }
+
+    if ! args.base && ! args.test && ! args.testmacro {
+        args.git = true;
+    }
+
+    print_grouped_args(&args);
 
     //Process env arguments
     if args.ignore_gitcheck || ! args.git{
