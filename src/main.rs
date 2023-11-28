@@ -20,6 +20,7 @@ use std::{env, fs};
 use simplelog::*;
 use toml::Table;
 use git2::{Repository, Error, Status};
+use std::collections::HashMap;
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -170,6 +171,9 @@ struct AmbosoEnv {
 
     /// First tag supporting automake for current project
     mintag_automake: Option<String>,
+
+    /// Table with supported versions and description
+    versions_table: HashMap<String, String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -453,6 +457,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 tests_dir : None,
                 bonetests_dir : None,
                 kulpotests_dir : None,
+                versions_table: HashMap::new(),
             };
             trace!("Toml value: {{{}}}", y);
             let build_section = y["build"].as_table();
@@ -518,6 +523,13 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 }
             } else {
                 warn!("Missing ANVIL_TESTS section.");
+            }
+            let versions_section = y["versions"].as_table();
+            if let Some(versions_tab) = versions_section {
+                anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (key.to_string(), value.as_str().unwrap().to_string()))
+                    .collect();
+            } else {
+                warn!("Missing ANVIL_VERSIONS section.");
             }
             return Ok(anvil_env);
         }
