@@ -532,6 +532,7 @@ fn check_passed_args(args: &mut Args) {
 
     if args.warranty {
         print_warranty_info();
+        return
     }
     if args.version {
         println!("{}",INVIL_VERSION);
