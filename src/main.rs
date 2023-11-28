@@ -553,7 +553,7 @@ fn check_passed_args(args: &mut Args) {
     }
 
     //Process env arguments
-    if args.ignore_gitcheck {
+    if args.ignore_gitcheck || ! args.git{
         info!("Ignoring git check.");
     } else {
         todo!("Gitcheck function");
