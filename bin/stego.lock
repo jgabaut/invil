@@ -10,3 +10,8 @@ tests = "kazoj"
 
 testsdir = "bone"
 errortestsdir = "kulpo"
+
+[versions]
+
+"0.0.1" = "First release"
+"0.0.2" = "Draft"
