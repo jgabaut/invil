@@ -20,7 +20,7 @@ use std::{env, fs};
 use simplelog::*;
 use toml::Table;
 use git2::{Repository, Error, Status};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::process::ExitCode;
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -185,13 +185,13 @@ struct AmbosoEnv {
     mintag_automake: Option<String>,
 
     /// Table with all supported versions and description
-    versions_table: HashMap<String, String>,
+    versions_table: BTreeMap<String, String>,
 
     /// Table with supported versions for base mode and description
-    basemode_versions_table: HashMap<String, String>,
+    basemode_versions_table: BTreeMap<String, String>,
 
     /// Table with supported versions for git mode and description
-    gitmode_versions_table: HashMap<String, String>,
+    gitmode_versions_table: BTreeMap<String, String>,
 
     /// Allow test mode run
     support_testmode: bool,
@@ -496,9 +496,9 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 tests_dir : None,
                 bonetests_dir : None,
                 kulpotests_dir : None,
-                versions_table: HashMap::with_capacity(100),
-                basemode_versions_table: HashMap::with_capacity(50),
-                gitmode_versions_table: HashMap::with_capacity(50),
+                versions_table: BTreeMap::new(),
+                basemode_versions_table: BTreeMap::new(),
+                gitmode_versions_table: BTreeMap::new(),
                 support_testmode : true,
                 support_makemode : true,
                 do_build : false,
@@ -610,9 +610,9 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         tests_dir : None,
         bonetests_dir : None,
         kulpotests_dir : None,
-        versions_table: HashMap::with_capacity(100),
-        basemode_versions_table: HashMap::with_capacity(50),
-        gitmode_versions_table: HashMap::with_capacity(50),
+        versions_table: BTreeMap::new(),
+        basemode_versions_table: BTreeMap::new(),
+        gitmode_versions_table: BTreeMap::new(),
         support_testmode : true,
         support_makemode : true,
         do_build : false,
