@@ -418,11 +418,11 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
 
 fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
     if dir.exists() {
-        info!("Found {}", dir.display());
+        trace!("Found {}", dir.display());
         let mut stego_path = dir.clone();
         stego_path.push("stego.lock");
         if stego_path.exists() {
-            info!("Found {}", stego_path.display());
+            trace!("Found {}", stego_path.display());
             let res = parse_stego_toml(&stego_path);
             match res {
                 Ok(a) => {
