@@ -936,6 +936,15 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
     match env.run_mode {
         Some(ref m) => {
             info!("Runmode: {:?}", m);
+            match m {
+                    AmbosoMode::TestMode | AmbosoMode::TestMacro => {
+                        if !env.support_testmode {
+                            error!("Test mode not supported for this project.");
+                            return
+                        }
+                    }
+                    _ => (),
+            }
             if args.list {
                 match m {
                     AmbosoMode::GitMode => {
