@@ -16,6 +16,7 @@
 
 ### Changed
 
+- Extended AmbosoEnv, now includes runmode, selected ops, testmode and makemode support for the run
 - Moved some output to trace level
 - main() returns ExitCode
 - check_passed_args() returns Result<AmbosoEnv,String>
