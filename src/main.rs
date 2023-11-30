@@ -180,6 +180,13 @@ struct AmbosoEnv {
 
     /// Table with supported versions for git mode and description
     gitmode_versions_table: HashMap<String, String>,
+
+    /// Allow test mode run
+    support_testmode: bool,
+
+    /// Allow make builds
+    support_makemode: bool,
+
 }
 
 #[derive(Subcommand, Debug)]
@@ -462,6 +469,8 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 versions_table: HashMap::with_capacity(100),
                 basemode_versions_table: HashMap::with_capacity(50),
                 gitmode_versions_table: HashMap::with_capacity(50),
+                support_testmode : true,
+                support_makemode : true,
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -628,21 +637,6 @@ fn check_passed_args(args: &mut Args) {
     }
 
     let mut anvil_env: AmbosoEnv;
-    /*= AmbosoEnv {
-        builds_dir: None,
-        source : None,
-        bin : None,
-        mintag_make : None,
-        mintag_automake : None,
-        tests_dir : None,
-        bonetests_dir : None,
-        kulpotests_dir : None,
-        versions_table: HashMap::with_capacity(100),
-        basemode_versions_table: HashMap::with_capacity(50),
-        gitmode_versions_table: HashMap::with_capacity(50),
-    };
-    */
-
 
     match args.amboso_dir {
         Some(ref x) => {
@@ -678,8 +672,6 @@ fn check_passed_args(args: &mut Args) {
         }
     }
 
-    let mut support_testmode = true;
-
     match args.kazoj_dir {
         Some(ref x) => {
             info!("Tests dir {{{}}}", x.display());
@@ -706,7 +698,7 @@ fn check_passed_args(args: &mut Args) {
                             anvil_env.tests_dir = args.kazoj_dir.clone();
                         } else {
                             warn!("Could not find test directory, test mode not supported.");
-                            support_testmode = false;
+                            anvil_env.support_testmode = false;
                         }
                     }
                 }
@@ -719,14 +711,14 @@ fn check_passed_args(args: &mut Args) {
                         anvil_env.tests_dir = args.kazoj_dir.clone();
                     } else {
                         warn!("Could not find test directory, test mode not supported.");
-                        support_testmode = false;
+                        anvil_env.support_testmode = false;
                     }
                 }
             }
         }
     }
 
-    let testmode_support_text = match support_testmode {
+    let testmode_support_text = match anvil_env.support_testmode {
         true => "Test mode is supported",
         false => "Test mode is not supported",
     };
@@ -739,12 +731,13 @@ fn check_passed_args(args: &mut Args) {
             debug!("TODO:  Validate source")
         }
         None => {
+            warn!("Missing source arg. Checking if stego.lock had a valid source value");
             match anvil_env.source {
                 Some(x) => {
                     args.source = Some(x);
                 }
                 None => {
-                    error!("Missing source arg. Quitting.");
+                    error!("stego.lock did not have a valid source arg. Quitting.");
                     return
                 }
             }
@@ -759,21 +752,19 @@ fn check_passed_args(args: &mut Args) {
             debug!("TODO:  Validate execname")
         }
         None => {
-            warn!("Missing execname arg.");
+            warn!("Missing execname arg. Checking if stego.lock had a valid bin value");
             match anvil_env.bin {
                 Some(x) => {
                     args.execname = Some(x);
                 }
                 None => {
-                    error!("Missing execname arg. Quitting.");
+                    error!("stego.lock did not have a valid bin arg. Quitting.");
                     return
                 }
             }
             debug!("TODO:  Validate execname")
         }
     }
-
-    let mut support_makemode = true;
 
     match &args.maketag {
         Some(x) => {
@@ -782,19 +773,19 @@ fn check_passed_args(args: &mut Args) {
             debug!("TODO:  Validate maketag")
         }
         None => {
-            warn!("Missing maketag arg.");
+            warn!("Missing maketag arg. Checking if stego.lock had a valid bin value");
             match anvil_env.mintag_make {
                 Some(x) => {
                     args.maketag = Some(x);
                 }
                 None => {
-                    warn!("Missing maketag arg.");
-                    support_makemode = false;
+                    warn!("stego.lock did not have a valid maketag arg.");
+                    anvil_env.support_makemode = false;
                 }
             }
         }
     }
-    let makemode_support_text = match support_makemode {
+    let makemode_support_text = match anvil_env.support_makemode {
         true => "Make mode is supported",
         false => "Make mode is not supported",
     };
