@@ -883,6 +883,55 @@ fn print_warranty_info() {
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
 }
 
+fn do_query(env: AmbosoEnv, args: Args) {
+    match args.tag {
+        Some(ref q) => {
+            match env.run_mode.unwrap() {
+                AmbosoMode::GitMode => {
+                    if ! env.gitmode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return
+                    }
+                }
+                AmbosoMode::BaseMode => {
+                    if ! env.basemode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return
+                    }
+                }
+                _ => return
+            }
+            info!("Querying info for {{{:?}}}", q);
+            let mut queried_path = env.builds_dir.unwrap();
+            let tagdir_name = format!("v{}", q);
+            queried_path.push(tagdir_name);
+
+            if queried_path.exists() {
+                trace!("Found {{{}}}", queried_path.display());
+                queried_path.push(env.bin.unwrap());
+                if queried_path.exists() {
+                    trace!("Found {{{}}}", queried_path.display());
+                    if queried_path.is_file() {
+                        debug!("{} is a file", queried_path.display());
+                    } else {
+                        debug!("{} is not a file", queried_path.display());
+                    }
+                } else {
+                    warn!("No file found for {{{}}}", queried_path.display());
+                    return;
+                }
+            } else {
+                warn!("No directory found for {{{}}}", queried_path.display());
+                return;
+            }
+        }
+        None => {
+            warn!("No tag provided.");
+            return;
+        }
+    }
+}
+
 fn handle_amboso_env(env: AmbosoEnv, args: Args) {
     match env.run_mode {
         Some(ref m) => {
@@ -903,52 +952,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                 todo!("{}",format!("Purge op for {:?}",m));
             }
             if env.do_query {
-                match args.tag {
-                    Some(ref q) => {
-                        match env.run_mode.unwrap() {
-                            AmbosoMode::GitMode => {
-                                if ! env.gitmode_versions_table.contains_key(q) {
-                                    error!("{{{}}} was not a valid tag.",q);
-                                    return
-                                }
-                            }
-                            AmbosoMode::BaseMode => {
-                                if ! env.basemode_versions_table.contains_key(q) {
-                                    error!("{{{}}} was not a valid tag.",q);
-                                    return
-                                }
-                            }
-                            _ => return
-                        }
-                        info!("Querying info for {{{:?}}}", q);
-                        let mut queried_path = env.builds_dir.unwrap();
-                        let tagdir_name = format!("v{}", q);
-                        queried_path.push(tagdir_name);
-
-                        if queried_path.exists() {
-                            trace!("Found {{{}}}", queried_path.display());
-                            queried_path.push(env.bin.unwrap());
-                            if queried_path.exists() {
-                                trace!("Found {{{}}}", queried_path.display());
-                                if queried_path.is_file() {
-                                    debug!("{} is a file", queried_path.display());
-                                } else {
-                                    debug!("{} is not a file", queried_path.display());
-                                }
-                            } else {
-                                warn!("No file found for {{{}}}", queried_path.display());
-                                return;
-                            }
-                        } else {
-                            warn!("No directory found for {{{}}}", queried_path.display());
-                            return;
-                        }
-                    }
-                    None => {
-                        warn!("No tag provided.");
-                        return;
-                    }
-                }
+                do_query(env,args);
             }
         }
         None => {
