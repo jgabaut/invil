@@ -121,7 +121,7 @@ struct Args {
     silent: bool,
 
     /// More output
-    #[arg(short = 'V', long, default_value = "0", conflicts_with_all(["quiet", "silent"]))]
+    #[arg(short = 'V', long, default_value = "3", conflicts_with_all(["quiet", "silent"]))]
     verbose: u8,
 
     /// Report timer
