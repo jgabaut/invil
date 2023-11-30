@@ -739,7 +739,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             debug!("TODO:    Validate kazoj_dir");
         }
         None => {
-            warn!("Missing tests dir. Checking if stego.lock had a valid tests_dir path");
+            trace!("Missing tests dir. Checking if stego.lock had a valid tests_dir path");
             match anvil_env.tests_dir {
                 Some(ref x) => {
                     if x.exists() {
@@ -788,7 +788,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             debug!("TODO:  Validate source")
         }
         None => {
-            warn!("Missing source arg. Checking if stego.lock had a valid source value");
+            trace!("Missing source arg. Checking if stego.lock had a valid source value");
             match anvil_env.source {
                 Some( ref x) => {
                     args.source = Some(x.clone());
@@ -809,7 +809,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             debug!("TODO:  Validate execname")
         }
         None => {
-            warn!("Missing execname arg. Checking if stego.lock had a valid bin value");
+            trace!("Missing execname arg. Checking if stego.lock had a valid bin value");
             match anvil_env.bin {
                 Some(ref x) => {
                     args.execname = Some(x.clone());
@@ -830,7 +830,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             debug!("TODO:  Validate maketag")
         }
         None => {
-            warn!("Missing maketag arg. Checking if stego.lock had a valid bin value");
+            trace!("Missing maketag arg. Checking if stego.lock had a valid bin value");
             match anvil_env.mintag_make {
                 Some( ref x) => {
                     args.maketag = Some(x.clone());
