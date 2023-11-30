@@ -887,19 +887,23 @@ fn handle_amboso_env(env: AmbosoEnv) {
     match env.run_mode {
         Some(m) => {
             info!("Runmode: {:?}", m);
-            match m {
-                AmbosoMode::BaseMode => {
-                    todo!("Base mode");
-                }
-                AmbosoMode::GitMode => {
-                    todo!("Git mode");
-                }
-                AmbosoMode::TestMode => {
-                    todo!("Test mode");
-                }
-                AmbosoMode::TestMacro => {
-                    todo!("Test macro mode");
-                }
+            if env.do_build {
+                todo!("{}",format!("Build op for {:?}",m));
+            }
+            if env.do_run {
+                todo!("{}",format!("Run op for {:?}",m));
+            }
+            if env.do_delete {
+                todo!("{}",format!("Delete op for {:?}",m));
+            }
+            if env.do_init {
+                todo!("{}",format!("Init op for {:?}",m));
+            }
+            if env.do_purge {
+                todo!("{}",format!("Purge op for {:?}",m));
+            }
+            if env.do_query {
+                todo!("{}",format!("Query op for {:?}",m));
             }
         }
         None => {
