@@ -936,6 +936,26 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
     match env.run_mode {
         Some(ref m) => {
             info!("Runmode: {:?}", m);
+            if args.list {
+                match m {
+                    AmbosoMode::GitMode => {
+                        for (k, v) in env.gitmode_versions_table.iter() {
+                            info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
+                        }
+                    },
+                    AmbosoMode::BaseMode => {
+                        for (k, v) in env.basemode_versions_table.iter() {
+                            info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
+                        }
+                    },
+                    _ => todo!("List flag for {:?} mode", env.run_mode),
+                }
+            } else if args.list_all {
+                for (k, v) in env.versions_table.iter() {
+                    info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
+                }
+            }
+
             if env.do_build {
                 todo!("{}",format!("Build op for {:?}",m));
             }
