@@ -21,6 +21,35 @@
   - Same default for amboso directory (`./bin`).
   - Parse `stego.lock` with compatible logic to bash implementation
 
+  Flags support status:
+
+  - [x] Basic env flags: `-D` | `-K` | `-M` | `-S` | `-E` | `<ARG>`
+  - [ ] Clock flag: `-C <startTime>`
+  - [x] Linter mode: `-x`
+    - [ ] Lint only: `-l`
+    - [ ] Report lex: `-L`
+  - [ ] C header gen mode: `-G`
+  - [x] Verbose flag: `-V`
+  - [ ] Test macro: `-t`
+  - [ ] Test mode: `-T`
+  - [ ] Git mode: `-g`
+  - [ ] Base mode: `-B`
+  - [ ] Build: `-b`
+  - [ ] Run: `-r`
+  - [ ] Init: `-i`
+  - [ ] Delete: `-d`
+  - [ ] Purge: `-p`
+  - [x] Help: `-h`
+  - [ ] Big Help: `-H`
+  - [x] Version: `-v`
+  - [x] List tags for current mode: `-l`
+  - [x] List tags for git/base mode: `-L`
+  - [ ] Quiet flag: `-q`
+  - [ ] CFG flag: `-c`
+  - [ ] Watch flag: `-w`
+  - [x] Warranty flag: `-W`
+  - [x] Ignore gitcheck flag: `-X`
+
 ## See how it behaves <a name = "try_anvil"></a>
 
 To see how this marvelous work of art works, run:
