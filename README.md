@@ -45,7 +45,7 @@
   - [x] Version: `-v`
   - [x] List tags for current mode: `-l`
   - [x] List tags for git/base mode: `-L`
-  - [ ] Quiet flag: `-q`
+  - [x] Quiet flag: `-q`
   - [ ] CFG flag: `-c`
   - [ ] Watch flag: `-w`
   - [x] Warranty flag: `-W`
