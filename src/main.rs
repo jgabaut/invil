@@ -747,7 +747,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         args.kazoj_dir = Some(x.clone());
                         debug!("TODO:    Validate kazoj_dir");
                     } else {
-                        warn!("stego.lock tests dir was invalid {}", x.display());
+                        warn!("stego.lock tests dir {{{}}} was invalid", x.display());
                         args.kazoj_dir = Some(PathBuf::from("./kazoj"));
                         if args.kazoj_dir.as_ref().unwrap().exists() {
                             debug!("{} exists", args.kazoj_dir.as_ref().unwrap().display());
