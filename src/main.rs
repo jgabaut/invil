@@ -148,7 +148,18 @@ struct Args {
 }
 
 #[derive(Debug)]
+enum AmbosoMode {
+    TestMode,
+    TestMacro,
+    GitMode,
+    BaseMode,
+}
+
+#[derive(Debug)]
 struct AmbosoEnv {
+    ///Runmode
+    run_mode: Option<AmbosoMode>,
+
     /// Path to builds dir from wd
     builds_dir: Option<PathBuf>,
 
@@ -185,9 +196,23 @@ struct AmbosoEnv {
     /// Allow test mode run
     support_testmode: bool,
 
+    /// Do build op
+    do_build: bool,
+
+    /// Do run op
+    do_run: bool,
+
+    /// Do delete op
+    do_delete: bool,
+
+    /// Do init op
+    do_init: bool,
+
+    /// Do purge op
+    do_purge: bool,
+
     /// Allow make builds
     support_makemode: bool,
-
 }
 
 #[derive(Subcommand, Debug)]
@@ -459,6 +484,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     match toml_value {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
+                run_mode : None,
                 builds_dir: Some(stego_dir),
                 source : None,
                 bin : None,
@@ -472,6 +498,11 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 gitmode_versions_table: HashMap::with_capacity(50),
                 support_testmode : true,
                 support_makemode : true,
+                do_build : false,
+                do_run : false,
+                do_delete : false,
+                do_init : false,
+                do_purge : false,
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -566,6 +597,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
 fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     let mut anvil_env: AmbosoEnv = AmbosoEnv {
+        run_mode : None,
         builds_dir: None,
         source : None,
         bin : None,
@@ -579,6 +611,11 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         gitmode_versions_table: HashMap::with_capacity(50),
         support_testmode : true,
         support_makemode : true,
+        do_build : false,
+        do_run : false,
+        do_delete : false,
+        do_init : false,
+        do_purge : false,
     };
 
     if args.warranty {
@@ -807,6 +844,22 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     trace!("{}", makemode_support_text);
 
     debug!("TODO: check if supported tags can be associated with a directory");
+
+    if args.git {
+        anvil_env.run_mode = Some(AmbosoMode::GitMode);
+    } else if args.base {
+        anvil_env.run_mode = Some(AmbosoMode::BaseMode);
+    } else if args.test {
+        anvil_env.run_mode = Some(AmbosoMode::TestMode);
+    } else if args.testmacro {
+        anvil_env.run_mode = Some(AmbosoMode::TestMacro);
+    }
+
+    anvil_env.do_build = args.build;
+    anvil_env.do_run = args.run;
+    anvil_env.do_delete = args.delete;
+    anvil_env.do_init = args.init;
+    anvil_env.do_purge = args.purge;
 
     return Ok(anvil_env);
 }
