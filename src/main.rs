@@ -690,8 +690,7 @@ fn check_passed_args(args: &mut Args) {
             debug!("TODO:    Validate kazoj_dir");
         }
         None => {
-            warn!("Missing tests dir.");
-            trace!("Checking if stego.lock had a valid tests_dir path");
+            warn!("Missing tests dir. Checking if stego.lock had a valid tests_dir path");
             match anvil_env.tests_dir {
                 Some(x) => {
                     if x.exists() {
