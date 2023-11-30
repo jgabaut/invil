@@ -883,24 +883,141 @@ fn print_warranty_info() {
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
 }
 
-fn handle_amboso_env(env: AmbosoEnv) {
+fn do_query(env: AmbosoEnv, args: Args) {
+    match args.tag {
+        Some(ref q) => {
+            match env.run_mode.unwrap() {
+                AmbosoMode::GitMode => {
+                    if ! env.gitmode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return
+                    }
+                }
+                AmbosoMode::BaseMode => {
+                    if ! env.basemode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return
+                    }
+                }
+                _ => return
+            }
+            info!("Querying info for {{{:?}}}", q);
+            let mut queried_path = env.builds_dir.unwrap();
+            let tagdir_name = format!("v{}", q);
+            queried_path.push(tagdir_name);
 
-    info!("Runmode: {:?}", env.run_mode.unwrap());
+            if queried_path.exists() {
+                trace!("Found {{{}}}", queried_path.display());
+                queried_path.push(env.bin.unwrap());
+                if queried_path.exists() {
+                    trace!("Found {{{}}}", queried_path.display());
+                    if queried_path.is_file() {
+                        debug!("{} is a file", queried_path.display());
+                    } else {
+                        debug!("{} is not a file", queried_path.display());
+                    }
+                } else {
+                    warn!("No file found for {{{}}}", queried_path.display());
+                    return;
+                }
+            } else {
+                warn!("No directory found for {{{}}}", queried_path.display());
+                return;
+            }
+        }
+        None => {
+            warn!("No tag provided.");
+            return;
+        }
+    }
+}
+
+fn handle_amboso_env(env: AmbosoEnv, args: Args) {
+    match env.run_mode {
+        Some(ref m) => {
+            info!("Runmode: {:?}", m);
+            if args.list {
+                match m {
+                    AmbosoMode::GitMode => {
+                        for (k, v) in env.gitmode_versions_table.iter() {
+                            info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
+                        }
+                    },
+                    AmbosoMode::BaseMode => {
+                        for (k, v) in env.basemode_versions_table.iter() {
+                            info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
+                        }
+                    },
+                    _ => todo!("List flag for {:?} mode", env.run_mode),
+                }
+            } else if args.list_all {
+                for (k, v) in env.versions_table.iter() {
+                    info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
+                }
+            }
+
+            if env.do_build {
+                todo!("{}",format!("Build op for {:?}",m));
+            }
+            if env.do_run {
+                todo!("{}",format!("Run op for {:?}",m));
+            }
+            if env.do_delete {
+                todo!("{}",format!("Delete op for {:?}",m));
+            }
+            if env.do_init {
+                todo!("{}",format!("Init op for {:?}",m));
+            }
+            if env.do_purge {
+                todo!("{}",format!("Purge op for {:?}",m));
+            }
+            if env.do_query {
+                do_query(env,args);
+            }
+        }
+        None => {
+            error!("Invalid: None env.run_mode");
+            return;
+        }
+    }
 }
 
 fn main() -> ExitCode {
 
+    let mut args: Args = Args::parse();
+
+    let log_level;
+    match args.verbose {
+        5 => {
+            log_level = LevelFilter::Trace;
+        },
+        4 => {
+            log_level = LevelFilter::Debug;
+        },
+        3 => {
+            log_level = LevelFilter::Info;
+        },
+        2 => {
+            log_level = LevelFilter::Warn;
+        },
+        1|0 => {
+            log_level = LevelFilter::Error;
+        },
+        _ => {
+            log_level = LevelFilter::Debug;
+        },
+    }
+
     CombinedLogger::init(
         vec![
-            TermLogger::new(LevelFilter::Debug, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
+            TermLogger::new(log_level, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
             //WriteLogger::new(LevelFilter::Info, Config::default(), File::create("my_rust_binary.log").unwrap()),
         ]
     ).unwrap();
 
-    let mut args: Args = Args::parse();
-
     //Debug pretty-print of args
     trace!("Args: {:#?}\n", args);
+    trace!("Log level: {}\n", log_level);
 
     if ! prog_name().expect("Failed resolvig current program name").eq("anvil") {
         trace!("Please symlink me to anvil.");
@@ -914,9 +1031,16 @@ fn main() -> ExitCode {
 
     match res_check {
         Ok(env) => {
-            info!("check_passed_args() success");
-            handle_amboso_env(env);
-            return ExitCode::SUCCESS;
+            trace!("check_passed_args() success");
+            match env.run_mode {
+                Some(_) => {
+                    handle_amboso_env(env, args);
+                    return ExitCode::SUCCESS;
+                }
+                None => {
+                    return ExitCode::SUCCESS;
+                }
+            }
         }
         Err(e) => {
             error!("check_passed_args() failed with: \"{}\"",e);

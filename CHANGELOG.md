@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add stub op checks for build, run, delete, init, purge
+- Add do_query(), checking if requested tag is in supported versions
+- Add functionality for -l and -L
+- Add functionality for -V
+
+### Fixed
+
+- Fix panic on unwrapping AmbosoEnv.run_mode
+
+### Changed
+
+- handle_amboso_env() takes Args
+
 ## [0.0.3] - 2023-11-30
 
 ### Added
