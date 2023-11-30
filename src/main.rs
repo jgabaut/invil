@@ -21,6 +21,7 @@ use simplelog::*;
 use toml::Table;
 use git2::{Repository, Error, Status};
 use std::collections::HashMap;
+use std::process::ExitCode;
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -147,7 +148,18 @@ struct Args {
 }
 
 #[derive(Debug)]
+enum AmbosoMode {
+    TestMode,
+    TestMacro,
+    GitMode,
+    BaseMode,
+}
+
+#[derive(Debug)]
 struct AmbosoEnv {
+    ///Runmode
+    run_mode: Option<AmbosoMode>,
+
     /// Path to builds dir from wd
     builds_dir: Option<PathBuf>,
 
@@ -180,6 +192,30 @@ struct AmbosoEnv {
 
     /// Table with supported versions for git mode and description
     gitmode_versions_table: HashMap<String, String>,
+
+    /// Allow test mode run
+    support_testmode: bool,
+
+    /// Do build op
+    do_build: bool,
+
+    /// Do run op
+    do_run: bool,
+
+    /// Do delete op
+    do_delete: bool,
+
+    /// Do init op
+    do_init: bool,
+
+    /// Do purge op
+    do_purge: bool,
+
+    /// Report build status op
+    do_query: bool,
+
+    /// Allow make builds
+    support_makemode: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -410,15 +446,15 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
 
 fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
     if dir.exists() {
-        info!("Found {}", dir.display());
+        trace!("Found {}", dir.display());
         let mut stego_path = dir.clone();
         stego_path.push("stego.lock");
         if stego_path.exists() {
-            info!("Found {}", stego_path.display());
+            trace!("Found {}", stego_path.display());
             let res = parse_stego_toml(&stego_path);
             match res {
                 Ok(a) => {
-                    debug!("Stego contents: {{{:#?}}}", a);
+                    trace!("Stego contents: {{{:#?}}}", a);
                     return Ok(a);
                 }
                 Err(e) => {
@@ -451,6 +487,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     match toml_value {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
+                run_mode : None,
                 builds_dir: Some(stego_dir),
                 source : None,
                 bin : None,
@@ -462,6 +499,14 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 versions_table: HashMap::with_capacity(100),
                 basemode_versions_table: HashMap::with_capacity(50),
                 gitmode_versions_table: HashMap::with_capacity(50),
+                support_testmode : true,
+                support_makemode : true,
+                do_build : false,
+                do_run : false,
+                do_delete : false,
+                do_init : false,
+                do_purge : false,
+                do_query : false,
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -553,15 +598,38 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     }
 }
 
-fn check_passed_args(args: &mut Args) {
+fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
+
+    let mut anvil_env: AmbosoEnv = AmbosoEnv {
+        run_mode : None,
+        builds_dir: None,
+        source : None,
+        bin : None,
+        mintag_make : None,
+        mintag_automake : None,
+        tests_dir : None,
+        bonetests_dir : None,
+        kulpotests_dir : None,
+        versions_table: HashMap::with_capacity(100),
+        basemode_versions_table: HashMap::with_capacity(50),
+        gitmode_versions_table: HashMap::with_capacity(50),
+        support_testmode : true,
+        support_makemode : true,
+        do_build : false,
+        do_run : false,
+        do_delete : false,
+        do_init : false,
+        do_purge : false,
+        do_query : false,
+    };
 
     if args.warranty {
         print_warranty_info();
-        return
+        return Ok(anvil_env);
     }
     if args.version {
         println!("{}",INVIL_VERSION);
-        return
+        return Ok(anvil_env);
     }
 
     match args.gen_c_header {
@@ -583,16 +651,16 @@ fn check_passed_args(args: &mut Args) {
                 match res {
                     Ok(_) => {
                         info!("Lint successful for {{{}}}.", x.display());
-                        return
+                        return Ok(anvil_env);
                     }
                     Err(e) => {
                         error!("Failed lint for {{{}}}.\nError was:    {e}",x.display());
-                        return
+                        return Err(e);
                     }
                 }
             } else {
                 error!("Could not find file: {{{}}}", x.display());
-                return
+                return Err("Failed linter call".to_string());
             }
         }
         None => {
@@ -600,13 +668,13 @@ fn check_passed_args(args: &mut Args) {
         }
     }
 
+    //Default mode is git
     if ! args.base && ! args.test && ! args.testmacro {
         args.git = true;
     }
 
     print_grouped_args(&args);
 
-    //Process env arguments
     if args.ignore_gitcheck || ! args.git{
         info!("Ignoring git check.");
     } else {
@@ -617,16 +685,17 @@ fn check_passed_args(args: &mut Args) {
                     debug!("Repo is clean.");
                 } else {
                     warn!("Repo has uncommitted changes.");
-                    return
+                    return Err("Dirty repo with git mode on".to_string());
                 }
             }
             Err(e) => {
                 error!("Failed git check. Error was: {{{}}}", e);
-                return
+                return Err(e.to_string());
             }
         }
     }
 
+    //Check amboso_dir arg
     match args.amboso_dir {
         Some(ref x) => {
             info!("Amboso dir {{{}}}", x.display());
@@ -635,67 +704,172 @@ fn check_passed_args(args: &mut Args) {
                 Ok(a) => {
                     trace!("{:#?}", a);
                     debug!("Check pass: amboso_dir");
-                    debug!("TODO:    Validate amboso_env and use it to set missing arguments");
+                    anvil_env = a;
                 }
                 Err(e) => {
                     error!("Check fail: {e}");
-                    return
+                    return Err(e);
                 }
             }
         }
         None => {
             error!("Missing amboso dir argument. Quitting.");
-            return
+            return Err("Missing amboso_dir arg".to_string());
         }
     }
+
+    match anvil_env.builds_dir {
+        Some(ref x) => {
+            trace!("Anvil_env builds_dir: {{{}}}", x.display());
+            debug!("TODO:    Validate amboso_env and use it to set missing arguments");
+        }
+        None => {
+            error!("Missing builds_dir. Quitting.");
+            return Err("anvil_env.builds_dir was empty".to_string());
+        }
+    }
+
     match args.kazoj_dir {
         Some(ref x) => {
             info!("Tests dir {{{}}}", x.display());
+            if x.exists() {
+                debug!("{} exists", x.display());
+                anvil_env.tests_dir = Some(x.clone());
+            }
             debug!("TODO:    Validate kazoj_dir");
         }
         None => {
-            warn!("Missing tests dir.");
-            args.kazoj_dir = Some(PathBuf::from("./kazoj"));
-            info!("Set default tests dir: {{{}}}.",
-                    args.kazoj_dir.as_ref()
-                    .expect("./kazoj was not a valid path").display());
-            debug!("TODO:    Validate kazoj_dir");
+            trace!("Missing tests dir. Checking if stego.lock had a valid tests_dir path");
+            match anvil_env.tests_dir {
+                Some(ref x) => {
+                    if x.exists() {
+                        debug!("{} exists", x.display());
+                        args.kazoj_dir = Some(x.clone());
+                        debug!("TODO:    Validate kazoj_dir");
+                    } else {
+                        warn!("stego.lock tests dir was invalid {}", x.display());
+                        args.kazoj_dir = Some(PathBuf::from("./kazoj"));
+                        if args.kazoj_dir.as_ref().unwrap().exists() {
+                            debug!("{} exists", args.kazoj_dir.as_ref().unwrap().display());
+                            debug!("TODO:    Validate kazoj_dir");
+                            anvil_env.tests_dir = args.kazoj_dir.clone();
+                        } else {
+                            warn!("Could not find test directory, test mode not supported.");
+                            anvil_env.support_testmode = false;
+                        }
+                    }
+                }
+                None => {
+                    warn!("stego.lock had no tests dir");
+                    args.kazoj_dir = Some(PathBuf::from("./kazoj"));
+                    if args.kazoj_dir.as_ref().unwrap().exists() {
+                        debug!("{} exists", args.kazoj_dir.as_ref().unwrap().display());
+                        debug!("TODO:    Validate kazoj_dir");
+                        anvil_env.tests_dir = args.kazoj_dir.clone();
+                    } else {
+                        warn!("Could not find test directory, test mode not supported.");
+                        anvil_env.support_testmode = false;
+                    }
+                }
+            }
         }
     }
+
+    let testmode_support_text = match anvil_env.support_testmode {
+        true => "Test mode is supported",
+        false => "Test mode is not supported",
+    };
+    trace!("{}", testmode_support_text);
 
     match args.source {
         Some(ref x) => {
             info!("Source {{{}}}", x);
+            anvil_env.source = args.source.clone();
             debug!("TODO:  Validate source")
         }
         None => {
-            warn!("Missing source arg.");
-            debug!("TODO:    Get source arg from stego.lock");
+            trace!("Missing source arg. Checking if stego.lock had a valid source value");
+            match anvil_env.source {
+                Some( ref x) => {
+                    args.source = Some(x.clone());
+                }
+                None => {
+                    error!("stego.lock did not have a valid source arg. Quitting.");
+                    return Err("Could not determine anvil_env.source".to_string());
+                }
+            }
+            debug!("TODO:  Validate source")
         }
     }
 
-    match args.execname {
-        Some(ref x) => {
+    match &args.execname {
+        Some(x) => {
             info!("Execname {{{}}}", x);
+            anvil_env.bin = Some(x.to_string());
             debug!("TODO:  Validate execname")
         }
         None => {
-            warn!("Missing execname arg.");
-            debug!("TODO:    Get execname arg from stego.lock");
+            trace!("Missing execname arg. Checking if stego.lock had a valid bin value");
+            match anvil_env.bin {
+                Some(ref x) => {
+                    args.execname = Some(x.clone());
+                }
+                None => {
+                    error!("stego.lock did not have a valid bin arg. Quitting.");
+                    return Err("Could not determine anvil_env.bin arg".to_string());
+                }
+            }
+            debug!("TODO:  Validate execname")
         }
     }
 
-    match args.maketag {
-        Some(ref x) => {
+    match &args.maketag {
+        Some(x) => {
             info!("Maketag {{{}}}", x);
+            anvil_env.mintag_make = Some(x.to_string());
             debug!("TODO:  Validate maketag")
         }
         None => {
-            warn!("Missing maketag arg.");
-            debug!("TODO:    Get maketag arg from stego.lock");
+            trace!("Missing maketag arg. Checking if stego.lock had a valid bin value");
+            match anvil_env.mintag_make {
+                Some( ref x) => {
+                    args.maketag = Some(x.clone());
+                }
+                None => {
+                    warn!("stego.lock did not have a valid maketag arg.");
+                    anvil_env.support_makemode = false;
+                }
+            }
         }
     }
-    todo!("Check all required arguments are usable, and if they aren't either set them or fail");
+    let makemode_support_text = match anvil_env.support_makemode {
+        true => "Make mode is supported",
+        false => "Make mode is not supported",
+    };
+    trace!("{}", makemode_support_text);
+
+    debug!("TODO: check if supported tags can be associated with a directory");
+
+    if args.git {
+        anvil_env.run_mode = Some(AmbosoMode::GitMode);
+    } else if args.base {
+        anvil_env.run_mode = Some(AmbosoMode::BaseMode);
+    } else if args.test {
+        anvil_env.run_mode = Some(AmbosoMode::TestMode);
+    } else if args.testmacro {
+        anvil_env.run_mode = Some(AmbosoMode::TestMacro);
+    } else {
+        panic!("No mode flag was asserted");
+    }
+
+    anvil_env.do_build = args.build;
+    anvil_env.do_run = args.run;
+    anvil_env.do_delete = args.delete;
+    anvil_env.do_init = args.init;
+    anvil_env.do_purge = args.purge;
+    anvil_env.do_query = true;
+
+    return Ok(anvil_env);
 }
 
 fn print_warranty_info() {
@@ -709,7 +883,12 @@ fn print_warranty_info() {
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
 }
 
-fn main() {
+fn handle_amboso_env(env: AmbosoEnv) {
+
+    info!("Runmode: {:?}", env.run_mode.unwrap());
+}
+
+fn main() -> ExitCode {
 
     CombinedLogger::init(
         vec![
@@ -731,6 +910,18 @@ fn main() {
     if ! args.quiet {
         println!("{}", invil_splash);
     }
-    check_passed_args(&mut args);
+    let res_check = check_passed_args(&mut args);
+
+    match res_check {
+        Ok(env) => {
+            info!("check_passed_args() success");
+            handle_amboso_env(env);
+            return ExitCode::SUCCESS;
+        }
+        Err(e) => {
+            error!("check_passed_args() failed with: \"{}\"",e);
+            return ExitCode::FAILURE;
+        }
+    }
 }
 
