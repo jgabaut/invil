@@ -426,7 +426,7 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
             let res = parse_stego_toml(&stego_path);
             match res {
                 Ok(a) => {
-                    debug!("Stego contents: {{{:#?}}}", a);
+                    trace!("Stego contents: {{{:#?}}}", a);
                     return Ok(a);
                 }
                 Err(e) => {
