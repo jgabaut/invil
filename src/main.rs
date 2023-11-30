@@ -984,17 +984,40 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
 
 fn main() -> ExitCode {
 
+    let mut args: Args = Args::parse();
+
+    let log_level;
+    match args.verbose {
+        5 => {
+            log_level = LevelFilter::Trace;
+        },
+        4 => {
+            log_level = LevelFilter::Debug;
+        },
+        3 => {
+            log_level = LevelFilter::Info;
+        },
+        2 => {
+            log_level = LevelFilter::Warn;
+        },
+        1|0 => {
+            log_level = LevelFilter::Error;
+        },
+        _ => {
+            log_level = LevelFilter::Debug;
+        },
+    }
+
     CombinedLogger::init(
         vec![
-            TermLogger::new(LevelFilter::Debug, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
+            TermLogger::new(log_level, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
             //WriteLogger::new(LevelFilter::Info, Config::default(), File::create("my_rust_binary.log").unwrap()),
         ]
     ).unwrap();
 
-    let mut args: Args = Args::parse();
-
     //Debug pretty-print of args
     trace!("Args: {:#?}\n", args);
+    trace!("Log level: {}\n", log_level);
 
     if ! prog_name().expect("Failed resolvig current program name").eq("anvil") {
         trace!("Please symlink me to anvil.");
