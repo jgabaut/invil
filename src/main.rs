@@ -883,7 +883,7 @@ fn print_warranty_info() {
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
 }
 
-fn handle_amboso_env(env: AmbosoEnv) {
+fn handle_amboso_env(env: AmbosoEnv, args: Args) {
     match env.run_mode {
         Some(m) => {
             info!("Runmode: {:?}", m);
@@ -903,7 +903,16 @@ fn handle_amboso_env(env: AmbosoEnv) {
                 todo!("{}",format!("Purge op for {:?}",m));
             }
             if env.do_query {
-                todo!("{}",format!("Query op for {:?}",m));
+                match args.tag {
+                    Some(ref q) => {
+                        info!("Querying info for {{{:?}}}", q);
+                        todo!("{}",format!("Query op for {:?}",m));
+                    }
+                    None => {
+                        warn!("No tag provided.");
+                        return;
+                    }
+                }
             }
         }
         None => {
@@ -942,7 +951,7 @@ fn main() -> ExitCode {
             trace!("check_passed_args() success");
             match env.run_mode {
                 Some(_) => {
-                    handle_amboso_env(env);
+                    handle_amboso_env(env, args);
                     return ExitCode::SUCCESS;
                 }
                 None => {
