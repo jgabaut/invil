@@ -21,6 +21,7 @@ use simplelog::*;
 use toml::Table;
 use git2::{Repository, Error, Status};
 use std::collections::HashMap;
+use std::process::ExitCode;
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -562,15 +563,31 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     }
 }
 
-fn check_passed_args(args: &mut Args) {
+fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
+
+    let mut anvil_env: AmbosoEnv = AmbosoEnv {
+        builds_dir: None,
+        source : None,
+        bin : None,
+        mintag_make : None,
+        mintag_automake : None,
+        tests_dir : None,
+        bonetests_dir : None,
+        kulpotests_dir : None,
+        versions_table: HashMap::with_capacity(100),
+        basemode_versions_table: HashMap::with_capacity(50),
+        gitmode_versions_table: HashMap::with_capacity(50),
+        support_testmode : true,
+        support_makemode : true,
+    };
 
     if args.warranty {
         print_warranty_info();
-        return
+        return Ok(anvil_env);
     }
     if args.version {
         println!("{}",INVIL_VERSION);
-        return
+        return Ok(anvil_env);
     }
 
     match args.gen_c_header {
@@ -592,16 +609,16 @@ fn check_passed_args(args: &mut Args) {
                 match res {
                     Ok(_) => {
                         info!("Lint successful for {{{}}}.", x.display());
-                        return
+                        return Ok(anvil_env);
                     }
                     Err(e) => {
                         error!("Failed lint for {{{}}}.\nError was:    {e}",x.display());
-                        return
+                        return Err(e);
                     }
                 }
             } else {
                 error!("Could not find file: {{{}}}", x.display());
-                return
+                return Err("Failed linter call".to_string());
             }
         }
         None => {
@@ -609,13 +626,13 @@ fn check_passed_args(args: &mut Args) {
         }
     }
 
+    //Default mode is git
     if ! args.base && ! args.test && ! args.testmacro {
         args.git = true;
     }
 
     print_grouped_args(&args);
 
-    //Process env arguments
     if args.ignore_gitcheck || ! args.git{
         info!("Ignoring git check.");
     } else {
@@ -626,18 +643,17 @@ fn check_passed_args(args: &mut Args) {
                     debug!("Repo is clean.");
                 } else {
                     warn!("Repo has uncommitted changes.");
-                    return
+                    return Err("Dirty repo with git mode on".to_string());
                 }
             }
             Err(e) => {
                 error!("Failed git check. Error was: {{{}}}", e);
-                return
+                return Err(e.to_string());
             }
         }
     }
 
-    let mut anvil_env: AmbosoEnv;
-
+    //Check amboso_dir arg
     match args.amboso_dir {
         Some(ref x) => {
             info!("Amboso dir {{{}}}", x.display());
@@ -650,25 +666,24 @@ fn check_passed_args(args: &mut Args) {
                 }
                 Err(e) => {
                     error!("Check fail: {e}");
-                    return
+                    return Err(e);
                 }
             }
         }
         None => {
             error!("Missing amboso dir argument. Quitting.");
-            return
+            return Err("Missing amboso_dir arg".to_string());
         }
     }
 
-
     match anvil_env.builds_dir {
-        Some(x) => {
+        Some(ref x) => {
             trace!("Anvil_env builds_dir: {{{}}}", x.display());
             debug!("TODO:    Validate amboso_env and use it to set missing arguments");
         }
         None => {
             error!("Missing builds_dir. Quitting.");
-            return
+            return Err("anvil_env.builds_dir was empty".to_string());
         }
     }
 
@@ -684,10 +699,10 @@ fn check_passed_args(args: &mut Args) {
         None => {
             warn!("Missing tests dir. Checking if stego.lock had a valid tests_dir path");
             match anvil_env.tests_dir {
-                Some(x) => {
+                Some(ref x) => {
                     if x.exists() {
                         debug!("{} exists", x.display());
-                        args.kazoj_dir = Some(x);
+                        args.kazoj_dir = Some(x.clone());
                         debug!("TODO:    Validate kazoj_dir");
                     } else {
                         warn!("stego.lock tests dir was invalid {}", x.display());
@@ -733,12 +748,12 @@ fn check_passed_args(args: &mut Args) {
         None => {
             warn!("Missing source arg. Checking if stego.lock had a valid source value");
             match anvil_env.source {
-                Some(x) => {
-                    args.source = Some(x);
+                Some( ref x) => {
+                    args.source = Some(x.clone());
                 }
                 None => {
                     error!("stego.lock did not have a valid source arg. Quitting.");
-                    return
+                    return Err("Could not determine anvil_env.source".to_string());
                 }
             }
             debug!("TODO:  Validate source")
@@ -754,12 +769,12 @@ fn check_passed_args(args: &mut Args) {
         None => {
             warn!("Missing execname arg. Checking if stego.lock had a valid bin value");
             match anvil_env.bin {
-                Some(x) => {
-                    args.execname = Some(x);
+                Some(ref x) => {
+                    args.execname = Some(x.clone());
                 }
                 None => {
                     error!("stego.lock did not have a valid bin arg. Quitting.");
-                    return
+                    return Err("Could not determine anvil_env.bin arg".to_string());
                 }
             }
             debug!("TODO:  Validate execname")
@@ -775,8 +790,8 @@ fn check_passed_args(args: &mut Args) {
         None => {
             warn!("Missing maketag arg. Checking if stego.lock had a valid bin value");
             match anvil_env.mintag_make {
-                Some(x) => {
-                    args.maketag = Some(x);
+                Some( ref x) => {
+                    args.maketag = Some(x.clone());
                 }
                 None => {
                     warn!("stego.lock did not have a valid maketag arg.");
@@ -791,7 +806,9 @@ fn check_passed_args(args: &mut Args) {
     };
     trace!("{}", makemode_support_text);
 
-    todo!("Check all required arguments are usable, and if they aren't either set them or fail");
+    debug!("TODO: check if supported tags can be associated with a directory");
+
+    return Ok(anvil_env);
 }
 
 fn print_warranty_info() {
@@ -805,7 +822,7 @@ fn print_warranty_info() {
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
 }
 
-fn main() {
+fn main() -> ExitCode {
 
     CombinedLogger::init(
         vec![
@@ -827,6 +844,17 @@ fn main() {
     if ! args.quiet {
         println!("{}", invil_splash);
     }
-    check_passed_args(&mut args);
+    let res_check = check_passed_args(&mut args);
+
+    match res_check {
+        Ok(_) => {
+            info!("check_passed_args() success");
+            return ExitCode::SUCCESS;
+        }
+        Err(e) => {
+            error!("check_passed_args() failed with: \"{}\"",e);
+            return ExitCode::FAILURE;
+        }
+    }
 }
 
