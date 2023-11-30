@@ -1,4 +1,5 @@
 # invil
+[![Latest version](https://img.shields.io/crates/v/invil.svg)](https://crates.io/crates/invil)
 
 ## A Rust implementation of amboso, a simple build tool wrapping make.
 
