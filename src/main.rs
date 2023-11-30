@@ -731,11 +731,12 @@ fn check_passed_args(args: &mut Args) {
         true => "Test mode is supported",
         false => "Test mode is not supported",
     };
-    debug!("{}", testmode_support_text);
+    trace!("{}", testmode_support_text);
 
     match args.source {
         Some(ref x) => {
             info!("Source {{{}}}", x);
+            anvil_env.source = args.source.clone();
             debug!("TODO:  Validate source")
         }
         None => {
@@ -745,9 +746,10 @@ fn check_passed_args(args: &mut Args) {
         }
     }
 
-    match args.execname {
-        Some(ref x) => {
+    match &args.execname {
+        Some(x) => {
             info!("Execname {{{}}}", x);
+            anvil_env.bin = Some(x.to_string());
             debug!("TODO:  Validate execname")
         }
         None => {
@@ -757,13 +759,15 @@ fn check_passed_args(args: &mut Args) {
         }
     }
 
-    match args.maketag {
-        Some(ref x) => {
+    match &args.maketag {
+        Some(x) => {
             info!("Maketag {{{}}}", x);
+            anvil_env.mintag_make = Some(x.to_string());
             debug!("TODO:  Validate maketag")
         }
         None => {
             warn!("Missing maketag arg.");
+            args.maketag = anvil_env.mintag_make;
             debug!("TODO:    Get maketag arg from stego.lock");
         }
     }
