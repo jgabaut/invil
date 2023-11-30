@@ -885,7 +885,7 @@ fn print_warranty_info() {
 
 fn handle_amboso_env(env: AmbosoEnv, args: Args) {
     match env.run_mode {
-        Some(m) => {
+        Some(ref m) => {
             info!("Runmode: {:?}", m);
             if env.do_build {
                 todo!("{}",format!("Build op for {:?}",m));
@@ -905,6 +905,21 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
             if env.do_query {
                 match args.tag {
                     Some(ref q) => {
+                        match env.run_mode.unwrap() {
+                            AmbosoMode::GitMode => {
+                                if ! env.gitmode_versions_table.contains_key(q) {
+                                    error!("{{{}}} was not a valid tag.",q);
+                                    return
+                                }
+                            }
+                            AmbosoMode::BaseMode => {
+                                if ! env.basemode_versions_table.contains_key(q) {
+                                    error!("{{{}}} was not a valid tag.",q);
+                                    return
+                                }
+                            }
+                            _ => return
+                        }
                         info!("Querying info for {{{:?}}}", q);
                         let mut queried_path = env.builds_dir.unwrap();
                         let tagdir_name = format!("v{}", q);
