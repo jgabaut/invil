@@ -858,6 +858,8 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         anvil_env.run_mode = Some(AmbosoMode::TestMode);
     } else if args.testmacro {
         anvil_env.run_mode = Some(AmbosoMode::TestMacro);
+    } else {
+        panic!("No mode flag was asserted");
     }
 
     anvil_env.do_build = args.build;
@@ -883,7 +885,7 @@ fn print_warranty_info() {
 
 fn handle_amboso_env(env: AmbosoEnv) {
 
-    info!("Runmode: {:?}", env.run_mode);
+    info!("Runmode: {:?}", env.run_mode.unwrap());
 }
 
 fn main() -> ExitCode {
