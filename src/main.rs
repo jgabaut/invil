@@ -740,8 +740,15 @@ fn check_passed_args(args: &mut Args) {
             debug!("TODO:  Validate source")
         }
         None => {
-            warn!("Missing source arg.");
-            args.source = anvil_env.source;
+            match anvil_env.source {
+                Some(x) => {
+                    args.source = Some(x);
+                }
+                None => {
+                    error!("Missing source arg. Quitting.");
+                    return
+                }
+            }
             debug!("TODO:  Validate source")
         }
     }
@@ -754,10 +761,20 @@ fn check_passed_args(args: &mut Args) {
         }
         None => {
             warn!("Missing execname arg.");
-            args.execname = anvil_env.bin;
+            match anvil_env.bin {
+                Some(x) => {
+                    args.execname = Some(x);
+                }
+                None => {
+                    error!("Missing execname arg. Quitting.");
+                    return
+                }
+            }
             debug!("TODO:  Validate execname")
         }
     }
+
+    let mut support_makemode = true;
 
     match &args.maketag {
         Some(x) => {
@@ -767,10 +784,23 @@ fn check_passed_args(args: &mut Args) {
         }
         None => {
             warn!("Missing maketag arg.");
-            args.maketag = anvil_env.mintag_make;
-            debug!("TODO:    Get maketag arg from stego.lock");
+            match anvil_env.mintag_make {
+                Some(x) => {
+                    args.maketag = Some(x);
+                }
+                None => {
+                    warn!("Missing maketag arg.");
+                    support_makemode = false;
+                }
+            }
         }
     }
+    let makemode_support_text = match support_makemode {
+        true => "Make mode is supported",
+        false => "Make mode is not supported",
+    };
+    trace!("{}", makemode_support_text);
+
     todo!("Check all required arguments are usable, and if they aren't either set them or fail");
 }
 
