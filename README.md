@@ -23,7 +23,7 @@
 
   Flags support status:
 
-  - [x] Basic env flags: `-D` | `-K` | `-M` | `-S` | `-E` | `<ARG>`
+  - [x] Basic env flags:  `-D`, `-K`, `-M`, `-S`, `-E`
   - [ ] Clock flag: `-C <startTime>`
   - [x] Linter mode: `-x`
     - [ ] Lint only: `-l`
