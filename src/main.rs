@@ -911,9 +911,22 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                         queried_path.push(tagdir_name);
 
                         if queried_path.exists() {
-                            info!("Binary ready for {{{}}}", queried_path.display());
+                            trace!("Found {{{}}}", queried_path.display());
+                            queried_path.push(env.bin.unwrap());
+                            if queried_path.exists() {
+                                trace!("Found {{{}}}", queried_path.display());
+                                if queried_path.is_file() {
+                                    debug!("{} is a file", queried_path.display());
+                                } else {
+                                    debug!("{} is not a file", queried_path.display());
+                                }
+                            } else {
+                                warn!("No file found for {{{}}}", queried_path.display());
+                                return;
+                            }
                         } else {
-                            warn!("Binary not found for {{{}}}", queried_path.display());
+                            warn!("No directory found for {{{}}}", queried_path.display());
+                            return;
                         }
                     }
                     None => {
@@ -925,7 +938,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
         }
         None => {
             error!("Invalid: None env.run_mode");
-            return
+            return;
         }
     }
 }
