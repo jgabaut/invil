@@ -884,8 +884,29 @@ fn print_warranty_info() {
 }
 
 fn handle_amboso_env(env: AmbosoEnv) {
-
-    info!("Runmode: {:?}", env.run_mode.unwrap());
+    match env.run_mode {
+        Some(m) => {
+            info!("Runmode: {:?}", m);
+            match m {
+                AmbosoMode::BaseMode => {
+                    todo!("Base mode");
+                }
+                AmbosoMode::GitMode => {
+                    todo!("Git mode");
+                }
+                AmbosoMode::TestMode => {
+                    todo!("Test mode");
+                }
+                AmbosoMode::TestMacro => {
+                    todo!("Test macro mode");
+                }
+            }
+        }
+        None => {
+            error!("Invalid: None env.run_mode");
+            return
+        }
+    }
 }
 
 fn main() -> ExitCode {
@@ -914,9 +935,16 @@ fn main() -> ExitCode {
 
     match res_check {
         Ok(env) => {
-            info!("check_passed_args() success");
-            handle_amboso_env(env);
-            return ExitCode::SUCCESS;
+            trace!("check_passed_args() success");
+            match env.run_mode {
+                Some(_) => {
+                    handle_amboso_env(env);
+                    return ExitCode::SUCCESS;
+                }
+                None => {
+                    return ExitCode::SUCCESS;
+                }
+            }
         }
         Err(e) => {
             error!("check_passed_args() failed with: \"{}\"",e);
