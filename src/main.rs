@@ -987,6 +987,11 @@ fn main() -> ExitCode {
     let mut args: Args = Args::parse();
 
     let log_level;
+
+    if args.verbose >1 && args.quiet {
+        args.verbose -= 1;
+    }
+
     match args.verbose {
         5 => {
             log_level = LevelFilter::Trace;
