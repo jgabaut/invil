@@ -906,7 +906,15 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                 match args.tag {
                     Some(ref q) => {
                         info!("Querying info for {{{:?}}}", q);
-                        todo!("{}",format!("Query op for {:?}",m));
+                        let mut queried_path = env.builds_dir.unwrap();
+                        let tagdir_name = format!("v{}", q);
+                        queried_path.push(tagdir_name);
+
+                        if queried_path.exists() {
+                            info!("Binary ready for {{{}}}", queried_path.display());
+                        } else {
+                            warn!("Binary not found for {{{}}}", queried_path.display());
+                        }
                     }
                     None => {
                         warn!("No tag provided.");
