@@ -211,6 +211,9 @@ struct AmbosoEnv {
     /// Do purge op
     do_purge: bool,
 
+    /// Report build status op
+    do_query: bool,
+
     /// Allow make builds
     support_makemode: bool,
 }
@@ -503,6 +506,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 do_delete : false,
                 do_init : false,
                 do_purge : false,
+                do_query : false,
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -616,6 +620,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_delete : false,
         do_init : false,
         do_purge : false,
+        do_query : false,
     };
 
     if args.warranty {
@@ -860,6 +865,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     anvil_env.do_delete = args.delete;
     anvil_env.do_init = args.init;
     anvil_env.do_purge = args.purge;
+    anvil_env.do_query = true;
 
     return Ok(anvil_env);
 }
@@ -873,6 +879,11 @@ fn print_warranty_info() {
   PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
   IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
+}
+
+fn handle_amboso_env(env: AmbosoEnv) {
+
+    info!("Runmode: {:?}", env.run_mode);
 }
 
 fn main() -> ExitCode {
@@ -900,8 +911,9 @@ fn main() -> ExitCode {
     let res_check = check_passed_args(&mut args);
 
     match res_check {
-        Ok(_) => {
+        Ok(env) => {
             info!("check_passed_args() success");
+            handle_amboso_env(env);
             return ExitCode::SUCCESS;
         }
         Err(e) => {
