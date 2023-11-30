@@ -627,6 +627,23 @@ fn check_passed_args(args: &mut Args) {
         }
     }
 
+    let mut anvil_env: AmbosoEnv;
+    /*= AmbosoEnv {
+        builds_dir: None,
+        source : None,
+        bin : None,
+        mintag_make : None,
+        mintag_automake : None,
+        tests_dir : None,
+        bonetests_dir : None,
+        kulpotests_dir : None,
+        versions_table: HashMap::with_capacity(100),
+        basemode_versions_table: HashMap::with_capacity(50),
+        gitmode_versions_table: HashMap::with_capacity(50),
+    };
+    */
+
+
     match args.amboso_dir {
         Some(ref x) => {
             info!("Amboso dir {{{}}}", x.display());
@@ -635,7 +652,7 @@ fn check_passed_args(args: &mut Args) {
                 Ok(a) => {
                     trace!("{:#?}", a);
                     debug!("Check pass: amboso_dir");
-                    debug!("TODO:    Validate amboso_env and use it to set missing arguments");
+                    anvil_env = a;
                 }
                 Err(e) => {
                     error!("Check fail: {e}");
@@ -648,20 +665,73 @@ fn check_passed_args(args: &mut Args) {
             return
         }
     }
+
+
+    match anvil_env.builds_dir {
+        Some(x) => {
+            trace!("Anvil_env builds_dir: {{{}}}", x.display());
+            debug!("TODO:    Validate amboso_env and use it to set missing arguments");
+        }
+        None => {
+            error!("Missing builds_dir. Quitting.");
+            return
+        }
+    }
+
+    let mut support_testmode = true;
+
     match args.kazoj_dir {
         Some(ref x) => {
             info!("Tests dir {{{}}}", x.display());
+            if x.exists() {
+                debug!("{} exists", x.display());
+                anvil_env.tests_dir = Some(x.clone());
+            }
             debug!("TODO:    Validate kazoj_dir");
         }
         None => {
             warn!("Missing tests dir.");
-            args.kazoj_dir = Some(PathBuf::from("./kazoj"));
-            info!("Set default tests dir: {{{}}}.",
-                    args.kazoj_dir.as_ref()
-                    .expect("./kazoj was not a valid path").display());
-            debug!("TODO:    Validate kazoj_dir");
+            trace!("Checking if stego.lock had a valid tests_dir path");
+            match anvil_env.tests_dir {
+                Some(x) => {
+                    if x.exists() {
+                        debug!("{} exists", x.display());
+                        args.kazoj_dir = Some(x);
+                        debug!("TODO:    Validate kazoj_dir");
+                    } else {
+                        warn!("stego.lock tests dir was invalid {}", x.display());
+                        args.kazoj_dir = Some(PathBuf::from("./kazoj"));
+                        if args.kazoj_dir.as_ref().unwrap().exists() {
+                            debug!("{} exists", args.kazoj_dir.as_ref().unwrap().display());
+                            debug!("TODO:    Validate kazoj_dir");
+                            anvil_env.tests_dir = args.kazoj_dir.clone();
+                        } else {
+                            warn!("Could not find test directory, test mode not supported.");
+                            support_testmode = false;
+                        }
+                    }
+                }
+                None => {
+                    warn!("stego.lock had no tests dir");
+                    args.kazoj_dir = Some(PathBuf::from("./kazoj"));
+                    if args.kazoj_dir.as_ref().unwrap().exists() {
+                        debug!("{} exists", args.kazoj_dir.as_ref().unwrap().display());
+                        debug!("TODO:    Validate kazoj_dir");
+                        anvil_env.tests_dir = args.kazoj_dir.clone();
+                    } else {
+                        warn!("Could not find test directory, test mode not supported.");
+                        support_testmode = false;
+                    }
+                }
+            }
         }
     }
+
+    let testmode_support_text = match support_testmode {
+        true => "Test mode is supported",
+        false => "Test mode is not supported",
+    };
+    debug!("{}", testmode_support_text);
 
     match args.source {
         Some(ref x) => {
@@ -670,7 +740,8 @@ fn check_passed_args(args: &mut Args) {
         }
         None => {
             warn!("Missing source arg.");
-            debug!("TODO:    Get source arg from stego.lock");
+            args.source = anvil_env.source;
+            debug!("TODO:  Validate source")
         }
     }
 
@@ -681,7 +752,8 @@ fn check_passed_args(args: &mut Args) {
         }
         None => {
             warn!("Missing execname arg.");
-            debug!("TODO:    Get execname arg from stego.lock");
+            args.execname = anvil_env.bin;
+            debug!("TODO:  Validate execname")
         }
     }
 
