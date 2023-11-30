@@ -19,6 +19,7 @@
 
   - Basic arguments parsing that complies with the bash implementation
   - Same default for amboso directory (`./bin`).
+  - Parse `stego.lock` with compatible logic to bash implementation
 
 ## See how it behaves <a name = "try_anvil"></a>
 
@@ -34,7 +35,6 @@ Our version was slightly modified to actually make cargo build the release versi
 
 ## Todo <a name = "todo"></a>
 
-  - Parse `stego.lock` with compatible logic to bash implementation
   - Check all runtime values are valid before op checks
   - Implement control flow for op checks
   - Implement quiet, verbose, silent functionality
