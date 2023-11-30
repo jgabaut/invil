@@ -6,6 +6,7 @@
 
 - Add stub op checks for build, run, delete, init, purge
 - Add do_query(), checking if requested tag is in supported versions
+- Add functionality for -l and -L
 
 ### Fixed
 
