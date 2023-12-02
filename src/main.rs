@@ -21,7 +21,9 @@ use simplelog::*;
 use toml::Table;
 use git2::{Repository, Error, Status};
 use std::collections::BTreeMap;
-use std::process::ExitCode;
+use std::process::{ExitCode, Command};
+use std::io::{self, Write};
+
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
@@ -210,9 +212,6 @@ struct AmbosoEnv {
 
     /// Do purge op
     do_purge: bool,
-
-    /// Report build status op
-    do_query: bool,
 
     /// Allow make builds
     support_makemode: bool,
@@ -506,7 +505,6 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 do_delete : false,
                 do_init : false,
                 do_purge : false,
-                do_query : false,
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -620,7 +618,6 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_delete : false,
         do_init : false,
         do_purge : false,
-        do_query : false,
     };
 
     if args.warranty {
@@ -867,7 +864,6 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     anvil_env.do_delete = args.delete;
     anvil_env.do_init = args.init;
     anvil_env.do_purge = args.purge;
-    anvil_env.do_query = true;
 
     return Ok(anvil_env);
 }
@@ -883,60 +879,155 @@ fn print_warranty_info() {
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
 }
 
-fn do_query(env: AmbosoEnv, args: Args) {
+fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
         Some(ref q) => {
-            match env.run_mode.unwrap() {
+            match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
                     if ! env.gitmode_versions_table.contains_key(q) {
                         error!("{{{}}} was not a valid tag.",q);
-                        return
+                        return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
                     if ! env.basemode_versions_table.contains_key(q) {
                         error!("{{{}}} was not a valid tag.",q);
-                        return
+                        return Err("Invalid tag".to_string())
                     }
                 }
-                _ => return
+                _ => return Err("Invalid mode".to_string())
             }
             info!("Querying info for {{{:?}}}", q);
-            let mut queried_path = env.builds_dir.unwrap();
+            let mut queried_path = env.builds_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
             if queried_path.exists() {
                 trace!("Found {{{}}}", queried_path.display());
-                queried_path.push(env.bin.unwrap());
+                queried_path.push(env.bin.clone().unwrap());
                 if queried_path.exists() {
                     trace!("Found {{{}}}", queried_path.display());
                     if queried_path.is_file() {
                         debug!("{} is a file", queried_path.display());
+                        return Ok("Is a file".to_string());
                     } else {
                         debug!("{} is not a file", queried_path.display());
+                        return Err("Not a file".to_string())
                     }
                 } else {
                     warn!("No file found for {{{}}}", queried_path.display());
-                    return;
+                    return Err("No file found".to_string())
                 }
             } else {
                 warn!("No directory found for {{{}}}", queried_path.display());
-                return;
+                return Err("No dir found".to_string())
             }
         }
         None => {
             warn!("No tag provided.");
-            return;
+            return Err("No tag provided".to_string())
+        }
+    }
+}
+
+fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
+    match args.tag {
+        Some(ref q) => {
+            match env.run_mode.as_ref().unwrap() {
+                AmbosoMode::GitMode => {
+                    todo!("Build op for git mode");
+                    /*
+                    if ! env.gitmode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return Err("Invalid tag".to_string())
+                    }
+                    */
+                }
+                AmbosoMode::BaseMode => {
+                    if ! env.basemode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return Err("Invalid tag".to_string())
+                    }
+                }
+                AmbosoMode::TestMode => {
+                    todo!("Build op for test mode");
+                }
+                AmbosoMode::TestMacro => {
+                    todo!("Build op for test macro");
+                }
+            }
+            info!("Querying info for {{{:?}}}", q);
+            let mut queried_path = env.builds_dir.clone().unwrap();
+            let tagdir_name = format!("v{}", q);
+            queried_path.push(tagdir_name);
+
+            if queried_path.exists() {
+                trace!("Found {{{}}}", queried_path.display());
+                queried_path.push(env.bin.clone().unwrap());
+                if queried_path.exists() {
+                    trace!("Found {{{}}}", queried_path.display());
+                    if queried_path.is_file() {
+                        debug!("{} is a file, overriding it", queried_path.display());
+                    } else {
+                        debug!("{} is not a file", queried_path.display());
+                        return Err("Not a file".to_string())
+                    }
+                } else {
+                    info!("No file found for {{{}}}", queried_path.display());
+                }
+
+                let output = if cfg!(target_os = "windows") {
+                    todo!("Support windows build");
+                    /*
+                     * Command::new("cmd")
+                     *   .args(["/C", "echo hello"])
+                     *   .output()
+                     *   .expect("failed to execute process")
+                     */
+                } else {
+                    match env.run_mode.as_ref().unwrap() {
+                        AmbosoMode::BaseMode => {
+                            let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let mut source_path = build_path.clone();
+                            source_path.push(env.source.clone().unwrap());
+                            let mut bin_path = build_path.clone();
+                            bin_path.push(env.bin.clone().unwrap());
+                            Command::new("sh")
+                                .arg("-c")
+                                .arg(format!("gcc {} -o {} -lm", source_path.display(), bin_path.display()))
+                                .output()
+                                .expect("failed to execute process")
+                        }
+                        AmbosoMode::GitMode => {
+                            todo!("Build op for git mode");
+                        }
+                        _ => {
+                            todo!("Build op for test modes");
+                        }
+                    }
+                };
+                info!("{}",output.status);
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                assert!(output.status.success());
+                return Ok("Build done".to_string());
+            } else {
+                warn!("No directory found for {{{}}}", queried_path.display());
+                return Err("No dir found".to_string())
+            }
+        }
+        None => {
+            warn!("No tag provided.");
+            return Err("No tag provided".to_string())
         }
     }
 }
 
 fn handle_amboso_env(env: AmbosoEnv, args: Args) {
     match env.run_mode {
-        Some(ref m) => {
-            info!("Runmode: {:?}", m);
-            match m {
+        Some(ref runmode) => {
+            info!("Runmode: {:?}", runmode);
+            match runmode {
                     AmbosoMode::TestMode | AmbosoMode::TestMacro => {
                         if !env.support_testmode {
                             error!("Test mode not supported for this project.");
@@ -946,7 +1037,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                     _ => (),
             }
             if args.list {
-                match m {
+                match runmode {
                     AmbosoMode::GitMode => {
                         for (k, v) in env.gitmode_versions_table.iter() {
                             info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
@@ -966,22 +1057,36 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
             }
 
             if env.do_build {
-                todo!("{}",format!("Build op for {:?}",m));
+                let build_res = do_build(&env,&args);
+                match build_res {
+                    Ok(s) => {
+                        trace!("{}", s);
+                    }
+                    Err(e) => {
+                        warn!("{}", e);
+                    }
+                }
             }
             if env.do_run {
-                todo!("{}",format!("Run op for {:?}",m));
+                todo!("{}",format!("Run op for {:?}",runmode));
             }
             if env.do_delete {
-                todo!("{}",format!("Delete op for {:?}",m));
+                todo!("{}",format!("Delete op for {:?}",runmode));
             }
             if env.do_init {
-                todo!("{}",format!("Init op for {:?}",m));
+                todo!("{}",format!("Init op for {:?}",runmode));
             }
             if env.do_purge {
-                todo!("{}",format!("Purge op for {:?}",m));
+                todo!("{}",format!("Purge op for {:?}",runmode));
             }
-            if env.do_query {
-                do_query(env,args);
+            let query_res = do_query(&env,&args);
+            match query_res {
+                Ok(s) => {
+                    trace!("{}", s);
+                }
+                Err(e) => {
+                    warn!("{}", e);
+                }
             }
         }
         None => {
