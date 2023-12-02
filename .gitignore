@@ -1,1 +1,4 @@
 /target
+
+#ignore hello_world binary
+hello_world

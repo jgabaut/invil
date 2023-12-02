@@ -1,7 +1,7 @@
 [build]
 
-source = "main.rs"
-bin = "invil"
+source = "hello_world.c"
+bin = "hello_world"
 makevers = "2.0.0"
 automakevers = "3.0.0"
 tests = "kazoj"
@@ -13,5 +13,4 @@ errortestsdir = "kulpo"
 
 [versions]
 
-"-0.0.1" = "First release"
-"0.0.2" = "Draft"
+"-0.0.5" = "First release supporting base mode build. gcc call only"

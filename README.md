@@ -1,4 +1,5 @@
 # invil
+[![Latest version](https://img.shields.io/crates/v/invil.svg)](https://crates.io/crates/invil)
 
 ## A Rust implementation of amboso, a simple build tool wrapping make.
 
@@ -13,13 +14,15 @@
 
   This is a Rust implementation of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's in a early stage, and there isn't any functionality yet.
+  It's in a early stage, and there is limited functionality.
+  Check the next section for support info.
 
 ## Supported amboso features <a name = "supported_amboso"></a>
 
   - Basic arguments parsing that complies with the bash implementation
   - Same default for amboso directory (`./bin`).
   - Parse `stego.lock` with compatible logic to bash implementation
+  - Base mode: init and build (only with basic command call)
 
   Flags support status:
 
@@ -33,10 +36,10 @@
   - [ ] Test macro: `-t`
   - [ ] Test mode: `-T`
   - [ ] Git mode: `-g`
-  - [ ] Base mode: `-B`
-  - [ ] Build: `-b`
+  - [x] Base mode: `-B` (only basic gcc call)
+  - [x] Build: `-b` (only with -B)
   - [ ] Run: `-r`
-  - [ ] Init: `-i`
+  - [x] Init: `-i` (only with -B)
   - [ ] Delete: `-d`
   - [ ] Purge: `-p`
   - [x] Help: `-h`
@@ -44,7 +47,7 @@
   - [x] Version: `-v`
   - [x] List tags for current mode: `-l`
   - [x] List tags for git/base mode: `-L`
-  - [ ] Quiet flag: `-q`
+  - [x] Quiet flag: `-q`
   - [ ] CFG flag: `-c`
   - [ ] Watch flag: `-w`
   - [x] Warranty flag: `-W`
@@ -64,7 +67,6 @@ Our version was slightly modified to actually make cargo build the release versi
 
 ## Todo <a name = "todo"></a>
 
-  - Check all runtime values are valid before op checks
   - Implement control flow for op checks
-  - Implement quiet, verbose, silent functionality
+  - Implement silent functionality
   - Improve logging with a custom format
