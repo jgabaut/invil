@@ -997,7 +997,7 @@ fn main() -> ExitCode {
 
     let log_level;
 
-    if args.verbose >1 && args.quiet {
+    if args.quiet && args.verbose >0 {
         args.verbose -= 1;
     }
 
