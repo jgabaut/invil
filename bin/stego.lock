@@ -1,7 +1,7 @@
 [build]
 
-source = "main.rs"
-bin = "invil"
+source = "hello_world.c"
+bin = "hello_world"
 makevers = "2.0.0"
 automakevers = "3.0.0"
 tests = "kazoj"
