@@ -36,7 +36,7 @@ const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]
 struct Args {
     /// Specify the directory to host tags
@@ -217,7 +217,7 @@ struct AmbosoEnv {
     support_makemode: bool,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 enum Commands {
     /// does testing things
     Test {
@@ -956,7 +956,7 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     todo!("Build op for test macro");
                 }
             }
-            info!("Querying info for {{{:?}}}", q);
+            info!("Trying to build {{{:?}}}", q);
             let mut queried_path = env.builds_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
@@ -976,6 +976,13 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     info!("No file found for {{{}}}", queried_path.display());
                 }
 
+                let use_make = q >= &env.mintag_make.clone().unwrap();
+
+                if use_make && !env.support_makemode {
+                    error!("Can't build {{{}}}, as makemode is not supported by the project", q);
+                    return Err("Missing makemode support".to_string());
+                }
+
                 let output = if cfg!(target_os = "windows") {
                     todo!("Support windows build");
                     /*
@@ -992,11 +999,15 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
-                            Command::new("sh")
-                                .arg("-c")
-                                .arg(format!("gcc {} -o {} -lm", source_path.display(), bin_path.display()))
-                                .output()
-                                .expect("failed to execute process")
+                            if use_make {
+                                todo!("Make build op for base mode");
+                            } else {
+                                Command::new("sh")
+                                    .arg("-c")
+                                    .arg(format!("gcc {} -o {} -lm", source_path.display(), bin_path.display()))
+                                    .output()
+                                    .expect("failed to execute process")
+                            }
                         }
                         AmbosoMode::GitMode => {
                             todo!("Build op for git mode");
@@ -1006,11 +1017,24 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         }
                     }
                 };
-                info!("{}",output.status);
-                io::stdout().write_all(&output.stdout).unwrap();
-                io::stderr().write_all(&output.stderr).unwrap();
-                assert!(output.status.success());
-                return Ok("Build done".to_string());
+                match output.status.code() {
+                    Some(x) => {
+                        if x == 0 {
+                            info!("Build succeded with status: {}", x.to_string());
+                        } else {
+                            warn!("Build failed with status: {}", x.to_string());
+                        }
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        return Ok("Build done".to_string());
+                    }
+                    None => {
+                        error!("Build command failed");
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        return Err("Build command failed".to_string());
+                    }
+                }
             } else {
                 warn!("No directory found for {{{}}}", queried_path.display());
                 return Err("No dir found".to_string())
@@ -1074,7 +1098,33 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                 todo!("{}",format!("Delete op for {:?}",runmode));
             }
             if env.do_init {
-                todo!("{}",format!("Init op for {:?}",runmode));
+                match runmode {
+                    AmbosoMode::GitMode => {
+                        todo!("Init op for git mode");
+                    }
+                    AmbosoMode::BaseMode => {
+                        info!("Doing init for base mode");
+                        let mut args_copy = args.clone();
+                        for tag in env.basemode_versions_table.keys() {
+                            args_copy.tag = Some(tag.to_string());
+                            let build_res = do_build(&env,&args_copy);
+                            match build_res {
+                                Ok(s) => {
+                                    trace!("{}", s);
+                                }
+                                Err(e) => {
+                                    warn!("{}", e);
+                                }
+                            }
+                        }
+                    }
+                    AmbosoMode::TestMode => {
+                        todo!("Init op for test mode");
+                    }
+                    AmbosoMode::TestMacro => {
+                        todo!("Init op for test macro mode");
+                    }
+                }
             }
             if env.do_purge {
                 todo!("{}",format!("Purge op for {:?}",runmode));
