@@ -21,6 +21,7 @@
   - Basic arguments parsing that complies with the bash implementation
   - Same default for amboso directory (`./bin`).
   - Parse `stego.lock` with compatible logic to bash implementation
+  - Base mode: init and build (only with basic command call)
 
   Flags support status:
 
@@ -34,10 +35,10 @@
   - [ ] Test macro: `-t`
   - [ ] Test mode: `-T`
   - [ ] Git mode: `-g`
-  - [ ] Base mode: `-B`
-  - [ ] Build: `-b`
+  - [x] Base mode: `-B` (only basic gcc call)
+  - [x] Build: `-b` (only with -B)
   - [ ] Run: `-r`
-  - [ ] Init: `-i`
+  - [x] Init: `-i` (only with -B)
   - [ ] Delete: `-d`
   - [ ] Purge: `-p`
   - [x] Help: `-h`
@@ -65,7 +66,6 @@ Our version was slightly modified to actually make cargo build the release versi
 
 ## Todo <a name = "todo"></a>
 
-  - Check all runtime values are valid before op checks
   - Implement control flow for op checks
-  - Implement quiet, verbose, silent functionality
+  - Implement silent functionality
   - Improve logging with a custom format
