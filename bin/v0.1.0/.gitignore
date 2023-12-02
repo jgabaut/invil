@@ -1,0 +1,4 @@
+#amboso compliant version folder, will ignore everything inside BUT the gitignore, and required files, to keep the clean dir
+*
+!hello_world.c
+!.gitignore
