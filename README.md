@@ -14,7 +14,8 @@
 
   This is a Rust implementation of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's in a early stage, and there isn't any functionality yet.
+  It's in a early stage, and there is limited functionality.
+  Check the next section for support info.
 
 ## Supported amboso features <a name = "supported_amboso"></a>
 
