@@ -620,15 +620,6 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_purge : false,
     };
 
-    if args.warranty {
-        print_warranty_info();
-        return Ok(anvil_env);
-    }
-    if args.version {
-        println!("{}",INVIL_VERSION);
-        return Ok(anvil_env);
-    }
-
     match args.gen_c_header {
         Some(ref x) => {
             info!("C header dir: {{{}}}", x.display());
@@ -1151,6 +1142,15 @@ fn main() -> ExitCode {
     let mut args: Args = Args::parse();
 
     let log_level;
+
+    if args.warranty {
+        print_warranty_info();
+    }
+
+    if args.version {
+        println!("{}",INVIL_VERSION);
+        return ExitCode::SUCCESS;
+    }
 
     if args.quiet && args.verbose >0 {
         args.verbose -= 1;
