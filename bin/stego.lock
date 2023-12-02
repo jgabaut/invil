@@ -13,4 +13,4 @@ errortestsdir = "kulpo"
 
 [versions]
 
-"-0.0.1" = "First release"
+"-0.0.5" = "First release supporting base mode build. gcc call only"
