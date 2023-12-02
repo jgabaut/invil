@@ -967,13 +967,13 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 if queried_path.exists() {
                     trace!("Found {{{}}}", queried_path.display());
                     if queried_path.is_file() {
-                        debug!("{} is a file, overriding it", queried_path.display());
+                        trace!("{} is a file, overriding it", queried_path.display());
                     } else {
-                        debug!("{} is not a file", queried_path.display());
+                        error!("{} is not a file", queried_path.display());
                         return Err("Not a file".to_string())
                     }
                 } else {
-                    info!("No file found for {{{}}}", queried_path.display());
+                    trace!("No file found for {{{}}}", queried_path.display());
                 }
 
                 let use_make = q >= &env.mintag_make.clone().unwrap();
