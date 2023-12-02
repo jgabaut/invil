@@ -10,7 +10,6 @@ documentation = "https://github.com/jgabaut/invil"
 readme = "README.md"
 exclude = [
     ".github/**",
-    "bin/**",
     "try-anvil/**",
     "CODEOWNERS",
 ]
