@@ -1326,8 +1326,36 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                 }
             }
             if env.do_purge {
-                todo!("{}",format!("Purge op for {:?}",runmode));
+                match runmode {
+                    AmbosoMode::GitMode => {
+                        todo!("Purge op for git mode");
+                    }
+                    AmbosoMode::BaseMode => {
+                        info!("Doing purge for base mode");
+                        let mut args_copy = args.clone();
+                        for tag in env.basemode_versions_table.keys() {
+                            args_copy.tag = Some(tag.to_string());
+                            let delete_res = do_delete(&env,&args_copy);
+                            match delete_res {
+                                Ok(s) => {
+                                    trace!("{}", s);
+                                }
+                                Err(e) => {
+                                    warn!("{}", e);
+                                }
+                            }
+                        }
+                    }
+                    AmbosoMode::TestMode => {
+                        todo!("Purge op for test mode");
+                    }
+                    AmbosoMode::TestMacro => {
+                        todo!("Purge op for test macro mode");
+                    }
+                }
             }
+
+            //By default, run do_query()
             let query_res = do_query(&env,&args);
             match query_res {
                 Ok(s) => {

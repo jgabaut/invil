@@ -40,8 +40,8 @@
   - [x] Build: `-b` (only with -B)
   - [x] Run: `-r` (only with -B)
   - [x] Init: `-i` (only with -B)
-  - [ ] Delete: `-d`
-  - [ ] Purge: `-p`
+  - [x] Delete: `-d` (only with -B)
+  - [x] Purge: `-p` (only with -B)
   - [x] Help: `-h`
   - [ ] Big Help: `-H`
   - [x] Version: `-v`
