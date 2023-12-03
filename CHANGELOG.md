@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.0.6] - 2023-12-03
+
 ### Added
 
 - Add do_run(), to try running the passed tag's binary
