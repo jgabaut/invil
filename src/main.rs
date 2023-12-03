@@ -1178,9 +1178,6 @@ fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     }
                 } else {
                     warn!("No file found for {{{}}}", queried_path.display());
-                    if ! env.do_build {
-                        warn!("Try running with -b to build");
-                    }
                     return Err("File not found".to_string());
                 }
 
