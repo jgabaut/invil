@@ -6,7 +6,7 @@ edition = "2021"
 license = "GPL-3.0-only"
 homepage = "https://github.com/jgabaut/invil"
 repository = "https://github.com/jgabaut/invil"
-documentation = "https://github.com/jgabaut/invil"
+documentation = "https://github.com/jgabaut/amboso"
 readme = "README.md"
 exclude = [
     ".github/**",
