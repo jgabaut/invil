@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Add do_run(), to try running the passed tag's binary
+  - At the moment only on Basemode
+
 ### Changed
 
 - Updated changelog to 0.0.5
