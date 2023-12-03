@@ -38,10 +38,10 @@
   - [ ] Git mode: `-g`
   - [x] Base mode: `-B` (only basic gcc call)
   - [x] Build: `-b` (only with -B)
-  - [ ] Run: `-r`
+  - [x] Run: `-r` (only with -B)
   - [x] Init: `-i` (only with -B)
-  - [ ] Delete: `-d`
-  - [ ] Purge: `-p`
+  - [x] Delete: `-d` (only with -B)
+  - [x] Purge: `-p` (only with -B)
   - [x] Help: `-h`
   - [ ] Big Help: `-H`
   - [x] Version: `-v`
