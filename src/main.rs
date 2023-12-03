@@ -1043,7 +1043,7 @@ fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    todo!("Build op for git mode");
+                    todo!("Run op for git mode");
                     /*
                     if ! env.gitmode_versions_table.contains_key(q) {
                         error!("{{{}}} was not a valid tag.",q);
@@ -1058,10 +1058,10 @@ fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     }
                 }
                 AmbosoMode::TestMode => {
-                    todo!("Build op for test mode");
+                    todo!("Run op for test mode");
                 }
                 AmbosoMode::TestMacro => {
-                    todo!("Build op for test macro");
+                    todo!("Run op for test macro");
                 }
             }
             info!("Trying to run {{{:?}}}", q);
