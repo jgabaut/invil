@@ -899,7 +899,7 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 if queried_path.exists() {
                     trace!("Found {{{}}}", queried_path.display());
                     if queried_path.is_file() {
-                        debug!("{} is a file", queried_path.display());
+                        info!("{} is a file", queried_path.display());
                         return Ok("Is a file".to_string());
                     } else {
                         debug!("{} is not a file", queried_path.display());
