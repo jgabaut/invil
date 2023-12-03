@@ -5,11 +5,14 @@
 ### Added
 
 - Add do_run(), to try running the passed tag's binary
-  - At the moment only on Basemode
+- Add do_delete(), to try deleting the passed tag's binary
+  - At the moment, only Basemode is supported
+- Add functionality for -d, -p
 
 ### Changed
 
 - Updated changelog to 0.0.5
+- Minor verbosity changes
 
 ## [0.0.5] - 2023-12-02
 
