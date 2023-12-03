@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Updated changelog to 0.0.5
+
+## [0.0.5] - 2023-12-02
+
+### Added
+
+- Add do_build(), to try building the passed tag
+  - At the moment only the basic gcc mode is implemented
+- Add functionality for -q
+- Add functionality for -i, -b
+  - Since both use do_build(), note that make support is still missing
+
+### Fixed
+
+- Refuse -t, -T when env does not support testmode
+
+### Changed
+
+- Version tables in AmbosoEnv changed to BTreeMap
+
+## [0.0.4] - 2023-11-30
+
 ### Added
 
 - Add stub op checks for build, run, delete, init, purge
