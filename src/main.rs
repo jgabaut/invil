@@ -1038,6 +1038,102 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     }
 }
 
+fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
+    match args.tag {
+        Some(ref q) => {
+            match env.run_mode.as_ref().unwrap() {
+                AmbosoMode::GitMode => {
+                    todo!("Build op for git mode");
+                    /*
+                    if ! env.gitmode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return Err("Invalid tag".to_string())
+                    }
+                    */
+                }
+                AmbosoMode::BaseMode => {
+                    if ! env.basemode_versions_table.contains_key(q) {
+                        error!("{{{}}} was not a valid tag.",q);
+                        return Err("Invalid tag".to_string())
+                    }
+                }
+                AmbosoMode::TestMode => {
+                    todo!("Build op for test mode");
+                }
+                AmbosoMode::TestMacro => {
+                    todo!("Build op for test macro");
+                }
+            }
+            info!("Trying to run {{{:?}}}", q);
+            let mut queried_path = env.builds_dir.clone().unwrap();
+            let tagdir_name = format!("v{}", q);
+            queried_path.push(tagdir_name);
+
+            if queried_path.exists() {
+                trace!("Found {{{}}}", queried_path.display());
+                queried_path.push(env.bin.clone().unwrap());
+                if queried_path.exists() {
+                    trace!("Found {{{}}}", queried_path.display());
+                    if queried_path.is_file() {
+                        trace!("{} is a file", queried_path.display());
+                    } else {
+                        error!("{} is not a file", queried_path.display());
+                        return Err("Not a file".to_string())
+                    }
+                } else {
+                    warn!("No file found for {{{}}}", queried_path.display());
+                    if ! env.do_build {
+                        warn!("Try running with -b to build");
+                    }
+                    return Err("File not found".to_string());
+                }
+
+                let output = if cfg!(target_os = "windows") {
+                    todo!("Support windows run");
+                    /*
+                     * Command::new("cmd")
+                     *   .args(["/C", "echo hello"])
+                     *   .output()
+                     *   .expect("failed to execute process")
+                     */
+                } else {
+                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
+                    Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("{}", bin_path.display()))
+                    .output()
+                    .expect("failed to execute process")
+                };
+                match output.status.code() {
+                    Some(x) => {
+                        if x == 0 {
+                            info!("Run succeded with status: {}", x.to_string());
+                        } else {
+                            warn!("Run failed with status: {}", x.to_string());
+                        }
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        return Ok("Run done".to_string());
+                    }
+                    None => {
+                        error!("Run command for {{{}}} failed", args.tag.as_ref().unwrap());
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        return Err("Run command failed".to_string());
+                    }
+                }
+            } else {
+                warn!("No directory found for {{{}}}", queried_path.display());
+                return Err("No dir found".to_string())
+            }
+        }
+        None => {
+            warn!("No tag provided.");
+            return Err("No tag provided".to_string())
+        }
+    }
+}
+
 fn handle_amboso_env(env: AmbosoEnv, args: Args) {
     match env.run_mode {
         Some(ref runmode) => {
@@ -1083,7 +1179,15 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                 }
             }
             if env.do_run {
-                todo!("{}",format!("Run op for {:?}",runmode));
+                let run_res = do_run(&env,&args);
+                match run_res {
+                    Ok(s) => {
+                        trace!("{}", s);
+                    }
+                    Err(e) => {
+                        warn!("{}", e);
+                    }
+                }
             }
             if env.do_delete {
                 todo!("{}",format!("Delete op for {:?}",runmode));
