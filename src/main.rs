@@ -612,12 +612,21 @@ fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &String) -
 //Repo at https://github.com/jgabaut/invil\n
 #ifndef ANVIL__{bin_name}__\n
 #define ANVIL__{bin_name}__\n
-static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__API_LEVEL__STRING[] = \"1.9.6\"; /**< Represents amboso version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__{bin_name}__VERSION_STRING[] = \"{target_tag}\"; /**< Represents current version for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__{bin_name}__VERSION_DESC[] = \"\"; /**< Represents current version info for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__{bin_name}__VERSION_DATE[] = \"\"; /**< Represents date for current version for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__{bin_name}__VERSION_AUTHOR[] = \"\"; /**< Represents author for current version for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__API__LEVEL__(void); /**< Returns a version string for amboso API of [anvil__{bin_name}.h] generated header.*/\n
-const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for invil version of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__(void); /**< Returns a version string for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_ANVIL__VERSION__DESC__(void); /**< Returns a version info string for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_ANVIL__VERSION__DATE(void); /**< Returns a version date string for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_ANVIL__VERSION__AUTHOR(void); /**< Returns a version author string for [anvil__{bin_name}.h] generated header.*/\n
+#ifndef INVIL__{bin_name}__HEADER__
+#define INVIL__{bin_name}__HEADER__
+static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for invil version of [anvil__{bin_name}.h] generated header.*/\n
+#endif // INVIL__{bin_name}__HEADER__
 #endif");
     match output {
         Ok(mut f) => {
@@ -648,10 +657,24 @@ const char *get_ANVIL__API__LEVEL__(void)
 {{
     return ANVIL__API_LEVEL__STRING;
 }}\n
+const char *get_ANVIL__VERSION__DESC__(void)
+{{
+    return ANVIL__helapordo__VERSION_DESC;
+}}\n
+const char *get_ANVIL__VERSION__DATE__(void)
+{{
+    return ANVIL__helapordo__VERSION_DATE;
+}}\n
+const char *get_ANVIL__VERSION__AUTHOR__(void)
+{{
+    return ANVIL__helapordo__VERSION_AUTHOR;
+}}\n
+#ifdef INVIL__{bin_name}__HEADER__
 const char *get_INVIL__API__LEVEL__(void)
 {{
     return INVIL__VERSION__STRING;
-}}");
+}}
+#endif");
     match output {
         Ok(mut f) => {
             let res = write!(f, "{}", c_impl_string);
