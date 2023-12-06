@@ -2,3 +2,6 @@
 
 #ignore hello_world binary
 hello_world
+
+#ignore .o files
+*.o

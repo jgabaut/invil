@@ -22,7 +22,11 @@
   - Basic arguments parsing that complies with the bash implementation
   - Same default for amboso directory (`./bin`).
   - Parse `stego.lock` with compatible logic to bash implementation
-  - Base mode: init and build (only with basic command call)
+  - Base mode: full support
+    - The original implementation itself does not expect autotools prep for base mode, but it can be done trivially.
+  - Git mode: make support
+    - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
+    - autotools prep is not supported yet
 
   Flags support status:
 
@@ -35,13 +39,13 @@
   - [x] Verbose flag: `-V`
   - [ ] Test macro: `-t`
   - [ ] Test mode: `-T`
-  - [ ] Git mode: `-g`
-  - [x] Base mode: `-B` (only basic gcc call)
-  - [x] Build: `-b` (only with -B)
-  - [x] Run: `-r` (only with -B)
-  - [x] Init: `-i` (only with -B)
-  - [x] Delete: `-d` (only with -B)
-  - [x] Purge: `-p` (only with -B)
+  - [x] Git mode: `-g`
+  - [x] Base mode: `-B`
+  - [x] Build: `-b`
+  - [x] Run: `-r`
+  - [x] Init: `-i`
+  - [x] Delete: `-d`
+  - [x] Purge: `-p`
   - [x] Help: `-h`
   - [ ] Big Help: `-H`
   - [x] Version: `-v`
@@ -67,6 +71,12 @@ Our version was slightly modified to actually make cargo build the release versi
 
 ## Todo <a name = "todo"></a>
 
-  - Implement control flow for op checks
+  - Implement autotools prep step
+  - Implement test mode
   - Implement silent functionality
+  - Extend original impl by handling autotools in base mode
   - Improve logging with a custom format
+  - Improve horrendous git mode command chain
+    - Resorting to shell commands is bad and defeats the purpose of this rewrite.
+    - We have git2 crate to handle the git commands and should be able to reduce the amount of command wrapping.
+    - Handle autotools prep

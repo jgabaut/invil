@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Support for make builds in Basemode
+- Support for Gitmode
+  - Still not handling autotools
+
+### Changed
+
+- Updated try_anvil_auto to use the proper version numbers for this repo for tests
+- Added support_automakemode to AmbosoEnv
+
 ## [0.0.6] - 2023-12-03
 
 ### Added

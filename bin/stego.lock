@@ -2,8 +2,8 @@
 
 source = "hello_world.c"
 bin = "hello_world"
-makevers = "2.0.0"
-automakevers = "3.0.0"
+makevers = "0.0.7"
+automakevers = "2.0.0"
 tests = "kazoj"
 
 [tests]
@@ -14,3 +14,4 @@ errortestsdir = "kulpo"
 [versions]
 
 "-0.0.5" = "First release supporting base mode build. gcc call only"
+"-0.0.7" = "First release supporting base mode build. Wrap make"
