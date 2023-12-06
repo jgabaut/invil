@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [0.0.8] - 2023-12-06
+
+### Added
+
+- Support for automake mode
+  - Naive command to prep autotools
+
+### Changed
+
+- Permit run op for Gitmode
+
+## [0.0.7] - 2023-12-06
 
 ### Added
 
