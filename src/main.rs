@@ -992,7 +992,47 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
                     return Err("Missing automakemode support".to_string());
                 } else if use_automake {
-                    todo!("Automake prep");
+                    match env.run_mode.as_ref().unwrap() {
+                        AmbosoMode::GitMode => {
+                            if cfg!(target_os = "windows") {
+                                todo!("Support windows automake prep?");
+                                /*
+                                 * let output = Command::new("cmd")
+                                 *   .args(["/C", "echo hello"])
+                                 *   .output()
+                                 *   .expect("failed to execute process")
+                                 */
+                            } else {
+                                let output = Command::new("sh")
+                                    .arg("-c")
+                                    .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure"))
+                                    .output()
+                                    .expect("failed to execute process");
+
+                                match output.status.code() {
+                                    Some(autotools_prep_ec) => {
+                                        if autotools_prep_ec == 0 {
+                                            debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
+                                        } else {
+                                            error!("Automake failed with status: {}", autotools_prep_ec.to_string());
+                                            io::stdout().write_all(&output.stdout).unwrap();
+                                            io::stderr().write_all(&output.stderr).unwrap();
+                                            return Err("Automake prep failed".to_string());
+                                        }
+                                    }
+                                    None => {
+                                        error!("Automake prep command failed");
+                                        io::stdout().write_all(&output.stdout).unwrap();
+                                        io::stderr().write_all(&output.stderr).unwrap();
+                                        return Err("Automake prep command failed".to_string());
+                                    }
+                                }
+                            };
+                        }
+                        _ => {
+                            todo!("automake prep for {:?}", env.run_mode.as_ref().unwrap());
+                        }
+                    }
                 }
 
                 let output = if cfg!(target_os = "windows") {
