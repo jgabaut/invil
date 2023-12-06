@@ -764,7 +764,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             match args.tag {
                 Some (ref query) => {
                     debug!("TODO: check if query is not a valid tag?");
-                    match args.execname {
+                    match anvil_env.bin {
                         Some (ref binname) => {
                            info!("Generating C header for {{{}}} to dir: {{{}}}", query, x.display());
                            let res = gen_c_header(x, query, binname);
