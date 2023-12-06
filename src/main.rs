@@ -25,9 +25,9 @@ use std::process::{ExitCode, Command, exit};
 use std::io::{self, Write};
 use std::fs::File;
 
-
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
+const INVIL_LOG_FILE: &str = "invil.log";
 const ANVIL_SOURCE_KEYNAME: &str = "source";
 const ANVIL_BIN_KEYNAME: &str = "bin";
 const ANVIL_MAKE_VERS_KEYNAME: &str = "makevers";
@@ -142,6 +142,10 @@ struct Args {
     /// Ignore git mode checks
     #[arg(short = 'X', long, default_value = "false")]
     ignore_gitcheck: bool,
+
+    /// Output to log file
+    #[arg(long, default_value = "false")]
+    logged: bool,
 
     //TODO: Handle -C flag for passing start time for recursive calls
 
@@ -258,44 +262,44 @@ fn print_config_args(args: &Args) {
     let ignore_gitcheck_string: String = "X".to_owned();
     match args.amboso_dir {
         Some(ref x) => {
-            info!("Passed amboso_dir: {{{}}}", x.display());
+            debug!("Passed amboso_dir: {{{}}}", x.display());
             config_string.push_str(&amboso_dir_string);
         }
         None => {}
     }
     match args.kazoj_dir {
         Some(ref x) => {
-            info!("Passed kazoj_dir: {{{}}}", x.display());
+            debug!("Passed kazoj_dir: {{{}}}", x.display());
             config_string.push_str(&kazoj_dir_string);
         }
         None => {}
     }
     match args.source {
         Some(ref x) => {
-            info!("Passed source: {{{}}}", x);
+            debug!("Passed source: {{{}}}", x);
             config_string.push_str(&source_string);
         }
         None => {}
     }
     match args.execname {
         Some(ref x) => {
-            info!("Passed execname: {{{}}}", x);
+            debug!("Passed execname: {{{}}}", x);
             config_string.push_str(&execname_string);
         }
         None => {}
     }
     match args.maketag {
         Some(ref x) => {
-            info!("Passed maketag: {{{}}}", x);
+            debug!("Passed maketag: {{{}}}", x);
             config_string.push_str(&maketag_string);
         }
         None => {}
     }
     if args.ignore_gitcheck {
-        info!("Ignore git check is on.");
+        debug!("Ignore git check is on.");
         config_string.push_str(&ignore_gitcheck_string);
     }
-    info!("Config flags: {{-{}}}", config_string);
+    debug!("Config flags: {{-{}}}", config_string);
 }
 
 fn print_mode_args(args: &Args) {
@@ -333,7 +337,7 @@ fn print_mode_args(args: &Args) {
         None => {
         }
     }
-    info!("Mode flags: {{-{}}}", flags_string);
+    debug!("Mode flags: {{-{}}}", flags_string);
 }
 
 fn print_subcommand_args(args: &Args) {
@@ -350,11 +354,11 @@ fn print_subcommand_args(args: &Args) {
         }
         Some(Commands::Init { init_dir }) => {
             if init_dir.is_some() {
-                info!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
+                debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
             } else {
                 warn!("Missing init_dir arg for init command.");
                 //init_dir = &Some(PathBuf::from("."));
-                //info!("Set . as init_dir");
+                //debug!("Set . as init_dir");
             }
             todo!("Quick init command")
         }
@@ -388,7 +392,7 @@ fn print_info_args(args: &Args) {
         info_flags_string.push_str("W");
     }
 
-    info!("Info flags: {{-{}}}", info_flags_string);
+    debug!("Info flags: {{-{}}}", info_flags_string);
 }
 
 fn print_op_args(args: &Args) {
@@ -411,7 +415,7 @@ fn print_op_args(args: &Args) {
         op_flags_string.push_str("p");
     }
 
-    info!("Op flags: {{-{}}}", op_flags_string);
+    debug!("Op flags: {{-{}}}", op_flags_string);
 }
 
 
@@ -647,6 +651,15 @@ fn gen_c_header(target_path: &PathBuf, _target_tag: &String, bin_name: &String) 
 
 fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
+    match args.logged {
+        false => {
+
+        }
+        true => {
+            trace!("Doing a logged run");
+        }
+    }
+
     let mut anvil_env: AmbosoEnv = AmbosoEnv {
         run_mode : None,
         builds_dir: None,
@@ -763,7 +776,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     //Check amboso_dir arg
     match args.amboso_dir {
         Some(ref x) => {
-            info!("Amboso dir {{{}}}", x.display());
+            debug!("Amboso dir {{{}}}", x.display());
             let res = check_amboso_dir(x);
             match res {
                 Ok(a) => {
@@ -796,7 +809,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match args.kazoj_dir {
         Some(ref x) => {
-            info!("Tests dir {{{}}}", x.display());
+            debug!("Tests dir {{{}}}", x.display());
             if x.exists() {
                 debug!("{} exists", x.display());
                 anvil_env.tests_dir = Some(x.clone());
@@ -848,7 +861,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match args.source {
         Some(ref x) => {
-            info!("Source {{{}}}", x);
+            debug!("Source {{{}}}", x);
             anvil_env.source = args.source.clone();
             debug!("TODO:  Validate source")
         }
@@ -869,7 +882,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match &args.execname {
         Some(x) => {
-            info!("Execname {{{}}}", x);
+            debug!("Execname {{{}}}", x);
             anvil_env.bin = Some(x.to_string());
             debug!("TODO:  Validate execname")
         }
@@ -890,7 +903,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match &args.maketag {
         Some(x) => {
-            info!("Maketag {{{}}}", x);
+            debug!("Maketag {{{}}}", x);
             anvil_env.mintag_make = Some(x.to_string());
             debug!("TODO:  Validate maketag")
         }
@@ -1002,8 +1015,8 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
             }
         }
         None => {
-            warn!("No tag provided.");
-            return Err("No tag provided".to_string())
+            warn!("No tag provided for query op.");
+            return Err("No tag provided.".to_string())
         }
     }
 }
@@ -1548,7 +1561,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                         trace!("{}", s);
                     }
                     Err(e) => {
-                        warn!("{}", e);
+                        warn!("do_build() failed in handle_amboso_env(). Err: {}", e);
                     }
                 }
             }
@@ -1559,7 +1572,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                         trace!("{}", s);
                     }
                     Err(e) => {
-                        warn!("{}", e);
+                        warn!("do_run() failed in handle_amboso_env(). Err: {}", e);
                     }
                 }
             }
@@ -1570,14 +1583,14 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                         trace!("{}", s);
                     }
                     Err(e) => {
-                        warn!("{}", e);
+                        warn!("do_delete() failed in handle_amboso_env(). Err: {}", e);
                     }
                 }
             }
             if env.do_init {
                 match runmode {
                     AmbosoMode::GitMode => {
-                        info!("Doing init for git mode");
+                        debug!("Doing init for git mode");
                         let mut args_copy = args.clone();
                         for tag in env.gitmode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
@@ -1587,13 +1600,13 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                                     trace!("{}", s);
                                 }
                                 Err(e) => {
-                                    warn!("{}", e);
+                                    warn!("do_init(): Build failed for tag {{{}}}. Err: {}", tag,e);
                                 }
                             }
                         }
                     }
                     AmbosoMode::BaseMode => {
-                        info!("Doing init for base mode");
+                        debug!("Doing init for base mode");
                         let mut args_copy = args.clone();
                         for tag in env.basemode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
@@ -1603,7 +1616,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                                     trace!("{}", s);
                                 }
                                 Err(e) => {
-                                    warn!("{}", e);
+                                    warn!("do_init(): Build failed for tag {{{}}}. Err: {}", tag,e);
                                 }
                             }
                         }
@@ -1619,7 +1632,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
             if env.do_purge {
                 match runmode {
                     AmbosoMode::GitMode => {
-                        info!("Doing purge for git mode");
+                        debug!("Doing purge for git mode");
                         let mut args_copy = args.clone();
                         for tag in env.gitmode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
@@ -1629,13 +1642,13 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                                     trace!("{}", s);
                                 }
                                 Err(e) => {
-                                    warn!("{}", e);
+                                    warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
                                 }
                             }
                         }
                     }
                     AmbosoMode::BaseMode => {
-                        info!("Doing purge for base mode");
+                        debug!("Doing purge for base mode");
                         let mut args_copy = args.clone();
                         for tag in env.basemode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
@@ -1645,7 +1658,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                                     trace!("{}", s);
                                 }
                                 Err(e) => {
-                                    warn!("{}", e);
+                                    warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
                                 }
                             }
                         }
@@ -1666,7 +1679,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                     trace!("{}", s);
                 }
                 Err(e) => {
-                    warn!("{}", e);
+                    warn!("do_query() failed in handle_amboso_env(). Err: {}", e);
                 }
             }
         }
@@ -1717,12 +1730,32 @@ fn main() -> ExitCode {
         },
     }
 
-    CombinedLogger::init(
-        vec![
-            TermLogger::new(log_level, Config::default(), TerminalMode::Mixed, ColorChoice::Auto),
-            //WriteLogger::new(LevelFilter::Info, Config::default(), File::create("my_rust_binary.log").unwrap()),
-        ]
-    ).unwrap();
+    let config = ConfigBuilder::new()
+        .set_level_color(Level::Error, Some(Color::Red))
+        .set_level_color(Level::Trace, Some(Color::White))
+        .set_level_color(Level::Warn, Some(Color::Yellow))
+        .set_level_color(Level::Debug, Some(Color::Magenta))
+        .set_level_color(Level::Info, Some(Color::Green))
+        .set_time_level(LevelFilter::Debug)
+        .build();
+
+    match args.logged {
+        false => {
+            CombinedLogger::init(
+                vec![
+                    TermLogger::new(log_level, config, TerminalMode::Mixed, ColorChoice::Always),
+                ]
+            ).unwrap();
+        }
+        true => {
+            CombinedLogger::init(
+                vec![
+                TermLogger::new(log_level, config.clone(), TerminalMode::Mixed, ColorChoice::Always),
+                WriteLogger::new(LevelFilter::Trace, config, File::create(INVIL_LOG_FILE).unwrap()),
+                ]
+            ).unwrap();
+        }
+    }
 
     //Debug pretty-print of args
     trace!("Args: {:#?}\n", args);

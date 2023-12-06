@@ -5,3 +5,6 @@ hello_world
 
 #ignore .o files
 *.o
+
+#ignore invil.log
+invil.log
