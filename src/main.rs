@@ -21,8 +21,9 @@ use simplelog::*;
 use toml::Table;
 use git2::{Repository, Error, Status};
 use std::collections::BTreeMap;
-use std::process::{ExitCode, Command};
+use std::process::{ExitCode, Command, exit};
 use std::io::{self, Write};
+use std::fs::File;
 
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -600,6 +601,50 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     }
 }
 
+fn gen_c_header(target_path: &PathBuf, _target_tag: &String, bin_name: &String) -> Result<String,String> {
+    let header_path = format!("{}/anvil__{}.h", target_path.display(), bin_name);
+    let output = File::create(header_path);
+    let header_string = format!("");
+    match output {
+        Ok(mut f) => {
+            let res = write!(f, "{}", header_string);
+            match res {
+                Ok(_) => {
+                    debug!("Done generating header file");
+                }
+                Err(e) => {
+                    error!("Failed printing header file");
+                    return Err(e.to_string());
+                }
+            }
+        }
+        Err(_) => {
+            return Err("Failed gen of header file".to_string());
+        }
+    }
+    let c_impl_path = format!("{}/anvil__{}.c", target_path.display(), bin_name);
+    let output = File::create(c_impl_path);
+    let c_impl_string = format!("");
+    match output {
+        Ok(mut f) => {
+            let res = write!(f, "{}", c_impl_string);
+            match res {
+                Ok(_) => {
+                    debug!("Done generating c impl file");
+                }
+                Err(e) => {
+                    error!("Failed printing c impl file");
+                    return Err(e.to_string());
+                }
+            }
+        }
+        Err(_) => {
+            return Err("Failed gen of c impl file".to_string());
+        }
+    }
+    Ok("Done C generationg".to_string())
+}
+
 fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     let mut anvil_env: AmbosoEnv = AmbosoEnv {
@@ -627,8 +672,35 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match args.gen_c_header {
         Some(ref x) => {
-            info!("C header dir: {{{}}}", x.display());
-            todo!("Validate C header dir");
+            match args.tag {
+                Some (ref query) => {
+                    debug!("TODO: check if query is not a valid tag?");
+                    match args.execname {
+                        Some (ref binname) => {
+                           info!("Generating C header for {{{}}} to dir: {{{}}}", query, x.display());
+                           let res = gen_c_header(x, query, binname);
+                            match res {
+                                Ok(_) => {
+                                    info!("C header gen successful for {{{}}}.", query);
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("C header gen failed for {{{}}}.\nError was:    {e}", query);
+                                    return Err(e);
+                                }
+                            }
+                        }
+                        None => {
+                            error!("Missing bin name for C header gen mode");
+                            return Err("Missing bin name for C header gen".to_string());
+                        }
+                    }
+                }
+                None => {
+                    error!("Missing query tag for C header gen mode");
+                    return Err("Missing query tag for C header gen".to_string());
+                }
+            }
         }
         None => {
             trace!("-G not asserted.");
