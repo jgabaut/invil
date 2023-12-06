@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.0.9] - 2023-12-07
+
+### Added
+
+- Support for -G flag
+  - Detailed build info is defined but empty.
+  - Also includes build OS into header.
+
+- New logged flag to also output full log to file
+  - Output file is ./invil.log
+
+### Changed
+
+- Updated log config to not always show time
+
 ## [0.0.8] - 2023-12-06
 
 ### Added
