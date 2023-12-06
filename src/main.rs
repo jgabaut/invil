@@ -1737,6 +1737,8 @@ fn main() -> ExitCode {
         .set_level_color(Level::Debug, Some(Color::Magenta))
         .set_level_color(Level::Info, Some(Color::Green))
         .set_time_level(LevelFilter::Debug)
+        .set_thread_level(LevelFilter::Trace)
+        .set_thread_mode(ThreadLogMode::Both)
         .build();
 
     match args.logged {
