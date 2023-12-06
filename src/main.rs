@@ -1258,13 +1258,10 @@ fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    todo!("Run op for git mode");
-                    /*
                     if ! env.gitmode_versions_table.contains_key(q) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
-                    */
                 }
                 AmbosoMode::BaseMode => {
                     if ! env.basemode_versions_table.contains_key(q) {

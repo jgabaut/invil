@@ -8,6 +8,7 @@
 + [What is this thing?](#witt)
 + [Supported amboso features](#supported_amboso)
 + [See how it behaves](#try_anvil)
++ [Basic benchmark](#base_bench)
 + [Todo](#todo)
 
 ## What is this thing? <a name = "witt"></a>
@@ -24,9 +25,8 @@
   - Parse `stego.lock` with compatible logic to bash implementation
   - Base mode: full support
     - The original implementation itself does not expect autotools prep for base mode, but it can be done trivially.
-  - Git mode: make support
+  - Git mode: full support
     - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
-    - autotools prep is not supported yet
 
   Flags support status:
 
@@ -69,14 +69,17 @@ Refer to amboso info about this test script: [link](https://github.com/jgabaut/a
 
 Our version was slightly modified to actually make cargo build the release version of the binary we want to symlink to `anvil`.
 
+## Basic benchmark <a name = "base_bench"></a>
+
+Check out [this page](https://github.com/jgabaut/invil/bench/gitmode-bench.md) for a very basic benchmark of runtime, relative to bash `amboso` implementation.
+
 ## Todo <a name = "todo"></a>
 
-  - Implement autotools prep step
   - Implement test mode
   - Implement silent functionality
   - Extend original impl by handling autotools in base mode
   - Improve logging with a custom format
   - Improve horrendous git mode command chain
+    - The current implementation is naive and just calls a bunch of `Command` to pipeline the git operations in a ugly iper-indented mess.
     - Resorting to shell commands is bad and defeats the purpose of this rewrite.
     - We have git2 crate to handle the git commands and should be able to reduce the amount of command wrapping.
-    - Handle autotools prep
