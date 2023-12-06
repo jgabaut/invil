@@ -26,6 +26,7 @@ use std::io::{self, Write};
 use std::fs::File;
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
+const INVIL_OS: &str = env::consts::OS;
 const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 const INVIL_LOG_FILE: &str = "invil.log";
 const ANVIL_SOURCE_KEYNAME: &str = "source";
@@ -626,7 +627,9 @@ const char *get_ANVIL__VERSION__AUTHOR(void); /**< Returns a version author stri
 #ifndef INVIL__{bin_name}__HEADER__
 #define INVIL__{bin_name}__HEADER__
 static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
+static const char INVIL__OS__STRING[] = \"{INVIL_OS}\"; /**< Represents build os used for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for invil version of [anvil__{bin_name}.h] generated header.*/\n
+const char *get_INVIL__OS__(void); /**< Returns a version string for os used for [anvil__{bin_name}.h] generated header.*/\n
 #endif // INVIL__{bin_name}__HEADER__
 #endif");
     match output {
@@ -674,6 +677,10 @@ const char *get_ANVIL__VERSION__AUTHOR__(void)
 const char *get_INVIL__API__LEVEL__(void)
 {{
     return INVIL__VERSION__STRING;
+}}\n
+const char *get_INVIL__OS__(void)
+{{
+    return INVIL__OS__STRING;
 }}
 #endif");
     match output {

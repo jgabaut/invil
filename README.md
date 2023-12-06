@@ -27,6 +27,8 @@
     - The original implementation itself does not expect autotools prep for base mode, but it can be done trivially.
   - Git mode: full support
     - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
+  - C header gen: basic support
+    - The original implementation also prepares git commit info for the header.
 
   Flags support status:
 
@@ -35,7 +37,7 @@
   - [x] Linter mode: `-x`
     - [ ] Lint only: `-l`
     - [ ] Report lex: `-L`
-  - [ ] C header gen mode: `-G`
+  - [x] C header gen mode: `-G` (detailed info is empty)
   - [x] Verbose flag: `-V`
   - [ ] Test macro: `-t`
   - [ ] Test mode: `-T`
@@ -56,6 +58,14 @@
   - [ ] Watch flag: `-w`
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
+
+
+## Extensions
+
+  - [x] `--logged` to output full log to file
+    - Outputs to `./invil.log`. Not backwards compatible with repos not ignoring the file explicitly.
+  - [x] `-G` flag also includes a string for build OS.
+    - From `env::consts::OS`
 
 ## See how it behaves <a name = "try_anvil"></a>
 
@@ -83,3 +93,4 @@ Check out [this page](https://github.com/jgabaut/invil/bench/gitmode-bench.md) f
     - The current implementation is naive and just calls a bunch of `Command` to pipeline the git operations in a ugly iper-indented mess.
     - Resorting to shell commands is bad and defeats the purpose of this rewrite.
     - We have git2 crate to handle the git commands and should be able to reduce the amount of command wrapping.
+  - Add detailed git info for C header generation
