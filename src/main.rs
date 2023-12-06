@@ -215,6 +215,9 @@ struct AmbosoEnv {
 
     /// Allow make builds
     support_makemode: bool,
+
+    /// Allow automake builds
+    support_automakemode: bool,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -500,6 +503,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 gitmode_versions_table: BTreeMap::new(),
                 support_testmode : true,
                 support_makemode : true,
+                support_automakemode : false,
                 do_build : false,
                 do_run : false,
                 do_delete : false,
@@ -613,6 +617,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         gitmode_versions_table: BTreeMap::new(),
         support_testmode : true,
         support_makemode : true,
+        support_automakemode : false,
         do_build : false,
         do_run : false,
         do_delete : false,
@@ -822,6 +827,16 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             match anvil_env.mintag_make {
                 Some( ref x) => {
                     args.maketag = Some(x.clone());
+                    match anvil_env.mintag_automake {
+                        Some ( ref automake_tag ) => {
+                            debug!("TODO:  Validate automaketag {}", automake_tag);
+                            anvil_env.support_automakemode = true;
+                        }
+                        None => {
+                            warn!("stego.lock did not have a valid automaketag arg.");
+                            anvil_env.support_automakemode = false;
+                        }
+                    }
                 }
                 None => {
                     warn!("stego.lock did not have a valid maketag arg.");
@@ -923,20 +938,17 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
 
 fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
-        Some(ref q) => {
+        Some(ref query) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    todo!("Build op for git mode");
-                    /*
-                    if ! env.gitmode_versions_table.contains_key(q) {
-                        error!("{{{}}} was not a valid tag.",q);
+                    if ! env.gitmode_versions_table.contains_key(query) {
+                        error!("{{{}}} was not a valid tag.",query);
                         return Err("Invalid tag".to_string())
                     }
-                    */
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(q) {
-                        error!("{{{}}} was not a valid tag.",q);
+                    if ! env.basemode_versions_table.contains_key(query) {
+                        error!("{{{}}} was not a valid tag.",query);
                         return Err("Invalid tag".to_string())
                     }
                 }
@@ -947,9 +959,9 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     todo!("Build op for test macro");
                 }
             }
-            info!("Trying to build {{{:?}}}", q);
+            info!("Trying to build {{{:?}}}", query);
             let mut queried_path = env.builds_dir.clone().unwrap();
-            let tagdir_name = format!("v{}", q);
+            let tagdir_name = format!("v{}", query);
             queried_path.push(tagdir_name);
 
             if queried_path.exists() {
@@ -967,11 +979,20 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     trace!("No file found for {{{}}}", queried_path.display());
                 }
 
-                let use_make = q >= &env.mintag_make.clone().unwrap();
+                let use_make = query >= &env.mintag_make.clone().unwrap();
 
                 if use_make && !env.support_makemode {
-                    error!("Can't build {{{}}}, as makemode is not supported by the project", q);
+                    error!("Can't build {{{}}}, as makemode is not supported by the project", query);
                     return Err("Missing makemode support".to_string());
+                }
+
+                let use_automake = query >= &env.mintag_automake.clone().unwrap();
+
+                if use_automake && !env.support_automakemode {
+                    error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
+                    return Err("Missing automakemode support".to_string());
+                } else if use_automake {
+                    todo!("Automake prep");
                 }
 
                 let output = if cfg!(target_os = "windows") {
@@ -1006,7 +1027,156 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                         }
                         AmbosoMode::GitMode => {
-                            todo!("Build op for git mode");
+                            let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let mut source_path = build_path.clone();
+                            source_path.push(env.source.clone().unwrap());
+                            let mut bin_path = build_path.clone();
+                            bin_path.push(env.bin.clone().unwrap());
+                            trace!("Git mode, checking out {}",query);
+
+                            let output = Command::new("sh")
+                                .arg("-c")
+                                .arg(format!("git checkout {} 2>/dev/null", query))
+                                .output()
+                                .expect("failed to execute process");
+
+                            match output.status.code() {
+                                Some(checkout_ec) => {
+                                    if checkout_ec == 0 {
+                                        debug!("Checkout succeded with status: {}", checkout_ec.to_string());
+                                        let output = Command::new("sh")
+                                            .arg("-c")
+                                            .arg(format!("git submodule update --init --recursive"))
+                                            .output()
+                                            .expect("failed to execute process");
+                                        match output.status.code() {
+                                            Some(gsinit_ec) => {
+                                                if gsinit_ec == 0 {
+                                                    debug!("Submodule init succeded with status: {}", gsinit_ec.to_string());
+                                                    let output = Command::new("sh")
+                                                        .arg("-c")
+                                                        .arg(format!("make >&2"))
+                                                        .output()
+                                                        .expect("failed to execute process");
+                                                    match output.status.code() {
+                                                        Some(make_ec) => {
+                                                            if make_ec == 0 {
+                                                               debug!("make succeded with status: {}", make_ec.to_string());
+                                                                let output = Command::new("sh")
+                                                                    .arg("-c")
+                                                                    .arg(format!("mv {} {}", env.bin.as_ref().unwrap(), bin_path.display()))
+                                                                    .output()
+                                                                    .expect("failed to execute process");
+                                                                match output.status.code() {
+                                                                    Some(mv_ec) => {
+                                                                        if mv_ec == 0 {
+                                                                            debug!("mv succeded with status: {}", mv_ec.to_string());
+                                                                            let output = Command::new("sh")
+                                                                                .arg("-c")
+                                                                                .arg(format!("git switch -"))
+                                                                                .output()
+                                                                                .expect("failed to execute process");
+                                                                            match output.status.code() {
+                                                                                Some(gswitch_ec) => {
+                                                                                    if gswitch_ec == 0 {
+                                                                                       debug!("git switch succeded with status: {}", gswitch_ec.to_string());
+                                                                                        let output = Command::new("sh")
+                                                                                            .arg("-c")
+                                                                                            .arg(format!("git submodule update --init --recursive"))
+                                                                                            .output()
+                                                                                            .expect("failed to execute process");
+                                                                                        match output.status.code() {
+                                                                                            Some(gsinit_end_ec) => {
+                                                                                                if gsinit_end_ec == 0 {
+                                                                                                    debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
+                                                                                                    debug!("Done build for {}", query);
+                                                                                                } else {
+                                                                                                    warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
+                                                                                                    io::stdout().write_all(&output.stdout).unwrap();
+                                                                                                    io::stderr().write_all(&output.stderr).unwrap();
+                                                                                                    return Err("git submodule init failed".to_string());
+                                                                                                }
+                                                                                            }
+                                                                                            None => {
+                                                                                                error!("git submodule init command failed");
+                                                                                                io::stdout().write_all(&output.stdout).unwrap();
+                                                                                                io::stderr().write_all(&output.stderr).unwrap();
+                                                                                                return Err("git submodule init command failed".to_string());
+                                                                                            }
+                                                                                        }
+                                                                                    } else {
+                                                                                        warn!("git switch failed with status: {}", gswitch_ec.to_string());
+                                                                                        io::stdout().write_all(&output.stdout).unwrap();
+                                                                                        io::stderr().write_all(&output.stderr).unwrap();
+                                                                                        return Err("git switch failed".to_string());
+                                                                                    }
+                                                                                }
+                                                                                None => {
+                                                                                    error!("git switch command failed");
+                                                                                    io::stdout().write_all(&output.stdout).unwrap();
+                                                                                    io::stderr().write_all(&output.stderr).unwrap();
+                                                                                    return Err("git switch command failed".to_string());
+                                                                                }
+                                                                            }
+                                                                        } else {
+                                                                            warn!("mv failed with status: {}", mv_ec.to_string());
+                                                                            io::stdout().write_all(&output.stdout).unwrap();
+                                                                            io::stderr().write_all(&output.stderr).unwrap();
+                                                                            return Err("mv failed".to_string());
+                                                                        }
+                                                                    }
+                                                                    None => {
+                                                                        error!("mv command failed");
+                                                                        io::stdout().write_all(&output.stdout).unwrap();
+                                                                        io::stderr().write_all(&output.stderr).unwrap();
+                                                                        return Err("mv command failed".to_string());
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                warn!("make failed with status: {}", make_ec.to_string());
+                                                                io::stdout().write_all(&output.stdout).unwrap();
+                                                                io::stderr().write_all(&output.stderr).unwrap();
+                                                                return Err("make failed".to_string());
+                                                            }
+                                                        }
+                                                        None => {
+                                                            error!("make command failed");
+                                                            io::stdout().write_all(&output.stdout).unwrap();
+                                                            io::stderr().write_all(&output.stderr).unwrap();
+                                                            return Err("make command failed".to_string());
+                                                        }
+                                                    }
+                                                } else {
+                                                    warn!("Submodule init failed with status: {}", gsinit_ec.to_string());
+                                                    io::stdout().write_all(&output.stdout).unwrap();
+                                                    io::stderr().write_all(&output.stderr).unwrap();
+                                                    return Err("Submodule init failed".to_string());
+                                                }
+                                            }
+                                            None => {
+                                                error!("git submodule init command failed");
+                                                io::stdout().write_all(&output.stdout).unwrap();
+                                                io::stderr().write_all(&output.stderr).unwrap();
+                                                return Err("git submodule init command failed".to_string());
+                                            }
+                                        }
+                                    } else {
+                                        warn!("Checkout failed with status: {}", checkout_ec.to_string());
+                                        io::stdout().write_all(&output.stdout).unwrap();
+                                        io::stderr().write_all(&output.stderr).unwrap();
+                                        return Err("Checkout failed".to_string());
+                                    }
+                                    io::stdout().write_all(&output.stdout).unwrap();
+                                    io::stderr().write_all(&output.stderr).unwrap();
+                                    return Ok("Build done".to_string());
+                                }
+                                None => {
+                                    error!("Git checkout command failed");
+                                    io::stdout().write_all(&output.stdout).unwrap();
+                                    io::stderr().write_all(&output.stderr).unwrap();
+                                    return Err("Git checkout command failed".to_string());
+                                }
+                            }
                         }
                         _ => {
                             todo!("Build op for test modes");
@@ -1144,13 +1314,10 @@ fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    todo!("Delete op for git mode");
-                    /*
                     if ! env.gitmode_versions_table.contains_key(q) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
-                    */
                 }
                 AmbosoMode::BaseMode => {
                     if ! env.basemode_versions_table.contains_key(q) {
@@ -1301,7 +1468,20 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
             if env.do_init {
                 match runmode {
                     AmbosoMode::GitMode => {
-                        todo!("Init op for git mode");
+                        info!("Doing init for git mode");
+                        let mut args_copy = args.clone();
+                        for tag in env.gitmode_versions_table.keys() {
+                            args_copy.tag = Some(tag.to_string());
+                            let build_res = do_build(&env,&args_copy);
+                            match build_res {
+                                Ok(s) => {
+                                    trace!("{}", s);
+                                }
+                                Err(e) => {
+                                    warn!("{}", e);
+                                }
+                            }
+                        }
                     }
                     AmbosoMode::BaseMode => {
                         info!("Doing init for base mode");
@@ -1330,7 +1510,20 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
             if env.do_purge {
                 match runmode {
                     AmbosoMode::GitMode => {
-                        todo!("Purge op for git mode");
+                        info!("Doing purge for git mode");
+                        let mut args_copy = args.clone();
+                        for tag in env.gitmode_versions_table.keys() {
+                            args_copy.tag = Some(tag.to_string());
+                            let delete_res = do_delete(&env,&args_copy);
+                            match delete_res {
+                                Ok(s) => {
+                                    trace!("{}", s);
+                                }
+                                Err(e) => {
+                                    warn!("{}", e);
+                                }
+                            }
+                        }
                     }
                     AmbosoMode::BaseMode => {
                         info!("Doing purge for base mode");
