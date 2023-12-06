@@ -991,7 +991,12 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
                             if use_make {
-                                todo!("Make build op for base mode");
+                                trace!("Using make mode");
+                                Command::new("sh")
+                                    .arg("-c")
+                                    .arg(format!("( cd {} || echo \"cd failed\"; make )", build_path.display()))
+                                    .output()
+                                    .expect("failed to execute process")
                             } else {
                                 Command::new("sh")
                                     .arg("-c")

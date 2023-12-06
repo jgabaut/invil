@@ -82,28 +82,28 @@ HINT " STEP 5/10
 
     "
 
-./anvil -BV 1 0.1.0
+./anvil -BV 5 0.0.5
 HINT " STEP 6/10
 
     Verbose query, should succeed in reporting unbuilt version
 
     "
 
-./anvil -Brbd 0.1.0
+./anvil -Brbd 0.0.5
 HINT " STEP 7/10
 
-    Build, run, delete 0.1.0. Tests single file compilation & execution. Delete is done just before quitting and cleans our binary.
+    Build, run, delete 0.0.5. Tests single file compilation & execution. Delete is done just before quitting and cleans our binary.
 
     "
 
-./anvil -Brb 0.9.0
+./anvil -Brb 0.0.7
 HINT " STEP 8/10
 
-    Build, run 0.9.0. Tests make compilation & execution. No delete here, so the binary stays in the directory for future queries
+    Build, run 0.0.7. Tests make compilation & execution. No delete here, so the binary stays in the directory for future queries
 
     "
 
-./anvil -BprbiV 1 1.0.0
+./anvil -Bprbi 1.0.0
 HINT " STEP 9/10
 
     Verbose Init, Build, Run and Purge 1.0.0.
