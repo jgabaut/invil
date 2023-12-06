@@ -608,7 +608,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
 fn gen_c_header(target_path: &PathBuf, _target_tag: &String, bin_name: &String) -> Result<String,String> {
     let header_path = format!("{}/anvil__{}.h", target_path.display(), bin_name);
     let output = File::create(header_path);
-    let header_string = format!("");
+    let header_string = format!("invil - TODO - C header for {{{}}}", bin_name);
     match output {
         Ok(mut f) => {
             let res = write!(f, "{}", header_string);
@@ -628,7 +628,7 @@ fn gen_c_header(target_path: &PathBuf, _target_tag: &String, bin_name: &String) 
     }
     let c_impl_path = format!("{}/anvil__{}.c", target_path.display(), bin_name);
     let output = File::create(c_impl_path);
-    let c_impl_string = format!("");
+    let c_impl_string = format!("invil - TODO - C impl for {{{}}}", bin_name);
     match output {
         Ok(mut f) => {
             let res = write!(f, "{}", c_impl_string);
