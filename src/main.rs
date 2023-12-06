@@ -683,43 +683,6 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_purge : false,
     };
 
-    match args.gen_c_header {
-        Some(ref x) => {
-            match args.tag {
-                Some (ref query) => {
-                    debug!("TODO: check if query is not a valid tag?");
-                    match args.execname {
-                        Some (ref binname) => {
-                           info!("Generating C header for {{{}}} to dir: {{{}}}", query, x.display());
-                           let res = gen_c_header(x, query, binname);
-                            match res {
-                                Ok(_) => {
-                                    info!("C header gen successful for {{{}}}.", query);
-                                    exit(0);
-                                }
-                                Err(e) => {
-                                    error!("C header gen failed for {{{}}}.\nError was:    {e}", query);
-                                    return Err(e);
-                                }
-                            }
-                        }
-                        None => {
-                            error!("Missing bin name for C header gen mode");
-                            return Err("Missing bin name for C header gen".to_string());
-                        }
-                    }
-                }
-                None => {
-                    error!("Missing query tag for C header gen mode");
-                    return Err("Missing query tag for C header gen".to_string());
-                }
-            }
-        }
-        None => {
-            trace!("-G not asserted.");
-        }
-    }
-
     match args.linter {
         Some(ref x) => {
             info!("Linter for file: {{{}}}", x.display());
@@ -793,6 +756,43 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         None => {
             error!("Missing amboso dir argument. Quitting.");
             return Err("Missing amboso_dir arg".to_string());
+        }
+    }
+
+    match args.gen_c_header {
+        Some(ref x) => {
+            match args.tag {
+                Some (ref query) => {
+                    debug!("TODO: check if query is not a valid tag?");
+                    match args.execname {
+                        Some (ref binname) => {
+                           info!("Generating C header for {{{}}} to dir: {{{}}}", query, x.display());
+                           let res = gen_c_header(x, query, binname);
+                            match res {
+                                Ok(_) => {
+                                    info!("C header gen successful for {{{}}}.", query);
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("C header gen failed for {{{}}}.\nError was:    {e}", query);
+                                    return Err(e);
+                                }
+                            }
+                        }
+                        None => {
+                            error!("Missing bin name for C header gen mode");
+                            return Err("Missing bin name for C header gen".to_string());
+                        }
+                    }
+                }
+                None => {
+                    error!("Missing query tag for C header gen mode");
+                    return Err("Missing query tag for C header gen".to_string());
+                }
+            }
+        }
+        None => {
+            trace!("-G not asserted.");
         }
     }
 
