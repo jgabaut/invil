@@ -81,7 +81,7 @@ Our version was slightly modified to actually make cargo build the release versi
 
 ## Basic benchmark <a name = "base_bench"></a>
 
-Check out [this page](https://github.com/jgabaut/invil/bench/gitmode-bench.md) for a very basic benchmark of runtime, relative to bash `amboso` implementation.
+Check out [this page](https://github.com/jgabaut/invil/blob/master/bench/gitmode-0.0.9-bench.md) for a very basic benchmark of runtime, relative to bash `amboso` implementation.
 
 ## Todo <a name = "todo"></a>
 
