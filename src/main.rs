@@ -24,6 +24,8 @@ use std::collections::BTreeMap;
 use std::process::{ExitCode, Command, exit};
 use std::io::{self, Write};
 use std::fs::File;
+use is_executable::is_executable;
+
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 const INVIL_OS: &str = env::consts::OS;
@@ -1113,6 +1115,11 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     } else {
                         error!("{} is not a file", queried_path.display());
                         return Err("Not a file".to_string())
+                    }
+                    if is_executable(&queried_path) {
+                        debug!("{} is executable", queried_path.display());
+                    } else {
+                        debug!("{} is not executable", queried_path.display());
                     }
                 } else {
                     trace!("No file found for {{{}}}", queried_path.display());
