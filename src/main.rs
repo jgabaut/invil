@@ -1056,7 +1056,14 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     trace!("Found {{{}}}", queried_path.display());
                     if queried_path.is_file() {
                         info!("{} is a file", queried_path.display());
-                        return Ok("Is a file".to_string());
+                        if is_executable(&queried_path) {
+                            debug!("{} is executable", queried_path.display());
+                            return Ok("Is executable".to_string());
+                        } else {
+                            debug!("{} is not executable", queried_path.display());
+                            return Ok("Is not executable".to_string());
+                        }
+                        
                     } else {
                         debug!("{} is not a file", queried_path.display());
                         return Err("Not a file".to_string())
@@ -1115,11 +1122,6 @@ fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     } else {
                         error!("{} is not a file", queried_path.display());
                         return Err("Not a file".to_string())
-                    }
-                    if is_executable(&queried_path) {
-                        debug!("{} is executable", queried_path.display());
-                    } else {
-                        debug!("{} is not executable", queried_path.display());
                     }
                 } else {
                     trace!("No file found for {{{}}}", queried_path.display());
