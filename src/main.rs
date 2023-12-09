@@ -206,6 +206,12 @@ struct AmbosoEnv {
     /// Allow test mode run
     support_testmode: bool,
 
+    /// Table with supported tests
+    bonetests_table: BTreeMap<String, PathBuf>,
+
+    /// Table with supported error tests
+    kulpotests_table: BTreeMap<String, PathBuf>,
+
     /// Do build op
     do_build: bool,
 
@@ -463,7 +469,7 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
             trace!("Found {}", stego_path.display());
             let res = parse_stego_toml(&stego_path);
             match res {
-                Ok(a) => {
+                Ok(mut a) => {
                     trace!("Stego contents: {{{:#?}}}", a);
                     if a.support_testmode {
                         match a.bonetests_dir {
@@ -476,6 +482,16 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
                             }
 
                         };
+                        match a.kulpotests_dir {
+                            Some(ref k) => {
+                                trace!("Have kulpotests_dir, value: {{{}}}", k.display());
+                            }
+                            None => {
+                                error!("Missing kulpotests_dir value");
+                                return Err("Missing kulpotests_dir value".to_string());
+                            }
+
+                        };
                         match a.tests_dir {
                             Some(ref s) => {
                                 trace!("Have tests_dir, value: {{{}}}", s.display());
@@ -485,9 +501,9 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
                                 return Err("Missing tests_dir value".to_string());
                             }
                         }
-                        let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
-                        let paths = fs::read_dir(bonetests_path);
-                        match paths {
+                        let kulpotests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.kulpotests_dir.as_ref().unwrap().display()));
+                        let kulpo_paths = fs::read_dir(kulpotests_path);
+                        match kulpo_paths {
                             Ok(p) => {
                                 p.for_each(|x| {
                                     match x {
@@ -499,9 +515,58 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
                                                 trace!("Test stdout file: {{{}}}", test_path.display());
                                             } else {
                                                 if is_executable(test_path.clone()) {
-                                                    info!("Found test: {{{}}}", test_path.display());
+                                                    debug!("Found kulpo test: {{{}}}", test_path.display());
+                                                    let test_name = test_path.file_name();
+                                                    match test_name {
+                                                        Some(t) => {
+                                                            a.kulpotests_table.insert(t.to_str().unwrap().to_string(), test_path);
+                                                        }
+                                                        None => {
+                                                            error!("Failed adding test to kulpo map");
+                                                        }
+                                                    }
                                                 } else {
-                                                    debug!("Test: {{{}}} not executable", test_path.display());
+                                                    debug!("Kulpo test: {{{}}} not executable", test_path.display());
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            warn!("Error on kulpotests path loop. Err: {e}");
+                                        }
+                                    }
+                                });
+                            }
+                            Err(e) => {
+                                error!("Failed reading kulpotests dir. Err: {e}");
+                                return Err("Failed reading kulpotests dir".to_string());
+                            }
+                        }
+                        let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
+                        let bone_paths = fs::read_dir(bonetests_path);
+                        match bone_paths {
+                            Ok(p) => {
+                                p.for_each(|x| {
+                                    match x {
+                                        Ok(d) => {
+                                            let test_path = d.path();
+                                            if test_path.ends_with(".stderr") {
+                                                trace!("Test stderr file: {{{}}}", test_path.display());
+                                            } else if test_path.ends_with(".stdout") {
+                                                trace!("Test stdout file: {{{}}}", test_path.display());
+                                            } else {
+                                                if is_executable(test_path.clone()) {
+                                                    debug!("Found bone test: {{{}}}", test_path.display());
+                                                    let test_name = test_path.file_name();
+                                                    match test_name {
+                                                        Some(t) => {
+                                                            a.bonetests_table.insert(t.to_str().unwrap().to_string(), test_path);
+                                                        }
+                                                        None => {
+                                                            error!("Failed adding test to bone map");
+                                                        }
+                                                    }
+                                                } else {
+                                                    debug!("Bone test: {{{}}} not executable", test_path.display());
                                                 }
                                             }
                                         }
@@ -562,6 +627,8 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 basemode_versions_table: BTreeMap::new(),
                 gitmode_versions_table: BTreeMap::new(),
                 support_testmode : true,
+                bonetests_table: BTreeMap::new(),
+                kulpotests_table: BTreeMap::new(),
                 support_makemode : true,
                 support_automakemode : false,
                 do_build : false,
@@ -782,6 +849,8 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         basemode_versions_table: BTreeMap::new(),
         gitmode_versions_table: BTreeMap::new(),
         support_testmode : true,
+        bonetests_table: BTreeMap::new(),
+        kulpotests_table: BTreeMap::new(),
         support_makemode : true,
         support_automakemode : false,
         do_build : false,
@@ -1650,6 +1719,16 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                         if !env.support_testmode {
                             error!("Test mode not supported for this project.");
                             return
+                        } else {
+                            info!("Supported tests:");
+                            for (k,v) in env.bonetests_table.iter() {
+                                info!("Test: {k}");
+                                debug!("Path: {}", v.display());
+                            }
+                            for (k,v) in env.kulpotests_table.iter() {
+                                info!("Error Test: {k}");
+                                debug!("Path: {}", v.display());
+                            }
                         }
                     }
                     _ => (),
