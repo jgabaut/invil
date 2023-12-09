@@ -460,6 +460,42 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
     Ok(true)
 }
 
+fn run_test(test_path: &PathBuf) -> Result<String,String> {
+    let output = if cfg!(target_os = "windows") {
+        todo!("Support windows tests");
+        /*
+         * Command::new("cmd")
+         *   .args(["/C", "echo hello"])
+         *   .output()
+         *   .expect("failed to execute process")
+         */
+    } else {
+        Command::new("sh")
+        .arg("-c")
+        .arg(format!("{}", test_path.display()))
+        .output()
+        .expect("failed to execute process")
+    };
+    match output.status.code() {
+        Some(x) => {
+            if x == 0 {
+                info!("Test succeded with status: {}", x.to_string());
+            } else {
+                warn!("Test failed with status: {}", x.to_string());
+            }
+            io::stdout().write_all(&output.stdout).unwrap();
+            io::stderr().write_all(&output.stderr).unwrap();
+            return Ok("Test done".to_string());
+        }
+        None => {
+            error!("Test command for {{{}}} failed", test_path.display());
+            io::stdout().write_all(&output.stdout).unwrap();
+            io::stderr().write_all(&output.stderr).unwrap();
+            return Err("Test command failed".to_string());
+        }
+    }
+}
+
 fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
     if dir.exists() {
         trace!("Found {}", dir.display());
@@ -1189,7 +1225,9 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     info!("{} is a file", qp.display());
                                     if is_executable(&qp) {
                                         debug!("{} is executable", qp.display());
-                                        return Ok("Is executable".to_string());
+                                        let test_res = run_test(qp);
+
+                                        return test_res;
                                     } else {
                                         debug!("{} is not executable", qp.display());
                                         return Ok("Is not executable".to_string());
