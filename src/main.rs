@@ -479,12 +479,27 @@ fn run_test(test_path: &PathBuf) -> Result<String,String> {
     match output.status.code() {
         Some(x) => {
             if x == 0 {
-                info!("Test succeded with status: {}", x.to_string());
+                info!("Test exited with status: {}", x.to_string());
             } else {
-                warn!("Test failed with status: {}", x.to_string());
+                info!("Test exited with status: {}", x.to_string());
             }
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
+
+            let stdout_record_path = test_path.with_extension("stdout");
+            let stderr_record_path = test_path.with_extension("stderr");
+            if stdout_record_path.is_file() {
+                info!("Record stdout for {{{}}} found", test_path.display());
+            } else {
+                warn!("Record stdout for {{{}}} not found", test_path.display());
+            }
+
+            if stderr_record_path.is_file() {
+                info!("Record stderr for {{{}}} found", test_path.display());
+            } else {
+                warn!("Record stderr for {{{}}} not found", test_path.display());
+            }
+
             return Ok("Test done".to_string());
         }
         None => {
