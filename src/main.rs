@@ -492,7 +492,7 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
                                 p.for_each(|x| {
                                     match x {
                                         Ok(d) => {
-                                            debug!("Test: {:#?}", d);
+                                            debug!("Test: {{{}}}", d.path().display());
                                         }
                                         Err(e) => {
                                             warn!("Error on bonetests path loop. Err: {e}");
