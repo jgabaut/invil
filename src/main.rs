@@ -492,7 +492,18 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
                                 p.for_each(|x| {
                                     match x {
                                         Ok(d) => {
-                                            debug!("Test: {{{}}}", d.path().display());
+                                            let test_path = d.path();
+                                            if test_path.ends_with(".stderr") {
+                                                trace!("Test stderr file: {{{}}}", test_path.display());
+                                            } else if test_path.ends_with(".stdout") {
+                                                trace!("Test stdout file: {{{}}}", test_path.display());
+                                            } else {
+                                                if is_executable(test_path.clone()) {
+                                                    info!("Found test: {{{}}}", test_path.display());
+                                                } else {
+                                                    debug!("Test: {{{}}} not executable", test_path.display());
+                                                }
+                                            }
                                         }
                                         Err(e) => {
                                             warn!("Error on bonetests path loop. Err: {e}");
