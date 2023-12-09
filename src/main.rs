@@ -1764,7 +1764,7 @@ fn handle_amboso_env(env: AmbosoEnv, args: Args) {
                             error!("Test mode not supported for this project.");
                             return
                         } else {
-                            info!("Supported tests:");
+                            info!("Supported tests: {}", env.bonetests_table.len() + env.kulpotests_table.len());
                             for (k,v) in env.bonetests_table.iter() {
                                 info!("Test: {k}");
                                 debug!("Path: {}", v.display());
