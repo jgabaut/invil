@@ -501,84 +501,86 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
                                 return Err("Missing tests_dir value".to_string());
                             }
                         }
-                        let kulpotests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.kulpotests_dir.as_ref().unwrap().display()));
-                        let kulpo_paths = fs::read_dir(kulpotests_path);
-                        match kulpo_paths {
-                            Ok(p) => {
-                                p.for_each(|x| {
-                                    match x {
-                                        Ok(d) => {
-                                            let test_path = d.path();
-                                            if test_path.ends_with(".stderr") {
-                                                trace!("Test stderr file: {{{}}}", test_path.display());
-                                            } else if test_path.ends_with(".stdout") {
-                                                trace!("Test stdout file: {{{}}}", test_path.display());
-                                            } else {
-                                                if is_executable(test_path.clone()) {
-                                                    debug!("Found kulpo test: {{{}}}", test_path.display());
-                                                    let test_name = test_path.file_name();
-                                                    match test_name {
-                                                        Some(t) => {
-                                                            a.kulpotests_table.insert(t.to_str().unwrap().to_string(), test_path);
-                                                        }
-                                                        None => {
-                                                            error!("Failed adding test to kulpo map");
-                                                        }
-                                                    }
+                        if a.support_testmode {
+                            let kulpotests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.kulpotests_dir.as_ref().unwrap().display()));
+                            let kulpo_paths = fs::read_dir(kulpotests_path);
+                            match kulpo_paths {
+                                Ok(p) => {
+                                    p.for_each(|x| {
+                                        match x {
+                                            Ok(d) => {
+                                                let test_path = d.path();
+                                                if test_path.ends_with(".stderr") {
+                                                    trace!("Test stderr file: {{{}}}", test_path.display());
+                                                } else if test_path.ends_with(".stdout") {
+                                                    trace!("Test stdout file: {{{}}}", test_path.display());
                                                 } else {
-                                                    debug!("Kulpo test: {{{}}} not executable", test_path.display());
+                                                    if is_executable(test_path.clone()) {
+                                                        debug!("Found kulpo test: {{{}}}", test_path.display());
+                                                        let test_name = test_path.file_name();
+                                                        match test_name {
+                                                            Some(t) => {
+                                                                a.kulpotests_table.insert(t.to_str().unwrap().to_string(), test_path);
+                                                            }
+                                                            None => {
+                                                                error!("Failed adding test to kulpo map");
+                                                            }
+                                                        }
+                                                    } else {
+                                                        debug!("Kulpo test: {{{}}} not executable", test_path.display());
+                                                    }
                                                 }
                                             }
-                                        }
-                                        Err(e) => {
-                                            warn!("Error on kulpotests path loop. Err: {e}");
-                                        }
-                                    }
-                                });
-                            }
-                            Err(e) => {
-                                error!("Failed reading kulpotests dir. Err: {e}");
-                                return Err("Failed reading kulpotests dir".to_string());
-                            }
-                        }
-                        let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
-                        let bone_paths = fs::read_dir(bonetests_path);
-                        match bone_paths {
-                            Ok(p) => {
-                                p.for_each(|x| {
-                                    match x {
-                                        Ok(d) => {
-                                            let test_path = d.path();
-                                            if test_path.ends_with(".stderr") {
-                                                trace!("Test stderr file: {{{}}}", test_path.display());
-                                            } else if test_path.ends_with(".stdout") {
-                                                trace!("Test stdout file: {{{}}}", test_path.display());
-                                            } else {
-                                                if is_executable(test_path.clone()) {
-                                                    debug!("Found bone test: {{{}}}", test_path.display());
-                                                    let test_name = test_path.file_name();
-                                                    match test_name {
-                                                        Some(t) => {
-                                                            a.bonetests_table.insert(t.to_str().unwrap().to_string(), test_path);
-                                                        }
-                                                        None => {
-                                                            error!("Failed adding test to bone map");
-                                                        }
-                                                    }
-                                                } else {
-                                                    debug!("Bone test: {{{}}} not executable", test_path.display());
-                                                }
+                                            Err(e) => {
+                                                warn!("Error on kulpotests path loop. Err: {e}");
                                             }
                                         }
-                                        Err(e) => {
-                                            warn!("Error on bonetests path loop. Err: {e}");
-                                        }
-                                    }
-                                });
+                                    });
+                                }
+                                Err(e) => {
+                                    error!("Failed reading kulpotests dir. Err: {e}");
+                                    return Err("Failed reading kulpotests dir".to_string());
+                                }
                             }
-                            Err(e) => {
-                                error!("Failed reading bonetests dir. Err: {e}");
-                                return Err("Failed reading bonetests dir".to_string());
+                            let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
+                            let bone_paths = fs::read_dir(bonetests_path);
+                            match bone_paths {
+                                Ok(p) => {
+                                    p.for_each(|x| {
+                                        match x {
+                                            Ok(d) => {
+                                                let test_path = d.path();
+                                                if test_path.ends_with(".stderr") {
+                                                    trace!("Test stderr file: {{{}}}", test_path.display());
+                                                } else if test_path.ends_with(".stdout") {
+                                                    trace!("Test stdout file: {{{}}}", test_path.display());
+                                                } else {
+                                                    if is_executable(test_path.clone()) {
+                                                        debug!("Found bone test: {{{}}}", test_path.display());
+                                                        let test_name = test_path.file_name();
+                                                        match test_name {
+                                                            Some(t) => {
+                                                                a.bonetests_table.insert(t.to_str().unwrap().to_string(), test_path);
+                                                            }
+                                                            None => {
+                                                                error!("Failed adding test to bone map");
+                                                            }
+                                                        }
+                                                    } else {
+                                                        debug!("Bone test: {{{}}} not executable", test_path.display());
+                                                    }
+                                                }
+                                            }
+                                            Err(e) => {
+                                                warn!("Error on bonetests path loop. Err: {e}");
+                                            }
+                                        }
+                                    });
+                                }
+                                Err(e) => {
+                                    error!("Failed reading bonetests dir. Err: {e}");
+                                    return Err("Failed reading bonetests dir".to_string());
+                                }
                             }
                         }
                     }
@@ -1207,9 +1209,6 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 return Err("Invalid test query".to_string());
                             }
                         }
-
-                        todo!("HERE");
-
                     }
                 }
                 _ => return Err("Invalid mode".to_string())
