@@ -115,11 +115,11 @@ HINT " STEP 9/10
 
     "
 
-./anvil -rdiV 1 1.0.0
+./anvil -rdiV 1 0.0.8
 HINT " STEP 10/10
 
-    Run in git mode. 1.0.0 is the first compliant tag for amboso itself.
-    Init, run 1.0.0 and purge, as we didnt clean before.
+    Run in git mode. 0.0.8 is the first compliant tag for invil.
+    Init, run 0.0.8 and purge, as we didnt clean before.
     When running in git mode, make clean is never called for any tag, so
       the script only removes the target executable from its directory in bin.
     We also removed the symlink to anvil we created before.
