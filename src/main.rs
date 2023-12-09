@@ -465,6 +465,47 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
             match res {
                 Ok(a) => {
                     trace!("Stego contents: {{{:#?}}}", a);
+                    if a.support_testmode {
+                        match a.bonetests_dir {
+                            Some(ref b) => {
+                                trace!("Have bonetests_dir, value: {{{}}}", b.display());
+                            }
+                            None => {
+                                error!("Missing bonetests_dir value");
+                                return Err("Missing bonetests_dir value".to_string());
+                            }
+
+                        };
+                        match a.tests_dir {
+                            Some(ref s) => {
+                                trace!("Have tests_dir, value: {{{}}}", s.display());
+                            }
+                            None => {
+                                error!("Missing tests_dir value");
+                                return Err("Missing tests_dir value".to_string());
+                            }
+                        }
+                        let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
+                        let paths = fs::read_dir(bonetests_path);
+                        match paths {
+                            Ok(p) => {
+                                p.for_each(|x| {
+                                    match x {
+                                        Ok(d) => {
+                                            debug!("Test: {:#?}", d);
+                                        }
+                                        Err(e) => {
+                                            warn!("Error on bonetests path loop. Err: {e}");
+                                        }
+                                    }
+                                });
+                            }
+                            Err(e) => {
+                                error!("Failed reading bonetests dir. Err: {e}");
+                                return Err("Failed reading bonetests dir".to_string());
+                            }
+                        }
+                    }
                     return Ok(a);
                 }
                 Err(e) => {
@@ -1042,6 +1083,11 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         return Err("Invalid tag".to_string())
                     }
                 }
+                AmbosoMode::TestMode => {
+                    if ! env.support_testmode {
+                        return Err("Missing testmode support".to_string());
+                    }
+                }
                 _ => return Err("Invalid mode".to_string())
             }
             info!("Querying info for {{{:?}}}", q);
@@ -1063,7 +1109,7 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             debug!("{} is not executable", queried_path.display());
                             return Ok("Is not executable".to_string());
                         }
-                        
+
                     } else {
                         debug!("{} is not a file", queried_path.display());
                         return Err("Not a file".to_string())
