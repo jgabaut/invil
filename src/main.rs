@@ -72,7 +72,7 @@ struct Args {
     linter: Option<PathBuf>,
 
     /// Specify test mode
-    #[arg(short = 'T', long, default_value = "false", conflicts_with_all(["base", "git", "testmacro", "gen_c_header", "linter"]))]
+    #[arg(short = 'T', long, default_value = "false", conflicts_with_all(["base", "git", "testmacro", "gen_c_header", "linter", "init"]))]
     test: bool,
 
     /// Specify base mode
@@ -84,7 +84,7 @@ struct Args {
     git: bool,
 
     /// Specify test macro mode
-    #[arg(short = 't', long, default_value = "false", conflicts_with_all(["test", "git", "base", "gen_c_header", "linter"]))]
+    #[arg(short = 't', long, default_value = "false", conflicts_with_all(["test", "git", "base", "gen_c_header", "linter", "init"]))]
     testmacro: bool,
 
     /// Optional tag argument
@@ -1166,11 +1166,56 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 AmbosoMode::TestMode => {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
+                    } else {
+                        info!("Querying info for {{{:?}}}", q);
+
+                        let queried_path;
+                        if ! env.bonetests_table.contains_key(q) && ! env.kulpotests_table.contains_key(q) {
+                            error!("Not a valid test: {{{}}}", q);
+                            return Err("Invalid test query".to_string());
+                        } else if env.bonetests_table.contains_key(q) {
+                            queried_path = env.bonetests_table.get(q);
+                        } else {
+                            queried_path = env.kulpotests_table.get(q);
+                        }
+
+                        match queried_path {
+                            Some(qp) => {
+                               if qp.exists() {
+                                trace!("Found {{{}}}", qp.display());
+                                if qp.is_file() {
+                                    info!("{} is a file", qp.display());
+                                    if is_executable(&qp) {
+                                        debug!("{} is executable", qp.display());
+                                        return Ok("Is executable".to_string());
+                                    } else {
+                                        debug!("{} is not executable", qp.display());
+                                        return Ok("Is not executable".to_string());
+                                    }
+                                } else {
+                                        debug!("{} is not a file", qp.display());
+                                        return Err("Not a file".to_string())
+                                }
+                            } else {
+                                warn!("No file found for {{{}}}", qp.display());
+                                return Err("No file found".to_string())
+                            }
+
+                            }
+                            None => {
+                                error!("Not a valid test path.");
+                                return Err("Invalid test query".to_string());
+                            }
+                        }
+
+                        todo!("HERE");
+
                     }
                 }
                 _ => return Err("Invalid mode".to_string())
             }
             info!("Querying info for {{{:?}}}", q);
+
             let mut queried_path = env.builds_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
