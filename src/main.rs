@@ -25,6 +25,7 @@ use std::process::{ExitCode, Command, exit};
 use std::io::{self, Write};
 use std::fs::File;
 use is_executable::is_executable;
+use std::time::Instant;
 
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -232,6 +233,9 @@ struct AmbosoEnv {
 
     /// Allow automake builds
     support_automakemode: bool,
+
+    /// Start time
+    start_time: Instant,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -486,8 +490,8 @@ fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
 
-            let stdout_record_path = test_path.with_extension("stdout");
-            let stderr_record_path = test_path.with_extension("stderr");
+            let stdout_record_path = test_path.with_extension("k.stdout");
+            let stderr_record_path = test_path.with_extension("k.stderr");
             let stdout_record: String;
             let stderr_record: String;
             if stdout_record_path.is_file() {
@@ -724,6 +728,7 @@ fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
 }
 
 fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
+    let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
@@ -763,6 +768,7 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 do_delete : false,
                 do_init : false,
                 do_purge : false,
+                start_time: start_time,
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -845,9 +851,13 @@ fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             } else {
                 warn!("Missing ANVIL_VERSIONS section.");
             }
+            let elapsed = start_time.elapsed();
+            debug!("Done parsing stego.toml. Elapsed: {:.2?}", elapsed);
             return Ok(anvil_env);
         }
         Err(e) => {
+            let elapsed = start_time.elapsed();
+            debug!("Done parsing stego.toml. Elapsed: {:.2?}", elapsed);
             error!("Failed parsing {{{}}}  as TOML. Err: [{}]", stego, e);
             return Err("Failed parsing TOML".to_string());
         }
@@ -953,6 +963,8 @@ const char *get_INVIL__OS__(void)
 
 fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
+    let start_time = Instant::now();
+
     match args.logged {
         false => {
 
@@ -985,6 +997,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_delete : false,
         do_init : false,
         do_purge : false,
+        start_time: start_time,
     };
 
     match args.linter {
@@ -1411,6 +1424,10 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                         debug!("{} is executable", test.display());
                                         let test_res = run_test(test, do_record);
 
+                                        if args.watch {
+                                            let test_elapsed = env.start_time.elapsed();
+                                            info!("Done test {{{}}}, Elapsed: {:.2?}", test.display(), test_elapsed);
+                                        }
                                         info!("Test cmd: {{{:?}}}", test_res);
                                     } else {
                                         debug!("{} is not executable", test.display());
@@ -1938,7 +1955,7 @@ fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     }
 }
 
-fn handle_amboso_env(env: AmbosoEnv, args: Args) {
+fn handle_amboso_env(env: &AmbosoEnv, args: &Args) {
     match env.run_mode {
         Some(ref runmode) => {
             info!("Runmode: {:?}", runmode);
@@ -2203,12 +2220,24 @@ fn main() -> ExitCode {
     match res_check {
         Ok(env) => {
             trace!("check_passed_args() success");
+            let elapsed_checking_args = env.start_time.elapsed();
+            if args.watch {
+                info!("Done checking args. Elapsed: {:.2?}", elapsed_checking_args);
+            }
             match env.run_mode {
                 Some(_) => {
-                    handle_amboso_env(env, args);
+                    handle_amboso_env(&env, &args);
+                    let elapsed_handling_args = env.start_time.elapsed();
+                    if args.watch {
+                        info!("Done handling args. Elapsed: {:.2?}", elapsed_handling_args);
+                    }
                     return ExitCode::SUCCESS;
                 }
                 None => {
+                    let elapsed_no_runmode = env.start_time.elapsed();
+                    if args.watch {
+                        info!("Done no runmode arg. Elapsed: {:.2?}", elapsed_no_runmode);
+                    }
                     return ExitCode::SUCCESS;
                 }
             }

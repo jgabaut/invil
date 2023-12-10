@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.1] - Unreleased
+
+### Added
+
+- Functionality for -w flag
+  - Report runtimes
+
+### Changed
+
+- Test record files now are expected with double extension (.k.std_)
+
 ## [0.1.0] - 2023-12-10
 
 ### Added
