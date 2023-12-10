@@ -29,6 +29,9 @@
     - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
   - C header gen: basic support
     - The original implementation also prepares git commit info for the header.
+  - Test mode: basic support
+    - Run executable found in test directories
+    - Handle test macro flag to run on all valid queries
 
   Flags support status:
 
@@ -39,8 +42,8 @@
     - [ ] Report lex: `-L`
   - [x] C header gen mode: `-G` (detailed info is empty)
   - [x] Verbose flag: `-V`
-  - [ ] Test macro: `-t`
-  - [ ] Test mode: `-T`
+  - [x] Test macro: `-t` (only run, no record)
+  - [x] Test mode: `-T` (only run, no record)
   - [x] Git mode: `-g`
   - [x] Base mode: `-B`
   - [x] Build: `-b`
