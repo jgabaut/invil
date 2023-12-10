@@ -496,7 +496,8 @@ fn run_test(test_path: &PathBuf) -> Result<String,String> {
                 match stdout_contents {
                     Ok(v) => {
                         stdout_record = v;
-                        trace!("Stdout record: {{\"\n{}\"}}", stdout_record);
+                        trace!("Stdout record: {{\"\n{:?}\"}}", stdout_record.as_bytes());
+                        trace!("Stdout found: {{\"\n{:?}\"}}", output.stdout);
                     }
                     Err(e) => {
                         error!("Failed reading stdout record for {{{}}}. Err: {e}", stdout_record_path.display());
@@ -513,7 +514,8 @@ fn run_test(test_path: &PathBuf) -> Result<String,String> {
                 match stderr_contents {
                     Ok(v) => {
                         stderr_record = v;
-                        trace!("Stderr record: {{\"\n{}\"}}", stderr_record);
+                        trace!("Stderr record: {{\"\n{:?}\"}}", stderr_record.as_bytes());
+                        trace!("Stderr found: {{\"\n{:?}\"}}", output.stderr);
                     }
                     Err(e) => {
                         error!("Failed reading stderr record for {{{}}}. Err: {e}", stderr_record_path.display());
