@@ -15,7 +15,7 @@
 
   This is a Rust implementation of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's in a early stage, and there is limited functionality.
+  It's almost on par with the original implementation, as of amboso 1.9.7.
   Check the next section for support info.
 
 ## Supported amboso features <a name = "supported_amboso"></a>
@@ -90,7 +90,6 @@ Check out [this page](https://github.com/jgabaut/invil/blob/master/bench/gitmode
 
 ## Todo <a name = "todo"></a>
 
-  - Implement test mode
   - Implement silent functionality
   - Extend original impl by handling autotools in base mode
   - Improve logging with a custom format
