@@ -488,14 +488,38 @@ fn run_test(test_path: &PathBuf) -> Result<String,String> {
 
             let stdout_record_path = test_path.with_extension("stdout");
             let stderr_record_path = test_path.with_extension("stderr");
+            let stdout_record: String;
+            let stderr_record: String;
             if stdout_record_path.is_file() {
                 info!("Record stdout for {{{}}} found", test_path.display());
+                let stdout_contents = fs::read_to_string(stdout_record_path.clone());
+                match stdout_contents {
+                    Ok(v) => {
+                        stdout_record = v;
+                        trace!("Stdout record: {{\"\n{}\"}}", stdout_record);
+                    }
+                    Err(e) => {
+                        error!("Failed reading stdout record for {{{}}}. Err: {e}", stdout_record_path.display());
+                        return Err("Failed reading stdout record".to_string());
+                    }
+                }
             } else {
                 warn!("Record stdout for {{{}}} not found", test_path.display());
             }
 
             if stderr_record_path.is_file() {
                 info!("Record stderr for {{{}}} found", test_path.display());
+                let stderr_contents = fs::read_to_string(stderr_record_path.clone());
+                match stderr_contents {
+                    Ok(v) => {
+                        stderr_record = v;
+                        trace!("Stderr record: {{\"\n{}\"}}", stderr_record);
+                    }
+                    Err(e) => {
+                        error!("Failed reading stderr record for {{{}}}. Err: {e}", stderr_record_path.display());
+                        return Err("Failed reading stderr record".to_string());
+                    }
+                }
             } else {
                 warn!("Record stderr for {{{}}} not found", test_path.display());
             }
