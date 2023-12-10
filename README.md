@@ -42,8 +42,8 @@
     - [ ] Report lex: `-L`
   - [x] C header gen mode: `-G` (detailed info is empty)
   - [x] Verbose flag: `-V`
-  - [x] Test macro: `-t` (only run, no record)
-  - [x] Test mode: `-T` (only run, no record)
+  - [x] Test macro: `-t`
+  - [x] Test mode: `-T`
   - [x] Git mode: `-g`
   - [x] Base mode: `-B`
   - [x] Build: `-b`
