@@ -60,7 +60,7 @@
   - [x] List tags for git/base mode: `-L`
   - [x] Quiet flag: `-q`
   - [ ] CFG flag: `-c`
-  - [ ] Watch flag: `-w`
+  - [x] Watch flag: `-w`
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
 
