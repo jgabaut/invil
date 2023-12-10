@@ -460,7 +460,7 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
     Ok(true)
 }
 
-fn run_test(test_path: &PathBuf, _record: bool) -> Result<String,String> {
+fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
     let output = if cfg!(target_os = "windows") {
         todo!("Support windows tests");
         /*
@@ -503,15 +503,29 @@ fn run_test(test_path: &PathBuf, _record: bool) -> Result<String,String> {
                             info!("Stdout matched!");
                         } else {
                             warn!("Stdout did not match!");
-                            info!("Expected: {{\"\n{}\"}}", stdout_record);
-                            match std::str::from_utf8(&output.stdout) {
-                                Ok(v) => {
-                                    info!("Found: {{\"\n{}\"}}", v);
-                                    return Err("Stdout mismatch".to_string());
+                            if record {
+                                info!("Recording stdout");
+                                let write_res = fs::write(stdout_record_path,output.stdout);
+                                match write_res {
+                                    Ok(_) => {
+                                        debug!("Recorded stdout");
+                                    }
+                                    Err(e) => {
+                                        error!("Failed recording stdout. Err: {e}");
+                                        return Err("Failed recording stdout".to_string());
+                                    }
                                 }
-                                Err(e) => {
-                                    error!("Failed parsing output.stdout. Err: {e}");
-                                    return Err("Failed parsing output.stdout".to_string());
+                            } else {
+                                info!("Expected: {{\"\n{}\"}}", stdout_record);
+                                match std::str::from_utf8(&output.stdout) {
+                                    Ok(v) => {
+                                        info!("Found: {{\"\n{}\"}}", v);
+                                        return Err("Stdout mismatch".to_string());
+                                    }
+                                    Err(e) => {
+                                        error!("Failed parsing output.stdout. Err: {e}");
+                                        return Err("Failed parsing output.stdout".to_string());
+                                    }
                                 }
                             }
                         }
@@ -1280,7 +1294,14 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
                     } else {
-                        info!("Querying info for {{{:?}}}", q);
+                        let do_record : bool;
+                        if env.do_build {
+                            info!("Recording test {{{:?}}}", q);
+                            do_record = true;
+                        } else {
+                            info!("Testing {{{:?}}}", q);
+                            do_record = false;
+                        }
 
                         let queried_path;
                         if ! env.bonetests_table.contains_key(q) && ! env.kulpotests_table.contains_key(q) {
@@ -1300,7 +1321,7 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     info!("{} is a file", qp.display());
                                     if is_executable(&qp) {
                                         debug!("{} is executable", qp.display());
-                                        let test_res = run_test(qp, false);
+                                        let test_res = run_test(qp, do_record);
 
                                         return test_res;
                                     } else {
@@ -1368,6 +1389,14 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
                     } else {
+                        let do_record : bool;
+                        if env.do_build {
+                            info!("Recording all tests");
+                            do_record = true;
+                        } else {
+                            info!("Running all tests");
+                            do_record = false;
+                        }
                         let mut alltests_map: BTreeMap<String, PathBuf> = BTreeMap::new();
                         let mut bonetests_map = env.bonetests_table.clone();
                         let mut kulpotests_map = env.kulpotests_table.clone();
@@ -1380,7 +1409,7 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     info!("{} is a file", test.display());
                                     if is_executable(&test) {
                                         debug!("{} is executable", test.display());
-                                        let test_res = run_test(test, false);
+                                        let test_res = run_test(test, do_record);
 
                                         info!("Test cmd: {{{:?}}}", test_res);
                                     } else {
