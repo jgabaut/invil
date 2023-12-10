@@ -498,6 +498,23 @@ fn run_test(test_path: &PathBuf) -> Result<String,String> {
                         stdout_record = v;
                         trace!("Stdout record: {{\"\n{:?}\"}}", stdout_record.as_bytes());
                         trace!("Stdout found: {{\"\n{:?}\"}}", output.stdout);
+                        let matching = stdout_record.as_bytes().iter().zip(output.stdout.iter()).filter(|&(a, b)| a == b).count();
+                        if matching == stdout_record.as_bytes().len() && matching == output.stdout.len() {
+                            info!("Stdout matched!");
+                        } else {
+                            warn!("Stdout did not match!");
+                            info!("Expected: {{\"\n{}\"}}", stdout_record);
+                            match std::str::from_utf8(&output.stdout) {
+                                Ok(v) => {
+                                    info!("Found: {{\"\n{}\"}}", v);
+                                    return Err("Stdout mismatch".to_string());
+                                }
+                                Err(e) => {
+                                    error!("Failed parsing output.stdout. Err: {e}");
+                                    return Err("Failed parsing output.stdout".to_string());
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         error!("Failed reading stdout record for {{{}}}. Err: {e}", stdout_record_path.display());
@@ -516,6 +533,23 @@ fn run_test(test_path: &PathBuf) -> Result<String,String> {
                         stderr_record = v;
                         trace!("Stderr record: {{\"\n{:?}\"}}", stderr_record.as_bytes());
                         trace!("Stderr found: {{\"\n{:?}\"}}", output.stderr);
+                        let matching = stderr_record.as_bytes().iter().zip(output.stderr.iter()).filter(|&(a, b)| a == b).count();
+                        if matching == stderr_record.as_bytes().len() && matching == output.stderr.len() {
+                            info!("Stderr matched!");
+                        } else {
+                            warn!("Stderr did not match!");
+                            info!("Expected: {{\"\n{}\"}}", stderr_record);
+                            match std::str::from_utf8(&output.stderr) {
+                                Ok(v) => {
+                                    info!("Found: {{\"\n{}\"}}", v);
+                                    return Err("Stderr mismatch".to_string());
+                                }
+                                Err(e) => {
+                                    error!("Failed parsing output.stderr. Err: {e}");
+                                    return Err("Failed parsing output.stderr".to_string());
+                                }
+                            }
+                        }
                     }
                     Err(e) => {
                         error!("Failed reading stderr record for {{{}}}. Err: {e}", stderr_record_path.display());
@@ -1290,7 +1324,9 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         }
                     }
                 }
-                _ => return Err("Invalid mode".to_string())
+                AmbosoMode::TestMacro => {
+                    todo!("Support query in test macro");
+                }
             }
             info!("Querying info for {{{:?}}}", q);
 
@@ -1327,6 +1363,46 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
             }
         }
         None => {
+            match env.run_mode.as_ref().unwrap() {
+                AmbosoMode::TestMacro => {
+                    if ! env.support_testmode {
+                        return Err("Missing testmode support".to_string());
+                    } else {
+                        let mut alltests_map: BTreeMap<String, PathBuf> = BTreeMap::new();
+                        let mut bonetests_map = env.bonetests_table.clone();
+                        let mut kulpotests_map = env.kulpotests_table.clone();
+                        alltests_map.append(&mut bonetests_map);
+                        alltests_map.append(&mut kulpotests_map);
+                        for test in alltests_map.values() {
+                            if test.exists() {
+                                trace!("Found {{{}}}", test.display());
+                                if test.is_file() {
+                                    info!("{} is a file", test.display());
+                                    if is_executable(&test) {
+                                        debug!("{} is executable", test.display());
+                                        let test_res = run_test(test);
+
+                                        info!("Test cmd: {{{:?}}}", test_res);
+                                    } else {
+                                        debug!("{} is not executable", test.display());
+                                        return Ok("Is not executable".to_string());
+                                    }
+                                } else {
+                                        debug!("{} is not a file", test.display());
+                                        return Err("Not a file".to_string());
+                                }
+                            } else {
+                                warn!("No file found for {{{}}}", test.display());
+                                return Err("No file found".to_string())
+                            }
+                        }
+                        info!("Done test macro");
+                        return Ok("Done test macro run".to_string());
+                    }
+                }
+                _ => {
+                }
+            }
             warn!("No tag provided for query op.");
             return Err("No tag provided.".to_string())
         }
