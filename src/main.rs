@@ -1020,7 +1020,7 @@ fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     print_grouped_args(&args);
 
-    if args.ignore_gitcheck || ! args.git{
+    if args.ignore_gitcheck || args.base {
         info!("Ignoring git check.");
     } else {
         let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"));
