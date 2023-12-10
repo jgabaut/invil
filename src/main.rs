@@ -490,8 +490,8 @@ fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
 
-            let stdout_record_path = test_path.with_extension("stdout");
-            let stderr_record_path = test_path.with_extension("stderr");
+            let stdout_record_path = test_path.with_extension("k.stdout");
+            let stderr_record_path = test_path.with_extension("k.stderr");
             let stdout_record: String;
             let stderr_record: String;
             if stdout_record_path.is_file() {
