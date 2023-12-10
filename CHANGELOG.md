@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.0] - 2023-12-10
+
+### Added
+
+- Support for testmode
+  - Add tables for test entries
+  - Handle Testmode to run executables
+  - Handle -b to record
+- Support for test macro
+  - Handle running and recording all tests
+
 ## [0.0.9] - 2023-12-07
 
 ### Added

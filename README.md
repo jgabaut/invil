@@ -29,6 +29,11 @@
     - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
   - C header gen: basic support
     - The original implementation also prepares git commit info for the header.
+  - Test mode: complete support (\*)
+    - Run executable found in test directories
+    - Handle test macro flag to run on all valid queries
+    - Record test output with `-b`
+      - Not compliant with amboso expectations: missing trailing `$`.
 
   Flags support status:
 
@@ -39,8 +44,8 @@
     - [ ] Report lex: `-L`
   - [x] C header gen mode: `-G` (detailed info is empty)
   - [x] Verbose flag: `-V`
-  - [ ] Test macro: `-t`
-  - [ ] Test mode: `-T`
+  - [x] Test macro: `-t`
+  - [x] Test mode: `-T`
   - [x] Git mode: `-g`
   - [x] Base mode: `-B`
   - [x] Build: `-b`
@@ -81,7 +86,7 @@ Our version was slightly modified to actually make cargo build the release versi
 
 ## Basic benchmark <a name = "base_bench"></a>
 
-Check out [this page](https://github.com/jgabaut/invil/bench/gitmode-bench.md) for a very basic benchmark of runtime, relative to bash `amboso` implementation.
+Check out [this page](https://github.com/jgabaut/invil/blob/master/bench/gitmode-0.0.9-bench.md) for a very basic benchmark of runtime, relative to bash `amboso` implementation.
 
 ## Todo <a name = "todo"></a>
 
