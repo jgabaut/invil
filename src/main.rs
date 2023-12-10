@@ -460,7 +460,7 @@ fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
     Ok(true)
 }
 
-fn run_test(test_path: &PathBuf) -> Result<String,String> {
+fn run_test(test_path: &PathBuf, _record: bool) -> Result<String,String> {
     let output = if cfg!(target_os = "windows") {
         todo!("Support windows tests");
         /*
@@ -1300,7 +1300,7 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     info!("{} is a file", qp.display());
                                     if is_executable(&qp) {
                                         debug!("{} is executable", qp.display());
-                                        let test_res = run_test(qp);
+                                        let test_res = run_test(qp, false);
 
                                         return test_res;
                                     } else {
@@ -1380,7 +1380,7 @@ fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     info!("{} is a file", test.display());
                                     if is_executable(&test) {
                                         debug!("{} is executable", test.display());
-                                        let test_res = run_test(test);
+                                        let test_res = run_test(test, false);
 
                                         info!("Test cmd: {{{:?}}}", test_res);
                                     } else {
