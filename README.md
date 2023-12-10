@@ -29,9 +29,11 @@
     - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
   - C header gen: basic support
     - The original implementation also prepares git commit info for the header.
-  - Test mode: basic support
+  - Test mode: complete support (\*)
     - Run executable found in test directories
     - Handle test macro flag to run on all valid queries
+    - Record test output with `-b`
+      - Not compliant with amboso expectations: missing trailing `$`.
 
   Flags support status:
 
