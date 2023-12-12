@@ -357,19 +357,77 @@ fn print_subcommand_args(args: &Args) {
     match &args.command {
         Some(Commands::Test { list }) => {
             if *list {
-                println!("Printing testing lists...");
+                debug!("Printing testing lists...");
             } else {
-                println!("Not printing testing lists...");
+                debug!("Not printing testing lists...");
             }
         }
         Some(Commands::Build) => {
-            todo!("Quick build command")
+            debug!("Doing quick build command")
         }
         Some(Commands::Init { init_dir }) => {
             if init_dir.is_some() {
                 debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
             } else {
                 warn!("Missing init_dir arg for init command.");
+            }
+        }
+        None => {}
+    }
+}
+
+fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
+    match &args.command {
+        Some(Commands::Test { list: _}) => {
+            todo!("Test command")
+        }
+        Some(Commands::Build) => {
+            match env.run_mode {
+                Some(AmbosoMode::GitMode) => {
+                    let latest_tag = env.gitmode_versions_table.last_entry();
+                    match latest_tag {
+                        Some(lt) => {
+                            info!("Latest tag: {}", lt.key());
+                            args.tag = Some(lt.key().to_string());
+                            let build_res = do_build(env, args);
+                            match build_res {
+                                Ok(s) => {
+                                    info!("Done quick build command. Res: {s}");
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("Failed quick build command. Err: {e}");
+                                    exit(1);
+                                }
+                            }
+                        }
+                        None => {
+                            error!("Could not find latest tag");
+                            exit(1);
+                        }
+                    }
+                }
+                Some(AmbosoMode::BaseMode) => {
+                    todo!("Build command for base mode")
+                }
+                Some(AmbosoMode::TestMode) => {
+                    todo!("Build command for test mode")
+                }
+                Some(AmbosoMode::TestMacro) => {
+                    todo!("Build command for test macro")
+                }
+                None => {
+                    error!("Missing runmode for build command");
+                    exit(0);
+                }
+            }
+        }
+        Some(Commands::Init { init_dir }) => {
+            if init_dir.is_some() {
+                debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
+            } else {
+                error!("Missing init_dir arg for init command.");
+                exit(1);
                 //init_dir = &Some(PathBuf::from("."));
                 //debug!("Set . as init_dir");
             }
@@ -1955,7 +2013,8 @@ fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     }
 }
 
-fn handle_amboso_env(env: &AmbosoEnv, args: &Args) {
+fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
+    handle_subcommand(args, env);
     match env.run_mode {
         Some(ref runmode) => {
             info!("Runmode: {:?}", runmode);
@@ -2218,7 +2277,7 @@ fn main() -> ExitCode {
     let res_check = check_passed_args(&mut args);
 
     match res_check {
-        Ok(env) => {
+        Ok(mut env) => {
             trace!("check_passed_args() success");
             let elapsed_checking_args = env.start_time.elapsed();
             if args.watch {
@@ -2226,7 +2285,7 @@ fn main() -> ExitCode {
             }
             match env.run_mode {
                 Some(_) => {
-                    handle_amboso_env(&env, &args);
+                    handle_amboso_env(&mut env, &mut args);
                     let elapsed_handling_args = env.start_time.elapsed();
                     if args.watch {
                         info!("Done handling args. Elapsed: {:.2?}", elapsed_handling_args);
