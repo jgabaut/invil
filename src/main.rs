@@ -408,7 +408,28 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                     }
                 }
                 Some(AmbosoMode::BaseMode) => {
-                    todo!("Build command for base mode")
+                    let latest_tag = env.basemode_versions_table.last_entry();
+                    match latest_tag {
+                        Some(lt) => {
+                            info!("Latest tag: {}", lt.key());
+                            args.tag = Some(lt.key().to_string());
+                            let build_res = do_build(env, args);
+                            match build_res {
+                                Ok(s) => {
+                                    info!("Done quick build command. Res: {s}");
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("Failed quick build command. Err: {e}");
+                                    exit(1);
+                                }
+                            }
+                        }
+                        None => {
+                            error!("Could not find latest tag");
+                            exit(1);
+                        }
+                    }
                 }
                 Some(AmbosoMode::TestMode) => {
                     todo!("Build command for test mode")
