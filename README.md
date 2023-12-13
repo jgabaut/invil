@@ -33,7 +33,10 @@
     - Run executable found in test directories
     - Handle test macro flag to run on all valid queries
     - Record test output with `-b`
-      - Not compliant with amboso expectations: missing trailing `$`.
+      - Not compliant with amboso <1.9.7 expectations: missing trailing `$`.
+  - Subcommands:
+    - build    Quickly build latest version for current mode
+    - init     Prepare new project with amboso
 
   Flags support status:
 

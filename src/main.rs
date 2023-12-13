@@ -19,7 +19,7 @@ use std::{env, fs};
 #[macro_use] extern crate log;
 use simplelog::*;
 use toml::Table;
-use git2::{Repository, Error, Status};
+use git2::{Repository, Error, Status, RepositoryInitOptions};
 use std::collections::BTreeMap;
 use std::process::{ExitCode, Command, exit};
 use std::io::{self, Write};
@@ -357,25 +357,379 @@ fn print_subcommand_args(args: &Args) {
     match &args.command {
         Some(Commands::Test { list }) => {
             if *list {
-                println!("Printing testing lists...");
+                debug!("Printing testing lists...");
             } else {
-                println!("Not printing testing lists...");
+                debug!("Not printing testing lists...");
             }
         }
         Some(Commands::Build) => {
-            todo!("Quick build command")
+            debug!("Doing quick build command")
         }
         Some(Commands::Init { init_dir }) => {
             if init_dir.is_some() {
                 debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
             } else {
                 warn!("Missing init_dir arg for init command.");
-                //init_dir = &Some(PathBuf::from("."));
-                //debug!("Set . as init_dir");
             }
-            todo!("Quick init command")
         }
         None => {}
+    }
+}
+
+fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
+    match &args.command {
+        Some(Commands::Test { list: _}) => {
+            todo!("Test command")
+        }
+        Some(Commands::Build) => {
+            match env.run_mode {
+                Some(AmbosoMode::GitMode) => {
+                    let latest_tag = env.gitmode_versions_table.last_entry();
+                    match latest_tag {
+                        Some(lt) => {
+                            info!("Latest tag: {}", lt.key());
+                            args.tag = Some(lt.key().to_string());
+                            let build_res = do_build(env, args);
+                            match build_res {
+                                Ok(s) => {
+                                    info!("Done quick build command. Res: {s}");
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("Failed quick build command. Err: {e}");
+                                    exit(1);
+                                }
+                            }
+                        }
+                        None => {
+                            error!("Could not find latest tag");
+                            exit(1);
+                        }
+                    }
+                }
+                Some(AmbosoMode::BaseMode) => {
+                    let latest_tag = env.basemode_versions_table.last_entry();
+                    match latest_tag {
+                        Some(lt) => {
+                            info!("Latest tag: {}", lt.key());
+                            args.tag = Some(lt.key().to_string());
+                            let build_res = do_build(env, args);
+                            match build_res {
+                                Ok(s) => {
+                                    info!("Done quick build command. Res: {s}");
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("Failed quick build command. Err: {e}");
+                                    exit(1);
+                                }
+                            }
+                        }
+                        None => {
+                            error!("Could not find latest tag");
+                            exit(1);
+                        }
+                    }
+                }
+                Some(AmbosoMode::TestMode) => {
+                    todo!("Build command for test mode")
+                }
+                Some(AmbosoMode::TestMacro) => {
+                    todo!("Build command for test macro")
+                }
+                None => {
+                    error!("Missing runmode for build command");
+                    exit(0);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
+    match init_dir {
+        Some(target) => {
+            debug!("Passed dir to init: {}", target.display());
+            let init_res = Repository::init_opts(target.clone(),RepositoryInitOptions::new().no_reinit(true));
+            match init_res {
+                Ok(repo) => {
+                    info!("Created git repo at {{{}}}", repo.workdir().expect("Repo should not be bare").display());
+                    let mut src = target.clone();
+                    src.push("src");
+                    let mut bin = target.clone();
+                    bin.push("bin");
+                    let mut stub_vers = bin.clone();
+                    stub_vers.push("v0.1.0");
+                    let mut tests = target.clone();
+                    tests.push("tests");
+                    let mut bonetests = tests.clone();
+                    bonetests.push("ok");
+                    let mut kulpotests = tests.clone();
+                    kulpotests.push("errors");
+                    match fs::create_dir_all(src.clone()) {
+                        Ok(_) => {
+                            debug!("Created src dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating src dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(bin.clone()) {
+                        Ok(_) => {
+                            debug!("Created bin dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating bin dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(stub_vers.clone()) {
+                        Ok(_) => {
+                            debug!("Created stub_vers dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating stub_vers dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(tests) {
+                        Ok(_) => {
+                            debug!("Created tests dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating tests dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(bonetests) {
+                        Ok(_) => {
+                            debug!("Created bonetests dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating bonetests dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(kulpotests) {
+                        Ok(_) => {
+                            debug!("Created kulpotests dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating kulpotests dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+
+                    let stego_path = format!("{}/stego.lock", bin.display());
+                    trace!("Generating stego.lock -  Target path: {{{}}}", stego_path);
+                    let output = File::create(stego_path);
+                    let stego_string = format!("[build]\n
+source = \"main.c\"\n
+bin = \"hello_world\"\n
+makevers = \"0.1.0\"\n
+automakevers = \"0.1.0\"\n
+tests = \"tests\"\n
+[tests]\n
+testsdir = \"ok\"\n
+errortestsdir = \"errors\"\n
+[versions]\n
+\"0.1.0\" = \"hello_world\"\n");
+                    match output {
+                        Ok(mut f) => {
+                            let res = write!(f, "{}", stego_string);
+                            match res {
+                                Ok(_) => {
+                                    debug!("Done generating stego.lock file");
+                                }
+                                Err(e) => {
+                                    error!("Failed writing stego.lock file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed opening stego.lock file. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    let cmain_path = format!("{}/main.c", src.display());
+                    trace!("Generating main.c - Target path: {{{}}}", cmain_path);
+                    let output = File::create(cmain_path);
+                    let main_string = format!("#include <stdio.h>\nint main(void) {{\n    printf(\"Hello, World!\\n\");\n    return 0;\n}}\n");
+                    match output {
+                        Ok(mut f) => {
+                            let res = write!(f, "{}", main_string);
+                            match res {
+                                Ok(_) => {
+                                    debug!("Done generating main.c file");
+                                }
+                                Err(e) => {
+                                    error!("Failed writing main.c Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed opening main.c file. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    let gitignore_path = format!("{}/.gitignore", target.display());
+                    trace!("Generating .gitignore Target path: {{{}}}", gitignore_path);
+                    let output = File::create(gitignore_path);
+                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\nhello_world\n# also explicitly ignore our windows executable for good measure\nhello_world.exe\n# also explicitly ignore our debug executable for good measure\nhello_world_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore invil log file\ninvil.log\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n");
+                    match output {
+                        Ok(mut f) => {
+                            let res = write!(f, "{}", gitignore_string);
+                            match res {
+                                Ok(_) => {
+                                    debug!("Done generating .gitignore file");
+                                }
+                                Err(e) => {
+                                    error!("Failed writing .gitignore file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed opening .gitignore file. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    let makefileam_path = format!("{}/Makefile.am", target.display());
+                    trace!("Generating Makefile.am - Target path: {{{}}}", makefileam_path);
+                    let output = File::create(makefileam_path);
+                    let makefileam_string = format!("AUTOMAKE_OPTIONS = foreign\nCFLAGS = @CFLAGS@\nSHELL := /bin/bash\n.ONESHELL:\nMACHINE := $$(uname -m)\nPACK_NAME = $(TARGET)-$(VERSION)-$(OS)-$(MACHINE)\nhello_world_SOURCES = src/main.c\nLDADD = $(HW_LDFLAGS)\nAM_LDFLAGS = -O2\nAM_CFLAGS = $(HW_CFLAGS) -O2 -Werror -Wpedantic -Wall\nif DEBUG_BUILD\nAM_LDFLAGS += -ggdb -O0\nAM_CFLAGS += \"\"\nelse\nAM_LDFLAGS += -s\nendif\n%.o: %.c\n	$(CCOMP) -c $(CFLAGS) $(AM_CFLAGS) $< -o $@\n$(TARGET): $(hello_world_SOURCES:.c=.o)\n	@echo -e \"    AM_CFLAGS: [ $(AM_CFLAGS) ]\"\n	@echo -e \"    LDADD: [ $(LDADD) ]\"\n	$(CCOMP) $(CFLAGS) $(AM_CFLAGS) $(hello_world_SOURCES:.c=.o) -o $@ $(LDADD) $(AM_LDFLAGS)\nclean:\n	@echo -en \"Cleaning build artifacts:  \"\n	-rm $(TARGET)\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\ncleanob:\n	@echo -en \"Cleaning object build artifacts:  \"\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\nanviltest:\n	@echo -en \"Running anvil tests.\"\n	./anvil -tX\n	@echo -e \"Done.\"\nall: $(TARGET)\nrebuild: clean all\n.DEFAULT_GOAL := all\n");
+                    match output {
+                        Ok(mut f) => {
+                            let res = write!(f, "{}", makefileam_string);
+                            match res {
+                                Ok(_) => {
+                                    debug!("Done generating Makefile.am file");
+                                }
+                                Err(e) => {
+                                    error!("Failed writing Makefile.am file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed opening Makefile.am file. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    let configureac_path = format!("{}/configure.ac", target.display());
+                    trace!("Generating configure.ac - Target path: {{{}}}", configureac_path);
+                    let output = File::create(configureac_path);
+                    let configureac_string = format!("AC_INIT([hello_world], [0.1.0], [email@example.com])\nAM_INIT_AUTOMAKE([foreign -Wall])\nAC_CANONICAL_HOST\necho \"Host os:  $host_os\"\nAM_CONDITIONAL([OS_DARWIN], [test \"$host_os\" = \"darwin\"])\nAM_CONDITIONAL([MINGW32_BUILD], [test \"$host_os\" = \"mingw32\"])\nAC_ARG_ENABLE([debug],  [AS_HELP_STRING([--enable-debug], [Enable debug build])],  [enable_debug=$enableval],  [enable_debug=no])\nAM_CONDITIONAL([DEBUG_BUILD], [test \"$enable_debug\" = \"yes\"])\nif test \"$host_os\" = \"mingw32\"; then\n  echo \"Building for mingw32: [$host_cpu-$host_vendor-$host_os]\"\n  AC_SUBST([HW_CFLAGS], [\"-I/usr/x86_64-w64-mingw32/include -static -fstack-protector -DMINGW32_BUILD\"])\n  AC_SUBST([HW_LDFLAGS], [\"-L/usr/x86_64-w64-mingw32/lib\"])\n  AC_SUBST([CCOMP], [\"/usr/bin/x86_64-w64-mingw32-gcc\"])\n  AC_SUBST([OS], [\"w64-mingw32\"])\n  AC_SUBST([TARGET], [\"hello_world.exe\"])\nfi\nif test \"$host_os\" = \"darwin\"; then\n  echo \"Building for macos: [$host_cpu-$host_vendor-$host_os]\"\n  AC_SUBST([HW_CFLAGS], [\"-I/opt/homebrew/opt/ncurses/include\"])\n  AC_SUBST([HW_LDFLAGS], [\"-L/opt/homebrew/opt/ncurses/lib\"])\n  AC_SUBST([OS], [\"darwin\"])\n  AC_SUBST([TARGET], [\"hello_world\"])\nfi\nif test \"$host_os\" = \"linux-gnu\"; then\n  echo \"Building for Linux: [$host_cpu-$host_vendor-$host_os]\"\n  AC_SUBST([HW_CFLAGS], [\"\"])\n  AC_SUBST([HW_LDFLAGS], [\"\"])\n  AC_SUBST([OS], [\"Linux\"])\n  AC_SUBST([TARGET], [\"hello_world\"])\nfi\nAC_ARG_VAR([VERSION], [Version number])\nif test -z \"$VERSION\"; then\n  VERSION=\"0.3.11\"\nfi\nAC_DEFINE_UNQUOTED([VERSION], [\"$VERSION\"], [Version number])\nAC_CHECK_PROGS([CCOMP], [gcc clang])\nAC_CHECK_HEADERS([stdio.h])\nAC_CHECK_FUNCS([malloc calloc])\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n");
+                    match output {
+                        Ok(mut f) => {
+                            let res = write!(f, "{}", configureac_string);
+                            match res {
+                                Ok(_) => {
+                                    debug!("Done generating configure.ac file");
+                                }
+                                Err(e) => {
+                                    error!("Failed writing configure.ac file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed opening configure.ac file. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    let amboso_path = PathBuf::from("amboso");
+                    let amboso_submodule = repo.submodule(
+                        "https://github.com/jgabaut/amboso.git",
+                        &amboso_path,
+                        false
+                    );
+                    match amboso_submodule {
+                        Ok(mut subm) => {
+                            debug!("Success on repo.submodule()");
+                            let subm_repo = subm.open();
+                            match subm_repo {
+                                Ok(_) => {
+                                    let clone_res = subm.clone(None);
+                                    match clone_res {
+                                        Ok(sr) => {
+                                            info!("Cloned amboso submodule at {{{}}}", sr.workdir().expect("Repo should not be bare").display());
+                                            match subm.add_finalize() {
+                                                Ok(_) => {
+                                                    debug!("Finalised amboso submodule add");
+                                                }
+                                                Err(e) => {
+                                                    error!("Failed finalising amboso submodule. Err: {e}");
+                                                    return ExitCode::FAILURE;
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            error!("Failed cloning amboso submodule. Err: {e}");
+                                            return ExitCode::FAILURE;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Failed opening amboso submodule repo. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+
+                            let mut anvil_path = target.clone();
+                            anvil_path.push("anvil");
+                            let mut amboso_prog_path = target.clone();
+                            amboso_prog_path.push("amboso/amboso");
+
+                            if cfg!(target_os = "windows") {
+                                todo!("Support windows symlink");
+                                /*
+                                 *let ln_res = std::os::windows::fs::symlink_file(amboso_prog_path.clone(), anvil_path.clone());
+                                 *match ln_res {
+                                 *    Ok(_) => {
+                                 *        info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
+                                 *        return ExitCode::SUCCESS;
+                                 *    }
+                                 *    Err(e) => {
+                                 *        error!("Failed symlink for anvil. Err: {e}");
+                                 *        return ExitCode::FAILURE;
+                                 *    }
+                                 *}
+                                 */
+                            } else {
+                                let ln_res = std::os::unix::fs::symlink(amboso_prog_path.clone(), anvil_path.clone());
+                                match ln_res {
+                                    Ok(_) => {
+                                        info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
+                                        return ExitCode::SUCCESS;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed symlink for anvil. Err: {e}");
+                                        return ExitCode::FAILURE;
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed repo.submodule() call. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed creating git repo at {{{}}}. Err: {e}", target.display());
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        None => {
+            error!("Missing init_dir argument");
+            return ExitCode::FAILURE;
+        }
     }
 }
 
@@ -1955,7 +2309,8 @@ fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     }
 }
 
-fn handle_amboso_env(env: &AmbosoEnv, args: &Args) {
+fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
+    handle_subcommand(args, env);
     match env.run_mode {
         Some(ref runmode) => {
             info!("Runmode: {:?}", runmode);
@@ -2215,10 +2570,18 @@ fn main() -> ExitCode {
     if ! args.quiet {
         println!("{}", invil_splash);
     }
+
+    match args.command {
+        Some(Commands::Init { init_dir }) => {
+            return handle_init_subcommand(init_dir);
+        }
+        _ => {} //Other subcommands may be handled later, in handle_amboso_env()
+    }
+
     let res_check = check_passed_args(&mut args);
 
     match res_check {
-        Ok(env) => {
+        Ok(mut env) => {
             trace!("check_passed_args() success");
             let elapsed_checking_args = env.start_time.elapsed();
             if args.watch {
@@ -2226,7 +2589,7 @@ fn main() -> ExitCode {
             }
             match env.run_mode {
                 Some(_) => {
-                    handle_amboso_env(&env, &args);
+                    handle_amboso_env(&mut env, &mut args);
                     let elapsed_handling_args = env.start_time.elapsed();
                     if args.watch {
                         info!("Done handling args. Elapsed: {:.2?}", elapsed_handling_args);

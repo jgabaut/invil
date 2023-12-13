@@ -1,6 +1,18 @@
 # Changelog
 
-## [0.1.1] - Unreleased
+## [0.1.2] - 2023-12-13
+
+### Added
+
+- Functionality for subcommands
+  - build to build latest tag for current mode
+  - init to prep a new project
+
+### Changed
+
+- Mutability pass on env and args parameters, needed for build command last entry call
+
+## [0.1.1] - 2023-12-10
 
 ### Added
 
