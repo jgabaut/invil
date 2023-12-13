@@ -19,7 +19,7 @@ use std::{env, fs};
 #[macro_use] extern crate log;
 use simplelog::*;
 use toml::Table;
-use git2::{Repository, Error, Status};
+use git2::{Repository, Error, Status, RepositoryInitOptions};
 use std::collections::BTreeMap;
 use std::process::{ExitCode, Command, exit};
 use std::io::{self, Write};
@@ -451,8 +451,72 @@ fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
     match init_dir {
         Some(target) => {
             debug!("Passed dir to init: {}", target.display());
-            todo!("Quick init command");
-            return ExitCode::SUCCESS;
+            let init_res = Repository::init_opts(target.clone(),RepositoryInitOptions::new().no_reinit(true));
+            match init_res {
+                Ok(r) => {
+                    info!("Created git repo at {{{}}}", r.path().display());
+                    let mut src = target.clone();
+                    src.push("src");
+                    let mut bin = target.clone();
+                    bin.push("bin");
+                    let mut tests = target.clone();
+                    tests.push("tests");
+                    let mut bonetests = tests.clone();
+                    bonetests.push("ok");
+                    let mut kulpotests = tests.clone();
+                    kulpotests.push("err");
+                    match fs::create_dir_all(src) {
+                        Ok(_) => {
+                            debug!("Created src dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating src dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(bin) {
+                        Ok(_) => {
+                            debug!("Created bin dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating bin dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(tests) {
+                        Ok(_) => {
+                            debug!("Created tests dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating tests dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(bonetests) {
+                        Ok(_) => {
+                            debug!("Created bonetests dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating bonetests dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    match fs::create_dir_all(kulpotests) {
+                        Ok(_) => {
+                            debug!("Created kulpotests dir");
+                        }
+                        Err(e) => {
+                            error!("Failed creating kulpotests dir. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    return ExitCode::SUCCESS;
+                }
+                Err(e) => {
+                    error!("Failed creating git repo at {{{}}}. Err: {e}", target.display());
+                    return ExitCode::FAILURE;
+                }
+            }
         }
         None => {
             error!("Missing init_dir argument");
