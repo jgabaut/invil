@@ -660,10 +660,10 @@ errortestsdir = \"errors\"\n
                                             info!("Cloned amboso submodule at {{{}}}", sr.workdir().expect("Repo should not be bare").display());
                                             match subm.add_finalize() {
                                                 Ok(_) => {
-                                                    info!("Finalised amboso submodule add");
+                                                    debug!("Finalised amboso submodule add");
                                                 }
                                                 Err(e) => {
-                                                    error!("Failede finalising amboso submodule. Err: {e}");
+                                                    error!("Failed finalising amboso submodule. Err: {e}");
                                                     return ExitCode::FAILURE;
                                                 }
                                             }
@@ -679,7 +679,7 @@ errortestsdir = \"errors\"\n
                                     return ExitCode::FAILURE;
                                 }
                             }
-                            todo!("ln -s anvil");
+                            debug!("TODO - Prepare symlink to anvil");
                             return ExitCode::SUCCESS;
                         }
                         Err(e) => {
