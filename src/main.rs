@@ -454,7 +454,7 @@ fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
             let init_res = Repository::init_opts(target.clone(),RepositoryInitOptions::new().no_reinit(true));
             match init_res {
                 Ok(r) => {
-                    info!("Created git repo at {{{}}}", r.path().display());
+                    info!("Created git repo at {{{}}}", r.workdir().expect("Repo should not be bare").display());
                     let mut src = target.clone();
                     src.push("src");
                     let mut bin = target.clone();
