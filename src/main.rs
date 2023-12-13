@@ -443,18 +443,21 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 }
             }
         }
-        Some(Commands::Init { init_dir }) => {
-            if init_dir.is_some() {
-                debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
-            } else {
-                error!("Missing init_dir arg for init command.");
-                exit(1);
-                //init_dir = &Some(PathBuf::from("."));
-                //debug!("Set . as init_dir");
-            }
-            todo!("Quick init command")
+        _ => {}
+    }
+}
+
+fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
+    match init_dir {
+        Some(target) => {
+            debug!("Passed dir to init: {}", target.display());
+            todo!("Quick init command");
+            return ExitCode::SUCCESS;
         }
-        None => {}
+        None => {
+            error!("Missing init_dir argument");
+            return ExitCode::FAILURE;
+        }
     }
 }
 
@@ -2295,6 +2298,14 @@ fn main() -> ExitCode {
     if ! args.quiet {
         println!("{}", invil_splash);
     }
+
+    match args.command {
+        Some(Commands::Init { init_dir }) => {
+            return handle_init_subcommand(init_dir);
+        }
+        _ => {} //Other subcommands may be handled later, in handle_amboso_env()
+    }
+
     let res_check = check_passed_args(&mut args);
 
     match res_check {
