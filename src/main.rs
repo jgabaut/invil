@@ -474,7 +474,7 @@ fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
                             return ExitCode::FAILURE;
                         }
                     }
-                    match fs::create_dir_all(bin) {
+                    match fs::create_dir_all(bin.clone()) {
                         Ok(_) => {
                             debug!("Created bin dir");
                         }
@@ -510,6 +510,40 @@ fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
                             return ExitCode::FAILURE;
                         }
                     }
+
+                    let stego_path = format!("{}/stego.lock", bin.display());
+                    trace!("Generating stego.lock. Target path: {{{}}}", stego_path);
+                    let output = File::create(stego_path);
+                    let stego_string = format!("[build]\n
+source = \"main.c\"\n
+bin = \"hello_world\"\n
+makevers = \"0.1.0\"\n
+automakevers = \"0.1.0\"\n
+tests = \"tests\"\n
+[tests]\n
+testsdir = \"ok\"\n
+errortestsdir = \"errors\"\n
+[versions]\n
+\"0.1.0\" = \"hello_world\"\n");
+                    match output {
+                        Ok(mut f) => {
+                            let res = write!(f, "{}", stego_string);
+                            match res {
+                                Ok(_) => {
+                                    debug!("Done generating stego.lock file");
+                                }
+                                Err(e) => {
+                                    error!("Failed writing stego.lock file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed opening stego.lock file. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
+
                     return ExitCode::SUCCESS;
                 }
                 Err(e) => {
