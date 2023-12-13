@@ -680,13 +680,27 @@ errortestsdir = \"errors\"\n
                                 }
                             }
 
+                            let mut anvil_path = target.clone();
+                            anvil_path.push("anvil");
+                            let mut amboso_prog_path = target.clone();
+                            amboso_prog_path.push("amboso/amboso");
+
                             if cfg!(target_os = "windows") {
                                 todo!("Support windows symlink");
+                                /*
+                                 *let ln_res = std::os::windows::fs::symlink_file(amboso_prog_path.clone(), anvil_path.clone());
+                                 *match ln_res {
+                                 *    Ok(_) => {
+                                 *        info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
+                                 *        return ExitCode::SUCCESS;
+                                 *    }
+                                 *    Err(e) => {
+                                 *        error!("Failed symlink for anvil. Err: {e}");
+                                 *        return ExitCode::FAILURE;
+                                 *    }
+                                 *}
+                                 */
                             } else {
-                                let mut anvil_path = target.clone();
-                                anvil_path.push("anvil");
-                                let mut amboso_prog_path = target.clone();
-                                amboso_prog_path.push("amboso/amboso");
                                 let ln_res = std::os::unix::fs::symlink(amboso_prog_path.clone(), anvil_path.clone());
                                 match ln_res {
                                     Ok(_) => {
