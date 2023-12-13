@@ -453,8 +453,8 @@ fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
             debug!("Passed dir to init: {}", target.display());
             let init_res = Repository::init_opts(target.clone(),RepositoryInitOptions::new().no_reinit(true));
             match init_res {
-                Ok(r) => {
-                    info!("Created git repo at {{{}}}", r.workdir().expect("Repo should not be bare").display());
+                Ok(repo) => {
+                    info!("Created git repo at {{{}}}", repo.workdir().expect("Repo should not be bare").display());
                     let mut src = target.clone();
                     src.push("src");
                     let mut bin = target.clone();
@@ -642,8 +642,51 @@ errortestsdir = \"errors\"\n
                             return ExitCode::FAILURE;
                         }
                     }
-                    todo!("Submodule add amboso impl, ln -s anvil");
-                    return ExitCode::SUCCESS;
+                    let amboso_path = PathBuf::from("amboso");
+                    let amboso_submodule = repo.submodule(
+                        "https://github.com/jgabaut/amboso.git",
+                        &amboso_path,
+                        false
+                    );
+                    match amboso_submodule {
+                        Ok(mut subm) => {
+                            debug!("Success on repo.submodule()");
+                            let subm_repo = subm.open();
+                            match subm_repo {
+                                Ok(_) => {
+                                    let clone_res = subm.clone(None);
+                                    match clone_res {
+                                        Ok(sr) => {
+                                            info!("Cloned amboso submodule at {{{}}}", sr.workdir().expect("Repo should not be bare").display());
+                                            match subm.add_finalize() {
+                                                Ok(_) => {
+                                                    info!("Finalised amboso submodule add");
+                                                }
+                                                Err(e) => {
+                                                    error!("Failede finalising amboso submodule. Err: {e}");
+                                                    return ExitCode::FAILURE;
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            error!("Failed cloning amboso submodule. Err: {e}");
+                                            return ExitCode::FAILURE;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Failed opening amboso submodule repo. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            todo!("ln -s anvil");
+                            return ExitCode::SUCCESS;
+                        }
+                        Err(e) => {
+                            error!("Failed repo.submodule() call. Err: {e}");
+                            return ExitCode::FAILURE;
+                        }
+                    }
                 }
                 Err(e) => {
                     error!("Failed creating git repo at {{{}}}. Err: {e}", target.display());
