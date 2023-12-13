@@ -679,8 +679,26 @@ errortestsdir = \"errors\"\n
                                     return ExitCode::FAILURE;
                                 }
                             }
-                            debug!("TODO - Prepare symlink to anvil");
-                            return ExitCode::SUCCESS;
+
+                            if cfg!(target_os = "windows") {
+                                todo!("Support windows symlink");
+                            } else {
+                                let mut anvil_path = target.clone();
+                                anvil_path.push("anvil");
+                                let mut amboso_prog_path = target.clone();
+                                amboso_prog_path.push("amboso/amboso");
+                                let ln_res = std::os::unix::fs::symlink(amboso_prog_path.clone(), anvil_path.clone());
+                                match ln_res {
+                                    Ok(_) => {
+                                        info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
+                                        return ExitCode::SUCCESS;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed symlink for anvil. Err: {e}");
+                                        return ExitCode::FAILURE;
+                                    }
+                                }
+                            }
                         }
                         Err(e) => {
                             error!("Failed repo.submodule() call. Err: {e}");
