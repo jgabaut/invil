@@ -1,0 +1,214 @@
+//  SPDX-License-Identifier: GPL-3.0-only
+/*  Build tool with support for git tags, wrapping make.
+ *  Copyright (C) 2023  jgabaut
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, version 3 of the License.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+use crate::core::{Args, Commands};
+use std::{env};
+use std::path::Path;
+use std::ffi::OsStr;
+
+pub fn prog_name() -> Option<String> {
+    env::current_exe().ok()
+        .as_ref()
+        .map(Path::new)
+        .and_then(Path::file_name)
+        .and_then(OsStr::to_str)
+        .map(String::from)
+}
+
+pub fn print_config_args(args: &Args) {
+    //Handle config flags
+    let mut config_string: String = "".to_owned();
+    let amboso_dir_string: String = "D".to_owned();
+    let kazoj_dir_string: String = "K".to_owned();
+    let source_string: String = "S".to_owned();
+    let execname_string: String = "E".to_owned();
+    let maketag_string: String = "M".to_owned();
+    let ignore_gitcheck_string: String = "X".to_owned();
+    match args.amboso_dir {
+        Some(ref x) => {
+            debug!("Passed amboso_dir: {{{}}}", x.display());
+            config_string.push_str(&amboso_dir_string);
+        }
+        None => {}
+    }
+    match args.kazoj_dir {
+        Some(ref x) => {
+            debug!("Passed kazoj_dir: {{{}}}", x.display());
+            config_string.push_str(&kazoj_dir_string);
+        }
+        None => {}
+    }
+    match args.source {
+        Some(ref x) => {
+            debug!("Passed source: {{{}}}", x);
+            config_string.push_str(&source_string);
+        }
+        None => {}
+    }
+    match args.execname {
+        Some(ref x) => {
+            debug!("Passed execname: {{{}}}", x);
+            config_string.push_str(&execname_string);
+        }
+        None => {}
+    }
+    match args.maketag {
+        Some(ref x) => {
+            debug!("Passed maketag: {{{}}}", x);
+            config_string.push_str(&maketag_string);
+        }
+        None => {}
+    }
+    if args.ignore_gitcheck {
+        debug!("Ignore git check is on.");
+        config_string.push_str(&ignore_gitcheck_string);
+    }
+    debug!("Config flags: {{-{}}}", config_string);
+}
+
+pub fn print_mode_args(args: &Args) {
+    //Handle mode flags
+    let mut flags_string: String = "".to_owned();
+    let gitmode_string: String = "g".to_owned();
+    let testmode_string: String = "t".to_owned();
+    let basemode_string: String = "b".to_owned();
+    let testmacromode_string: String = "y".to_owned();
+    let gen_c_mode_string: String = "G".to_owned();
+    let linter_mode_string: String = "x".to_owned();
+    if args.git {
+        flags_string.push_str(&gitmode_string);
+    }
+    if args.test {
+        flags_string.push_str(&testmode_string);
+    }
+    if args.base {
+        flags_string.push_str(&basemode_string);
+    }
+    if args.testmacro {
+        flags_string.push_str(&testmacromode_string);
+    }
+    match args.gen_c_header {
+        Some(_) => {
+            flags_string.push_str(&gen_c_mode_string);
+        }
+        None => {
+        }
+    }
+    match args.linter {
+        Some(_) => {
+            flags_string.push_str(&linter_mode_string);
+        }
+        None => {
+        }
+    }
+    debug!("Mode flags: {{-{}}}", flags_string);
+}
+
+pub fn print_subcommand_args(args: &Args) {
+    match &args.command {
+        Some(Commands::Test { list }) => {
+            if *list {
+                debug!("Printing testing lists...");
+            } else {
+                debug!("Not printing testing lists...");
+            }
+        }
+        Some(Commands::Build) => {
+            debug!("Doing quick build command")
+        }
+        Some(Commands::Init { init_dir }) => {
+            if init_dir.is_some() {
+                debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
+            } else {
+                warn!("Missing init_dir arg for init command.");
+            }
+        }
+        Some(Commands::Version) => {
+            debug!("Printing version");
+        }
+        None => {}
+    }
+}
+
+pub fn print_info_args(args: &Args) {
+    //Handle info flags
+    let mut info_flags_string: String = "".to_owned();
+
+    if args.version {
+        info_flags_string.push_str("v");
+    }
+    if args.watch {
+        info_flags_string.push_str("w");
+    }
+    if args.quiet {
+        info_flags_string.push_str("q");
+    }
+    if args.silent {
+        info_flags_string.push_str("s");
+    }
+    if args.list {
+        info_flags_string.push_str("l");
+    }
+    if args.list_all {
+        info_flags_string.push_str("L");
+    }
+    if args.warranty {
+        info_flags_string.push_str("W");
+    }
+
+    debug!("Info flags: {{-{}}}", info_flags_string);
+}
+
+pub fn print_op_args(args: &Args) {
+    //Handle op flags
+    let mut op_flags_string: String = "".to_owned();
+
+    if args.build {
+        op_flags_string.push_str("b");
+    }
+    if args.run {
+        op_flags_string.push_str("r");
+    }
+    if args.delete {
+        op_flags_string.push_str("d");
+    }
+    if args.init {
+        op_flags_string.push_str("i");
+    }
+    if args.purge {
+        op_flags_string.push_str("p");
+    }
+
+    debug!("Op flags: {{-{}}}", op_flags_string);
+}
+
+
+pub fn print_grouped_args(args: &Args) {
+    // Log asserted flags
+    print_subcommand_args(&args);
+    print_config_args(&args);
+    print_mode_args(&args);
+    print_info_args(&args);
+    print_op_args(&args);
+}
+
+pub fn print_warranty_info() {
+    println!("  THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY
+  APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
+  HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY
+  OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
+  THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+  PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
+  IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
+  ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
+}

@@ -8,3 +8,6 @@ hello_world
 
 #ignore invil.log
 invil.log
+
+#ignore anvil symlink
+anvil
