@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- C header now includes head info for repo
+
 ## [0.1.3] - 2023-12-14
 
 ### Changed
