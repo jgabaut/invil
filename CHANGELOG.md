@@ -6,6 +6,8 @@
 
 - Use semver cmp to determine latest tag for build subcommand
 
+- Split main into modules
+
 ## [0.1.2] - 2023-12-13
 
 ### Added
