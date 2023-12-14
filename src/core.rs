@@ -150,6 +150,10 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     pub logged: bool,
 
+    /// Disable color output
+    #[arg(long, default_value = "false")]
+    pub no_color: bool,
+
     //TODO: Handle -C flag for passing start time for recursive calls
 
     /// Subcommand

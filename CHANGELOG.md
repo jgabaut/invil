@@ -7,6 +7,7 @@
 - C header now includes:
   - head info for repo (somewhat compliant with original implementation)
   - commit message as a string (in extended header section)
+- --no-color extension to turn off color output
 
 ### Changed
 

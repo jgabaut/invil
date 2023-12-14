@@ -85,18 +85,29 @@ fn main() -> ExitCode {
         .set_thread_mode(ThreadLogMode::Both)
         .build();
 
+    let color_choice;
+
+    match args.no_color {
+        true => {
+            color_choice = ColorChoice::Never;
+        }
+        false => {
+            color_choice = ColorChoice::Always;
+        }
+    }
+
     match args.logged {
         false => {
             CombinedLogger::init(
                 vec![
-                    TermLogger::new(log_level, config, TerminalMode::Mixed, ColorChoice::Always),
+                    TermLogger::new(log_level, config, TerminalMode::Mixed, color_choice),
                 ]
             ).unwrap();
         }
         true => {
             CombinedLogger::init(
                 vec![
-                TermLogger::new(log_level, config.clone(), TerminalMode::Mixed, ColorChoice::Always),
+                TermLogger::new(log_level, config.clone(), TerminalMode::Mixed, color_choice),
                 WriteLogger::new(LevelFilter::Trace, config, File::create(INVIL_LOG_FILE).unwrap()),
                 ]
             ).unwrap();
