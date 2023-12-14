@@ -27,8 +27,8 @@
     - The original implementation itself does not expect autotools prep for base mode, but it can be done trivially.
   - Git mode: full support
     - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
-  - C header gen: basic support
-    - The original implementation also prepares git commit info for the header.
+  - C header gen: complete support (\*)
+    - The original implementation print time as a pre-formatted string.
   - Test mode: complete support (\*)
     - Run executable found in test directories
     - Handle test macro flag to run on all valid queries
@@ -73,8 +73,9 @@
 
   - [x] `--logged` to output full log to file
     - Outputs to `./invil.log`. Not backwards compatible with repos not ignoring the file explicitly.
-  - [x] `-G` flag also includes a string for build OS.
-    - From `env::consts::OS`
+  - [x] `-G` flag also includes:
+    - a string for build OS (from `env::consts::OS`)
+    - HEAD commit message
 
 ## See how it behaves <a name = "try_anvil"></a>
 
