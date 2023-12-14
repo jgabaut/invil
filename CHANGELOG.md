@@ -9,6 +9,8 @@
   - commit message as a string (in extended header section)
 - --no-color extension to turn off color output
 
+- New -C flag to pass config file (contents used for config call during autotools prep)
+
 ### Changed
 
 - Define EXPECTED_AMBOSO_API_LEVEL
