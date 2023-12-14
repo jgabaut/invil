@@ -76,6 +76,7 @@
   - [x] `-G` flag also includes:
     - a string for build OS (from `env::consts::OS`)
     - HEAD commit message
+  - [x] `--no-color` to disable color output
 
 ## See how it behaves <a name = "try_anvil"></a>
 
