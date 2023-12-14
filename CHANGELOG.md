@@ -4,7 +4,9 @@
 
 ### Added
 
-- C header now includes head info for repo
+- C header now includes:
+  - head info for repo (somewhat compliant with original implementation)
+  - commit message as a string (in extended header section)
 
 ### Changed
 

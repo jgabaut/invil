@@ -818,6 +818,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
     let mut head_author_name = "".to_string();
     let id;
     let commit_time;
+    let mut commit_message = "".to_string();
     match repo {
         Ok(r) => {
             let head = r.head();
@@ -826,6 +827,10 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                     let commit = head.peel_to_commit();
                     match commit {
                        Ok(commit) => {
+                           if let Some(msg) = commit.message() {
+                               info!("Commit message: {{{}}}", msg);
+                               commit_message = msg.escape_default().to_string();
+                           }
                            id = commit.id().to_string();
                            info!("Commit id: {{{}}}", id);
                            let author = commit.author();
@@ -880,8 +885,10 @@ const char *get_ANVIL__VERSION__AUTHOR(void); /**< Returns a version author stri
 #define INVIL__{bin_name}__HEADER__
 static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char INVIL__OS__STRING[] = \"{INVIL_OS}\"; /**< Represents build os used for [anvil__{bin_name}.h] generated header.*/\n
+static const char INVIL__COMMIT__DESC__STRING[] = \"{commit_message}\"; /**< Represents message for HEAD commit used for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for invil version of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__OS__(void); /**< Returns a version string for os used for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_INVIL__COMMIT__DESC__(void); /**< Returns a string for HEAD commit message used for [anvil__{bin_name}.h] generated header.*/\n
 #endif // INVIL__{bin_name}__HEADER__
 #endif");
     match output {
@@ -929,6 +936,10 @@ const char *get_ANVIL__VERSION__AUTHOR__(void)
 const char *get_INVIL__API__LEVEL__(void)
 {{
     return INVIL__VERSION__STRING;
+}}\n
+const char *get_INVIL__COMMIT__DESC__(void)
+{{
+    return INVIL__COMMIT__DESC__STRING;
 }}\n
 const char *get_INVIL__OS__(void)
 {{
