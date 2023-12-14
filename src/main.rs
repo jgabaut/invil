@@ -26,6 +26,7 @@ use std::io::{self, Write};
 use std::fs::File;
 use is_executable::is_executable;
 use std::time::Instant;
+use std::cmp::Ordering;
 
 
 const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -376,6 +377,27 @@ fn print_subcommand_args(args: &Args) {
     }
 }
 
+fn semver_compare(v1: &str, v2: &str) -> std::cmp::Ordering {
+    let parse_version = |version: &str| {
+        version
+            .split('.')
+            .filter_map(|s| s.parse::<u64>().ok())
+            .collect::<Vec<_>>()
+    };
+
+    let version1 = parse_version(v1);
+    let version2 = parse_version(v2);
+
+    for (a, b) in version1.iter().zip(version2.iter()) {
+        match a.cmp(b) {
+            Ordering::Equal => continue,
+            other => return other,
+        }
+    }
+
+    version1.len().cmp(&version2.len())
+}
+
 fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
     match &args.command {
         Some(Commands::Test { list: _}) => {
@@ -384,11 +406,11 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
         Some(Commands::Build) => {
             match env.run_mode {
                 Some(AmbosoMode::GitMode) => {
-                    let latest_tag = env.gitmode_versions_table.last_entry();
+                    let latest_tag = env.gitmode_versions_table.keys().max_by(|a, b| semver_compare(a, b));
                     match latest_tag {
                         Some(lt) => {
-                            info!("Latest tag: {}", lt.key());
-                            args.tag = Some(lt.key().to_string());
+                            info!("Latest tag: {}", lt);
+                            args.tag = Some(lt.to_string());
                             let build_res = do_build(env, args);
                             match build_res {
                                 Ok(s) => {
@@ -408,11 +430,11 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                     }
                 }
                 Some(AmbosoMode::BaseMode) => {
-                    let latest_tag = env.basemode_versions_table.last_entry();
+                    let latest_tag = env.basemode_versions_table.keys().max_by(|a, b| semver_compare(a, b));
                     match latest_tag {
                         Some(lt) => {
-                            info!("Latest tag: {}", lt.key());
-                            args.tag = Some(lt.key().to_string());
+                            info!("Latest tag: {}", lt);
+                            args.tag = Some(lt.to_string());
                             let build_res = do_build(env, args);
                             match build_res {
                                 Ok(s) => {
