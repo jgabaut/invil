@@ -34,14 +34,17 @@
     - Handle test macro flag to run on all valid queries
     - Record test output with `-b`
       - Not compliant with amboso <1.9.7 expectations: missing trailing `$`.
+  - Passing configure arguments: (\*)
+    - Amboso 1.9.8 expects -C flag to be passing the arguments directly, not by reading a file.
   - Subcommands:
     - build    Quickly build latest version for current mode
     - init     Prepare new project with amboso
+    - version  Print invil version
 
   Flags support status:
 
   - [x] Basic env flags:  `-D`, `-K`, `-M`, `-S`, `-E`
-  - [ ] Clock flag: `-C <startTime>`
+  - [ ] Clock flag: `-Y <startTime>`
   - [x] Linter mode: `-x`
     - [ ] Lint only: `-l`
     - [ ] Report lex: `-L`
@@ -67,6 +70,7 @@
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
   - [ ] Silent: `-s`
+  - [ ] Pass config argument: `-C`
 
 
 ## Extensions

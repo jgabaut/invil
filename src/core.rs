@@ -154,6 +154,10 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     pub no_color: bool,
 
+    /// Pass configuration argument
+    #[arg(short = 'C', long, value_name = "CONFIG_ARG")]
+    pub config: Option<String>,
+
     //TODO: Handle -C flag for passing start time for recursive calls
 
     /// Subcommand
@@ -206,6 +210,9 @@ pub struct AmbosoEnv {
 
     /// Table with supported versions for git mode and description
     pub gitmode_versions_table: BTreeMap<String, String>,
+
+    /// String used for configure command argument
+    pub configure_arg: String,
 
     /// Allow test mode run
     pub support_testmode: bool,
@@ -736,6 +743,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 do_init : false,
                 do_purge : false,
                 start_time: start_time,
+                configure_arg: "".to_string(),
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
@@ -1154,7 +1162,25 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_init : false,
         do_purge : false,
         start_time: start_time,
+        configure_arg: "".to_string(),
     };
+
+    match args.config {
+        Some (ref x) => {
+            let config_read_res = fs::read_to_string(x);
+            match config_read_res {
+                Ok(config_str) => {
+                    trace!("Read config file: {{{}}}", config_str);
+                    anvil_env.configure_arg = config_str;
+                }
+                Err(e) => {
+                    error!("Failed reading config file from {{{}}}. Err: {e}", x);
+                    return Err("Failed reading config file".to_string());
+                }
+            }
+        }
+        None => {}
+    }
 
     match args.linter {
         Some(ref x) => {

@@ -89,7 +89,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             } else {
                                 let output = Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure"))
+                                    .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
                                     .output()
                                     .expect("failed to execute process");
 
