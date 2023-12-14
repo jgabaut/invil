@@ -6,6 +6,12 @@
 
 - C header now includes head info for repo
 
+### Changed
+
+- Define EXPECTED_AMBOSO_API_LEVEL
+
+- C header is no longer generated with flat 1.9.6
+
 ## [0.1.3] - 2023-12-14
 
 ### Changed
