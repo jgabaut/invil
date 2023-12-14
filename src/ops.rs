@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, INVIL_VERSION, INVIL_OS};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL};
 use std::process::Command;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -866,7 +866,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
 //Repo at https://github.com/jgabaut/invil\n
 #ifndef ANVIL__{bin_name}__\n
 #define ANVIL__{bin_name}__\n
-static const char ANVIL__API_LEVEL__STRING[] = \"1.9.6\"; /**< Represents amboso version used for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__API_LEVEL__STRING[] = \"{EXPECTED_AMBOSO_API_LEVEL}\"; /**< Represents amboso version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__{bin_name}__VERSION_STRING[] = \"{target_tag}\"; /**< Represents current version for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__{bin_name}__VERSION_DESC[] = \"{id}\"; /**< Represents current version info for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__{bin_name}__VERSION_DATE[] = \"{commit_time}\"; /**< Represents date for current version for [anvil__{bin_name}.h] generated header.*/\n
