@@ -253,7 +253,9 @@ enum Commands {
     Init {
         /// Argument to specify directory to init
         init_dir: Option<PathBuf>,
-    }
+    },
+    /// Prints invil version
+    Version,
 }
 
 fn prog_name() -> Option<String> {
@@ -372,6 +374,9 @@ fn print_subcommand_args(args: &Args) {
             } else {
                 warn!("Missing init_dir arg for init command.");
             }
+        }
+        Some(Commands::Version) => {
+            debug!("Printing version");
         }
         None => {}
     }
@@ -2596,6 +2601,10 @@ fn main() -> ExitCode {
     match args.command {
         Some(Commands::Init { init_dir }) => {
             return handle_init_subcommand(init_dir);
+        }
+        Some(Commands::Version) => {
+            println!("{INVIL_VERSION}\n");
+            return ExitCode::SUCCESS;
         }
         _ => {} //Other subcommands may be handled later, in handle_amboso_env()
     }
