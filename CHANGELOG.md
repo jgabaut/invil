@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.3-dev]
+
+### Changed
+
+- Use semver cmp to determine latest tag for build subcommand
+
 ## [0.1.2] - 2023-12-13
 
 ### Added
