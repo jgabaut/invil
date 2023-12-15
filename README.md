@@ -70,7 +70,7 @@
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
   - [ ] Silent: `-s`
-  - [ ] Pass config argument: `-C`
+  - [ ] Pass config argument: `-C` (See above)
 
 
 ## Extensions
