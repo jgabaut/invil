@@ -922,15 +922,15 @@ const char *get_ANVIL__API__LEVEL__(void)
 }}\n
 const char *get_ANVIL__VERSION__DESC__(void)
 {{
-    return ANVIL__helapordo__VERSION_DESC;
+    return ANVIL__{bin_name}__VERSION_DESC;
 }}\n
 const char *get_ANVIL__VERSION__DATE__(void)
 {{
-    return ANVIL__helapordo__VERSION_DATE;
+    return ANVIL__{bin_name}__VERSION_DATE;
 }}\n
 const char *get_ANVIL__VERSION__AUTHOR__(void)
 {{
-    return ANVIL__helapordo__VERSION_AUTHOR;
+    return ANVIL__{bin_name}__VERSION_AUTHOR;
 }}\n
 #ifdef INVIL__{bin_name}__HEADER__
 const char *get_INVIL__API__LEVEL__(void)
