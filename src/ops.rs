@@ -890,7 +890,7 @@ const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for inv
 const char *get_INVIL__OS__(void); /**< Returns a version string for os used for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__COMMIT__DESC__(void); /**< Returns a string for HEAD commit message used for [anvil__{bin_name}.h] generated header.*/\n
 #endif // INVIL__{bin_name}__HEADER__
-#endif");
+#endif\n");
     match output {
         Ok(mut f) => {
             let res = write!(f, "{}", header_string);
