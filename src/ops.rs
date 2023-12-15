@@ -879,8 +879,8 @@ static const char ANVIL__{bin_name}__VERSION_AUTHOR[] = \"{head_author_name}\"; 
 const char *get_ANVIL__API__LEVEL__(void); /**< Returns a version string for amboso API of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__(void); /**< Returns a version string for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__DESC__(void); /**< Returns a version info string for [anvil__{bin_name}.h] generated header.*/\n
-const char *get_ANVIL__VERSION__DATE(void); /**< Returns a version date string for [anvil__{bin_name}.h] generated header.*/\n
-const char *get_ANVIL__VERSION__AUTHOR(void); /**< Returns a version author string for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_ANVIL__VERSION__DATE__(void); /**< Returns a version date string for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_ANVIL__VERSION__AUTHOR__(void); /**< Returns a version author string for [anvil__{bin_name}.h] generated header.*/\n
 #ifndef INVIL__{bin_name}__HEADER__
 #define INVIL__{bin_name}__HEADER__
 static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
