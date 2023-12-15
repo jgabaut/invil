@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.4] - 2023-12-15
+
+### Added
+
+- C header now includes:
+  - head info for repo (somewhat compliant with original implementation)
+  - commit message as a string (in extended header section)
+- --no-color extension to turn off color output
+
+- New -C flag to pass config file (contents used for config call during autotools prep)
+
+### Fixed
+
+- C header is no longer generating with "helapordo" in some places
+
+### Changed
+
+- Define EXPECTED_AMBOSO_API_LEVEL
+
+- C header is no longer generated with flat 1.9.6
+
 ## [0.1.3] - 2023-12-14
 
 ### Changed

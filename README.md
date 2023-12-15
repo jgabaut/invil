@@ -27,21 +27,24 @@
     - The original implementation itself does not expect autotools prep for base mode, but it can be done trivially.
   - Git mode: full support
     - The original implementation itself expects git mode tags to contain a `Makefile` in repo root.
-  - C header gen: basic support
-    - The original implementation also prepares git commit info for the header.
+  - C header gen: complete support (\*)
+    - The original implementation print time as a pre-formatted string.
   - Test mode: complete support (\*)
     - Run executable found in test directories
     - Handle test macro flag to run on all valid queries
     - Record test output with `-b`
       - Not compliant with amboso <1.9.7 expectations: missing trailing `$`.
+  - Passing configure arguments: (\*)
+    - Amboso 1.9.8 expects -C flag to be passing the arguments directly, not by reading a file.
   - Subcommands:
     - build    Quickly build latest version for current mode
     - init     Prepare new project with amboso
+    - version  Print invil version
 
   Flags support status:
 
   - [x] Basic env flags:  `-D`, `-K`, `-M`, `-S`, `-E`
-  - [ ] Clock flag: `-C <startTime>`
+  - [ ] Clock flag: `-Y <startTime>`
   - [x] Linter mode: `-x`
     - [ ] Lint only: `-l`
     - [ ] Report lex: `-L`
@@ -67,14 +70,17 @@
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
   - [ ] Silent: `-s`
+  - [ ] Pass config argument: `-C` (See above)
 
 
 ## Extensions
 
   - [x] `--logged` to output full log to file
     - Outputs to `./invil.log`. Not backwards compatible with repos not ignoring the file explicitly.
-  - [x] `-G` flag also includes a string for build OS.
-    - From `env::consts::OS`
+  - [x] `-G` flag also includes:
+    - a string for build OS (from `env::consts::OS`)
+    - HEAD commit message
+  - [x] `--no-color` to disable color output
 
 ## See how it behaves <a name = "try_anvil"></a>
 

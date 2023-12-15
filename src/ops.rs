@@ -11,13 +11,14 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, INVIL_VERSION, INVIL_OS};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL};
 use std::process::Command;
 use std::io::{self, Write};
 use std::path::PathBuf;
 use is_executable::is_executable;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
+use git2::Repository;
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -88,7 +89,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             } else {
                                 let output = Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure"))
+                                    .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
                                     .output()
                                     .expect("failed to execute process");
 
@@ -813,6 +814,56 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
 }
 
 pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &String) -> Result<String,String> {
+    let repo = Repository::discover(target_path);
+    let mut head_author_name = "".to_string();
+    let id;
+    let commit_time;
+    let mut commit_message = "".to_string();
+    match repo {
+        Ok(r) => {
+            let head = r.head();
+            match head {
+                Ok(head) => {
+                    let commit = head.peel_to_commit();
+                    match commit {
+                       Ok(commit) => {
+                           if let Some(msg) = commit.message() {
+                               info!("Commit message: {{{}}}", msg);
+                               commit_message = msg.escape_default().to_string();
+                           }
+                           id = commit.id().to_string();
+                           info!("Commit id: {{{}}}", id);
+                           let author = commit.author();
+                           let name = author.name();
+                           match name {
+                              Some(name) => {
+                                   head_author_name = name.to_string();
+                                   info!("Commit author: {{{}}}", head_author_name);
+                               }
+                               None => {
+                                   warn!("Commit author is empty: {}", head_author_name);
+                               }
+                            }
+                            commit_time = commit.time().seconds();
+                            info!("Commit time: {{{}}}", commit_time);
+                               }
+                               Err(e) => {
+                                   error!("Failed peel to head commit for {{{}}}. Err: {e}", target_path.display());
+                                   return Err("Failed peel to head commit for repo".to_string());
+                               }
+                            }
+                }
+                Err(e) => {
+                    error!("Failed getting head for {{{}}}. Err: {e}", target_path.display());
+                    return Err("Failed getting head for repo".to_string());
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed discovering repo for {{{}}}. Err: {e}", target_path.display());
+            return Err("Failed discover of repo".to_string());
+        }
+    }
     let header_path = format!("{}/anvil__{}.h", target_path.display(), bin_name);
     trace!("Generating C header. Target path: {{{}}} Tag: {{{}}}", header_path, target_tag);
     let output = File::create(header_path);
@@ -820,11 +871,11 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
 //Repo at https://github.com/jgabaut/invil\n
 #ifndef ANVIL__{bin_name}__\n
 #define ANVIL__{bin_name}__\n
-static const char ANVIL__API_LEVEL__STRING[] = \"1.9.6\"; /**< Represents amboso version used for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__API_LEVEL__STRING[] = \"{EXPECTED_AMBOSO_API_LEVEL}\"; /**< Represents amboso version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__{bin_name}__VERSION_STRING[] = \"{target_tag}\"; /**< Represents current version for [anvil__{bin_name}.h] generated header.*/\n
-static const char ANVIL__{bin_name}__VERSION_DESC[] = \"\"; /**< Represents current version info for [anvil__{bin_name}.h] generated header.*/\n
-static const char ANVIL__{bin_name}__VERSION_DATE[] = \"\"; /**< Represents date for current version for [anvil__{bin_name}.h] generated header.*/\n
-static const char ANVIL__{bin_name}__VERSION_AUTHOR[] = \"\"; /**< Represents author for current version for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__{bin_name}__VERSION_DESC[] = \"{id}\"; /**< Represents current version info for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__{bin_name}__VERSION_DATE[] = \"{commit_time}\"; /**< Represents date for current version for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__{bin_name}__VERSION_AUTHOR[] = \"{head_author_name}\"; /**< Represents author for current version for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__API__LEVEL__(void); /**< Returns a version string for amboso API of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__(void); /**< Returns a version string for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__DESC__(void); /**< Returns a version info string for [anvil__{bin_name}.h] generated header.*/\n
@@ -834,8 +885,10 @@ const char *get_ANVIL__VERSION__AUTHOR(void); /**< Returns a version author stri
 #define INVIL__{bin_name}__HEADER__
 static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char INVIL__OS__STRING[] = \"{INVIL_OS}\"; /**< Represents build os used for [anvil__{bin_name}.h] generated header.*/\n
+static const char INVIL__COMMIT__DESC__STRING[] = \"{commit_message}\"; /**< Represents message for HEAD commit used for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for invil version of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__OS__(void); /**< Returns a version string for os used for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_INVIL__COMMIT__DESC__(void); /**< Returns a string for HEAD commit message used for [anvil__{bin_name}.h] generated header.*/\n
 #endif // INVIL__{bin_name}__HEADER__
 #endif");
     match output {
@@ -869,20 +922,24 @@ const char *get_ANVIL__API__LEVEL__(void)
 }}\n
 const char *get_ANVIL__VERSION__DESC__(void)
 {{
-    return ANVIL__helapordo__VERSION_DESC;
+    return ANVIL__{bin_name}__VERSION_DESC;
 }}\n
 const char *get_ANVIL__VERSION__DATE__(void)
 {{
-    return ANVIL__helapordo__VERSION_DATE;
+    return ANVIL__{bin_name}__VERSION_DATE;
 }}\n
 const char *get_ANVIL__VERSION__AUTHOR__(void)
 {{
-    return ANVIL__helapordo__VERSION_AUTHOR;
+    return ANVIL__{bin_name}__VERSION_AUTHOR;
 }}\n
 #ifdef INVIL__{bin_name}__HEADER__
 const char *get_INVIL__API__LEVEL__(void)
 {{
     return INVIL__VERSION__STRING;
+}}\n
+const char *get_INVIL__COMMIT__DESC__(void)
+{{
+    return INVIL__COMMIT__DESC__STRING;
 }}\n
 const char *get_INVIL__OS__(void)
 {{
