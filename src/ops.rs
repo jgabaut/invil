@@ -11,7 +11,8 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml};
+use crate::utils::try_parse_stego;
 use std::process::Command;
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -964,4 +965,42 @@ const char *get_INVIL__OS__(void)
         }
     }
     Ok("Done C generationg".to_string())
+}
+
+pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: AmbosoLintMode) -> Result<String,String> {
+    info!("Linter for file: {{{}}}", stego_path.display());
+    if stego_path.exists() {
+        trace!("Found {}", stego_path.display());
+        match lint_mode {
+            AmbosoLintMode::LintOnly => {
+                let res = try_parse_stego(stego_path);
+                match res {
+                    Ok(_) => {
+                        info!("Lint successful for {{{}}}.", stego_path.display());
+                        return Ok("Lint success".to_string());
+                }
+                    Err(e) => {
+                        trace!("Failed lint for {{{}}}.\nError was:    {e}",stego_path.display());
+                        return Err("Lint failure".to_string());
+                    }
+                }
+            }
+            AmbosoLintMode::FullCheck => {
+                let res = parse_stego_toml(stego_path);
+                match res {
+                    Ok(_) => {
+                        info!("Lint successful for {{{}}}.", stego_path.display());
+                        return Ok("Full linter check success".to_string());
+                    }
+                    Err(e) => {
+                        error!("Failed lint for {{{}}}.\nError was:    {e}",stego_path.display());
+                        return Err(e);
+                    }
+                }
+            }
+        }
+    } else {
+        error!("Could not find file: {{{}}}", stego_path.display());
+        return Err("Failed linter call".to_string());
+    }
 }

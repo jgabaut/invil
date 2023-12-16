@@ -25,7 +25,9 @@ use is_executable::is_executable;
 use toml::Table;
 use std::process::ExitCode;
 use std::io::Write;
-use crate::utils::print_grouped_args;
+use crate::utils::{
+    print_grouped_args,
+};
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -171,6 +173,12 @@ pub enum AmbosoMode {
     TestMacro,
     GitMode,
     BaseMode,
+}
+
+#[derive(Debug)]
+pub enum AmbosoLintMode {
+    FullCheck,
+    LintOnly,
 }
 
 #[derive(Debug)]
@@ -1180,32 +1188,6 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             }
         }
         None => {}
-    }
-
-    match args.linter {
-        Some(ref x) => {
-            info!("Linter for file: {{{}}}", x.display());
-            if x.exists() {
-                trace!("Found {}", x.display());
-                let res = parse_stego_toml(x);
-                match res {
-                    Ok(_) => {
-                        info!("Lint successful for {{{}}}.", x.display());
-                        return Ok(anvil_env);
-                    }
-                    Err(e) => {
-                        error!("Failed lint for {{{}}}.\nError was:    {e}",x.display());
-                        return Err(e);
-                    }
-                }
-            } else {
-                error!("Could not find file: {{{}}}", x.display());
-                return Err("Failed linter call".to_string());
-            }
-        }
-        None => {
-            trace!("-x not asserted.");
-        }
     }
 
     //Default mode is git

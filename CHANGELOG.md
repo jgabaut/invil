@@ -6,6 +6,8 @@
 
 - Functionality for -s flag
 
+- Lint only functionality for -x when -l is provided
+
 ### Fixed
 
 - C header gen was missing some underscores

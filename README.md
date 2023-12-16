@@ -46,7 +46,7 @@
   - [x] Basic env flags:  `-D`, `-K`, `-M`, `-S`, `-E`
   - [ ] Clock flag: `-Y <startTime>`
   - [x] Linter mode: `-x`
-    - [ ] Lint only: `-l`
+    - [x] Lint only: `-l`
     - [ ] Report lex: `-L`
   - [x] C header gen mode: `-G` (detailed info is empty)
   - [x] Verbose flag: `-V`
