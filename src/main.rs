@@ -27,11 +27,13 @@ use crate::core::{Args, Commands,
     check_passed_args,
     handle_amboso_env,
     handle_init_subcommand,
+    AmbosoLintMode
 };
 use crate::utils::{
     print_warranty_info,
     prog_name,
 };
+use crate::ops::handle_linter_flag;
 use clap::Parser;
 
 fn main() -> ExitCode {
@@ -53,25 +55,33 @@ fn main() -> ExitCode {
         args.verbose -= 1;
     }
 
-    match args.verbose {
-        5 => {
-            log_level = LevelFilter::Trace;
-        },
-        4 => {
-            log_level = LevelFilter::Debug;
-        },
-        3 => {
-            log_level = LevelFilter::Info;
-        },
-        2 => {
-            log_level = LevelFilter::Warn;
-        },
-        1|0 => {
+    match args.silent {
+        true => {
             log_level = LevelFilter::Error;
-        },
-        _ => {
-            log_level = LevelFilter::Debug;
-        },
+        }
+        false => {
+            match args.verbose {
+                5 => {
+                    log_level = LevelFilter::Trace;
+                },
+                4 => {
+                    log_level = LevelFilter::Debug;
+                },
+                3 => {
+                    log_level = LevelFilter::Info;
+                },
+                2 => {
+                    log_level = LevelFilter::Warn;
+                },
+                1|0 => {
+                    log_level = LevelFilter::Error;
+                },
+                _ => {
+                    log_level = LevelFilter::Debug;
+                },
+            }
+
+        }
     }
 
     let config = ConfigBuilder::new()
@@ -136,6 +146,34 @@ fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         _ => {} //Other subcommands may be handled later, in handle_amboso_env()
+    }
+
+    match args.linter {
+        Some(ref x) => {
+            let lint_mode;
+            match args.list {
+                true => {
+                    lint_mode = AmbosoLintMode::LintOnly;
+                }
+                false => {
+                    lint_mode = AmbosoLintMode::FullCheck;
+                }
+            }
+            let res = handle_linter_flag(x, lint_mode);
+            match res {
+                Ok(s) => {
+                    info!("{s}");
+                    return ExitCode::SUCCESS;
+                }
+                Err(e) => {
+                    error!("handle_linter_flag() failed. Err: {e}");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        None => {
+            trace!("-x not asserted.");
+        }
     }
 
     let res_check = check_passed_args(&mut args);

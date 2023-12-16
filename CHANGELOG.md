@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.5] - 2023-12-16
+
+### Added
+
+- Functionality for -s flag
+
+- Lint only functionality for -x when -l is provided
+
+### Fixed
+
+- C header gen was missing some underscores
+
 ## [0.1.4] - 2023-12-15
 
 ### Added

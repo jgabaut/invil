@@ -13,8 +13,10 @@
  */
 use crate::core::{Args, Commands};
 use std::{env};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ffi::OsStr;
+use std::fs;
+use toml::Table;
 
 pub fn prog_name() -> Option<String> {
     env::current_exe().ok()
@@ -211,4 +213,20 @@ pub fn print_warranty_info() {
   PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM
   IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF
   ALL NECESSARY SERVICING, REPAIR OR CORRECTION.\n");
+}
+
+pub fn try_parse_stego(stego_path: &PathBuf) -> Result<String,String> {
+    let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
+    trace!("Stego contents: {{{}}}", stego);
+    let toml_value = stego.parse::<Table>();
+    match toml_value {
+        Ok(_) => {
+            debug!("try_parse_stego(): Lint success for {{{}}}", stego_path.display());
+            return Ok("Lint success".to_string());
+        }
+        Err(e) => {
+            error!("Lint failed for {{{}}}. Err: {e}", stego_path.display());
+            return Err("Lint failed".to_string());
+        }
+    }
 }
