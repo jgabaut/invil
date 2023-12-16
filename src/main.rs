@@ -53,25 +53,33 @@ fn main() -> ExitCode {
         args.verbose -= 1;
     }
 
-    match args.verbose {
-        5 => {
-            log_level = LevelFilter::Trace;
-        },
-        4 => {
-            log_level = LevelFilter::Debug;
-        },
-        3 => {
-            log_level = LevelFilter::Info;
-        },
-        2 => {
-            log_level = LevelFilter::Warn;
-        },
-        1|0 => {
+    match args.silent {
+        true => {
             log_level = LevelFilter::Error;
-        },
-        _ => {
-            log_level = LevelFilter::Debug;
-        },
+        }
+        false => {
+            match args.verbose {
+                5 => {
+                    log_level = LevelFilter::Trace;
+                },
+                4 => {
+                    log_level = LevelFilter::Debug;
+                },
+                3 => {
+                    log_level = LevelFilter::Info;
+                },
+                2 => {
+                    log_level = LevelFilter::Warn;
+                },
+                1|0 => {
+                    log_level = LevelFilter::Error;
+                },
+                _ => {
+                    log_level = LevelFilter::Debug;
+                },
+            }
+
+        }
     }
 
     let config = ConfigBuilder::new()
