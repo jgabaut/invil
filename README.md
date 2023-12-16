@@ -13,10 +13,25 @@
 
 ## What is this thing? <a name = "witt"></a>
 
-  This is a Rust implementation of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
+  This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's almost on par with the original implementation, as of amboso 1.9.7.
-  Check the next section for support info.
+  It's almost on par with the original implementation, as of `amboso` `1.9.9`.
+  Check the [next section](#supported_amboso) for more support info.
+
+  Invil can be used to:
+  - Automate building a repo-curated list of git tagged versions (or also basic tagged versions with a full directory copy).
+    - Ideally, the build command should be as short as `invil build`.
+  - Run tests for a repo-curated directory with output comparison.
+  - Generate new projects supporting the build tool using `invil init <DIR>`
+
+  At the moment, only C projects are supported.
+  Different build modes are provided internally, depending on how full your autotool build support is:
+  - Basic mode: a single `gcc` call. This may be expanded in a future version, to at least provide support for passing arguments to the compiler.
+  - Make mode: for all tags higher than the version specified as providing make support, `invil` will expect a ready `Makefile` that correctly builds the target binary when `make` is called.
+  - Automake mode: for all tags higher than the version specified as providing automake support, `invil` will expect a `Makefile.am` and a `configure.ac`, so that a `Makefile` with the same assumptions as Make mode can be generated.
+
+  For more information on the `stego.lock` file, see the [amboso info](https://github.com/jgabaut/amboso#stego) about it. Better documentation should come.
+
 
 ## Supported amboso features <a name = "supported_amboso"></a>
 
@@ -100,11 +115,9 @@ Check out [this page](https://github.com/jgabaut/invil/blob/master/bench/gitmode
 
 ## Todo <a name = "todo"></a>
 
-  - Implement silent functionality
   - Extend original impl by handling autotools in base mode
   - Improve logging with a custom format
   - Improve horrendous git mode command chain
     - The current implementation is naive and just calls a bunch of `Command` to pipeline the git operations in a ugly iper-indented mess.
     - Resorting to shell commands is bad and defeats the purpose of this rewrite.
     - We have git2 crate to handle the git commands and should be able to reduce the amount of command wrapping.
-  - Add detailed git info for C header generation
