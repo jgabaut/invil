@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, SemVerKey};
 use crate::utils::try_parse_stego;
 use std::process::Command;
 use std::io::{self, Write};
@@ -26,13 +26,13 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref query) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(query) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(query.to_string())) {
                         error!("{{{}}} was not a valid tag.",query);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(query) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(query.to_string())) {
                         error!("{{{}}} was not a valid tag.",query);
                         return Err("Invalid tag".to_string())
                     }
@@ -343,13 +343,13 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(q) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(q) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
@@ -436,13 +436,13 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(q) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(q) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
@@ -526,13 +526,13 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(q) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(q) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
