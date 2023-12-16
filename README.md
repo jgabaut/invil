@@ -34,8 +34,8 @@
     - Handle test macro flag to run on all valid queries
     - Record test output with `-b`
       - Not compliant with amboso <1.9.7 expectations: missing trailing `$`.
-  - Passing configure arguments: (\*)
-    - Amboso 1.9.8 expects -C flag to be passing the arguments directly, not by reading a file.
+  - Passing configure arguments: complete support
+    - Not compliament with amboso <1.9.9 expectations: -C flag was passing the arguments directly, not by reading a file.
   - Subcommands:
     - build    Quickly build latest version for current mode
     - init     Prepare new project with amboso
@@ -70,7 +70,7 @@
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
   - [ ] Silent: `-s`
-  - [ ] Pass config argument: `-C` (See above)
+  - [x] Pass config argument: `-C`
 
 
 ## Extensions

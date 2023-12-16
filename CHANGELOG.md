@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- C header gen was missing some underscores
+
 ## [0.1.4] - 2023-12-15
 
 ### Added
