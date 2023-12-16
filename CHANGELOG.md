@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Functionality for -s flag
+
 ### Fixed
 
 - C header gen was missing some underscores

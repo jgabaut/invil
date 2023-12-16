@@ -69,7 +69,7 @@
   - [x] Watch flag: `-w`
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
-  - [ ] Silent: `-s`
+  - [x] Silent: `-s`
   - [x] Pass config argument: `-C`
 
 
