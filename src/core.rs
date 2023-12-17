@@ -158,6 +158,14 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     pub no_color: bool,
 
+    /// Enable force build
+    #[arg(long, default_value = "false")]
+    pub force: bool,
+
+    /// Disable calling make rebuild
+    #[arg(long, default_value = "false")]
+    pub no_rebuild: bool,
+
     /// Pass configuration argument
     #[arg(short = 'C', long, value_name = "CONFIG_ARG")]
     pub config: Option<String>,
