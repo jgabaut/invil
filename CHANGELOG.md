@@ -6,6 +6,8 @@
 
 - --force flag to force build
 - --no_rebuild flag to force build
+- Reject invalid semver keys
+- Order tags in AmbosoEnv maps as semver
 
 ### Changed
 
