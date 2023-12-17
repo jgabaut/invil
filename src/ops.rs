@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, SemVerKey};
 use crate::utils::try_parse_stego;
 use std::process::Command;
 use std::io::{self, Write};
@@ -26,13 +26,13 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref query) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(query) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(query.to_string())) {
                         error!("{{{}}} was not a valid tag.",query);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(query) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(query.to_string())) {
                         error!("{{{}}} was not a valid tag.",query);
                         return Err("Invalid tag".to_string())
                     }
@@ -55,7 +55,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 if queried_path.exists() {
                     trace!("Found {{{}}}", queried_path.display());
                     if queried_path.is_file() {
-                        trace!("{} is a file, overriding it", queried_path.display());
+                        trace!("{} is a file", queried_path.display());
+                        if ! args.force {
+                            info!("{{{}}} is ready at {{{}}}.", query, queried_path.display());
+                            info!("Try running with --force to force build.");
+                            return Ok("File was ready".to_string());
+                        }
                     } else {
                         error!("{} is not a file", queried_path.display());
                         return Err("Not a file".to_string())
@@ -88,6 +93,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                  *   .expect("failed to execute process")
                                  */
                             } else {
+                                debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure \"{}\"\'", env.configure_arg);
                                 let output = Command::new("sh")
                                     .arg("-c")
                                     .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
@@ -178,11 +184,23 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                             Some(gsinit_ec) => {
                                                 if gsinit_ec == 0 {
                                                     debug!("Submodule init succeded with status: {}", gsinit_ec.to_string());
-                                                    let output = Command::new("sh")
-                                                        .arg("-c")
-                                                        .arg(format!("make >&2"))
-                                                        .output()
-                                                        .expect("failed to execute process");
+                                                    let output;
+                                                    if args.no_rebuild {
+                                                        debug!("Running \'make\'");
+                                                        output = Command::new("sh")
+                                                            .arg("-c")
+                                                            .arg(format!("make"))
+                                                            .output()
+                                                            .expect("failed to execute process");
+                                                    }
+                                                    else {
+                                                        debug!("Running \'make rebuild\'");
+                                                        output = Command::new("sh")
+                                                            .arg("-c")
+                                                            .arg(format!("make rebuild"))
+                                                            .output()
+                                                            .expect("failed to execute process");
+                                                    }
                                                     match output.status.code() {
                                                         Some(make_ec) => {
                                                             if make_ec == 0 {
@@ -343,13 +361,13 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(q) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(q) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
@@ -436,13 +454,13 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(q) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(q) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
@@ -526,13 +544,13 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
         Some(ref q) => {
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
-                    if ! env.gitmode_versions_table.contains_key(q) {
+                    if ! env.gitmode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }
                 }
                 AmbosoMode::BaseMode => {
-                    if ! env.basemode_versions_table.contains_key(q) {
+                    if ! env.basemode_versions_table.contains_key(&SemVerKey(q.to_string())) {
                         error!("{{{}}} was not a valid tag.",q);
                         return Err("Invalid tag".to_string())
                     }

@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- --force flag to force build
+- --no_rebuild flag to force build
+- Reject invalid semver keys
+- Order tags in AmbosoEnv maps as semver
+
+### Changed
+
+- do_build() returns early if target is found and no --force is provided
+- do_build() calls make rebuild by default
+
 ## [0.1.5] - 2023-12-16
 
 ### Added

@@ -28,6 +28,8 @@ use std::io::Write;
 use crate::utils::{
     print_grouped_args,
 };
+use regex::Regex;
+use std::fmt;
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -156,6 +158,14 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     pub no_color: bool,
 
+    /// Enable force build
+    #[arg(long, default_value = "false")]
+    pub force: bool,
+
+    /// Disable calling make rebuild
+    #[arg(long, default_value = "false")]
+    pub no_rebuild: bool,
+
     /// Pass configuration argument
     #[arg(short = 'C', long, value_name = "CONFIG_ARG")]
     pub config: Option<String>,
@@ -211,13 +221,13 @@ pub struct AmbosoEnv {
     pub mintag_automake: Option<String>,
 
     /// Table with all supported versions and description
-    pub versions_table: BTreeMap<String, String>,
+    pub versions_table: BTreeMap<SemVerKey, String>,
 
     /// Table with supported versions for base mode and description
-    pub basemode_versions_table: BTreeMap<String, String>,
+    pub basemode_versions_table: BTreeMap<SemVerKey, String>,
 
     /// Table with supported versions for git mode and description
-    pub gitmode_versions_table: BTreeMap<String, String>,
+    pub gitmode_versions_table: BTreeMap<SemVerKey, String>,
 
     /// String used for configure command argument
     pub configure_arg: String,
@@ -463,11 +473,11 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
         Some(Commands::Build) => {
             match env.run_mode {
                 Some(AmbosoMode::GitMode) => {
-                    let latest_tag = env.gitmode_versions_table.keys().max_by(|a, b| semver_compare(a, b));
+                    let latest_tag = env.gitmode_versions_table.last_key_value(); //.max_by(|a, b| semver_compare(a.unwrap(), b));
                     match latest_tag {
                         Some(lt) => {
-                            info!("Latest tag: {}", lt);
-                            args.tag = Some(lt.to_string());
+                            info!("Latest tag: {}", lt.0);
+                            args.tag = Some(lt.0.to_string());
                             let build_res = do_build(env, args);
                             match build_res {
                                 Ok(s) => {
@@ -487,11 +497,11 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                     }
                 }
                 Some(AmbosoMode::BaseMode) => {
-                    let latest_tag = env.basemode_versions_table.keys().max_by(|a, b| semver_compare(a, b));
+                    let latest_tag = env.basemode_versions_table.last_key_value(); //keys().max_by(|a, b| semver_compare(a, b));
                     match latest_tag {
                         Some(lt) => {
-                            info!("Latest tag: {}", lt);
-                            args.tag = Some(lt.to_string());
+                            info!("Latest tag: {}", lt.0);
+                            args.tag = Some(lt.0.to_string());
                             let build_res = do_build(env, args);
                             match build_res {
                                 Ok(s) => {
@@ -817,17 +827,25 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 warn!("Missing ANVIL_TESTS section.");
             }
             if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
-                anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (key.to_string(), value.as_str().unwrap().to_string()))
+                anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (SemVerKey(key.to_string()), value.as_str().unwrap().to_string()))
                     .collect();
                 if anvil_env.versions_table.len() == 0 {
                     warn!("versions_table is empty.");
                 } else {
                     for (key, value) in anvil_env.versions_table.iter() {
-                        if key.starts_with('-') {
-                            let trimmed_key = key.trim_start_matches('-').to_string();
-                            anvil_env.basemode_versions_table.insert(trimmed_key, value.clone());
+                        if key.to_string().starts_with('-') {
+                            let trimmed_key = key.to_string().trim_start_matches('-').to_string();
+                            if ! is_semver(&trimmed_key) {
+                                error!("Invalid semver key: {{{}}}", trimmed_key);
+                                return Err("Invalid semver key".to_string());
+                            }
+                            anvil_env.basemode_versions_table.insert(SemVerKey(trimmed_key), value.clone());
                         } else {
-                            anvil_env.gitmode_versions_table.insert(key.clone(), value.clone());
+                            if ! is_semver(&key.to_string()) {
+                                error!("Invalid semver key: {{{}}}", key);
+                                return Err("Invalid semver key".to_string());
+                            }
+                            anvil_env.gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
                         }
                     }
                 }
@@ -1438,4 +1456,34 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     anvil_env.do_purge = args.purge;
 
     return Ok(anvil_env);
+}
+
+fn is_semver(input: &str) -> bool {
+    let semver_regex = Regex::new(
+        r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
+    )
+    .expect("Failed to create regex");
+
+    semver_regex.is_match(input)
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct SemVerKey(pub String);
+
+impl Ord for SemVerKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        semver_compare(&self.0, &other.0)
+    }
+}
+
+impl PartialOrd for SemVerKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl fmt::Display for SemVerKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
