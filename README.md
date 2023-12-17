@@ -56,6 +56,9 @@
     - init     Prepare new project with amboso
     - version  Print invil version
 
+  - Note:
+    - As of version `0.1.6`, by default `make rebuild` is called on build operation. To revert to original behaviour and call just `make`, run with `--no-rebuild`.
+
   Flags support status:
 
   - [x] Basic env flags:  `-D`, `-K`, `-M`, `-S`, `-E`
