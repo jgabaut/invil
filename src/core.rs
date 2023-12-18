@@ -839,13 +839,25 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                                 error!("Invalid semver key: {{{}}}", trimmed_key);
                                 return Err("Invalid semver key".to_string());
                             }
-                            anvil_env.basemode_versions_table.insert(SemVerKey(trimmed_key), value.clone());
+                            let ins_res = anvil_env.basemode_versions_table.insert(SemVerKey(trimmed_key.clone()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    warn!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
+                                }
+                            }
                         } else {
                             if ! is_semver(&key.to_string()) {
                                 error!("Invalid semver key: {{{}}}", key);
                                 return Err("Invalid semver key".to_string());
                             }
-                            anvil_env.gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
+                            let ins_res = anvil_env.gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    warn!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
+                                }
+                            }
                         }
                     }
                 }
