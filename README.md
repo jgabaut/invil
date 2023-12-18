@@ -89,6 +89,7 @@
   - [x] Ignore gitcheck flag: `-X`
   - [x] Silent: `-s`
   - [x] Pass config argument: `-C`
+  - [ ] Run make pack: `-z`
 
 
 ## Extensions
