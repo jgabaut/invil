@@ -843,7 +843,8 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                             match ins_res {
                                 None => {},
                                 Some(old) => {
-                                    warn!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
+                                    error!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
+                                    return Err("Basemode version conflict".to_string());
                                 }
                             }
                         } else {
@@ -855,7 +856,8 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                             match ins_res {
                                 None => {},
                                 Some(old) => {
-                                    warn!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
+                                    error!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
+                                    return Err("Gitmode version conflict".to_string());
                                 }
                             }
                         }
