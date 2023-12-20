@@ -667,6 +667,8 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         let mut kulpotests_map = env.kulpotests_table.clone();
                         alltests_map.append(&mut bonetests_map);
                         alltests_map.append(&mut kulpotests_map);
+                        let mut tot_successes = 0;
+                        let mut tot_failures = 0;
                         for test in alltests_map.values() {
                             if test.exists() {
                                 trace!("Found {{{}}}", test.display());
@@ -680,7 +682,16 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                             let test_elapsed = env.start_time.elapsed();
                                             info!("Done test {{{}}}, Elapsed: {:.2?}", test.display(), test_elapsed);
                                         }
-                                        info!("Test cmd: {{{:?}}}", test_res);
+                                        match test_res {
+                                            Ok(st) => {
+                                                info!("Test ok: {st}");
+                                                tot_successes += 1;
+                                            }
+                                            Err(e) => {
+                                                error!("Test {} failed. Err: {e}", test.display());
+                                                tot_failures += 1;
+                                            }
+                                        }
                                     } else {
                                         debug!("{} is not executable", test.display());
                                         return Ok("Is not executable".to_string());
@@ -694,8 +705,14 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 return Err("No file found".to_string())
                             }
                         }
-                        info!("Done test macro");
-                        return Ok("Done test macro run".to_string());
+                        debug!("Done test macro");
+                        info!("Successes: {tot_successes}");
+                        error!("Failures: {tot_failures}");
+                        if tot_failures != 0 {
+                            return Err("Test macro had some failures".to_string());
+                        } else {
+                            return Ok("Done test macro run".to_string());
+                        }
                     }
                 }
                 _ => {
@@ -763,7 +780,7 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
                                     }
                                 }
                             } else {
-                                info!("Expected: {{\"\n{}\"}}", stdout_record);
+                                warn!("Expected: {{\"\n{}\"}}", stdout_record);
                                 match std::str::from_utf8(&output.stdout) {
                                     Ok(v) => {
                                         info!("Found: {{\"\n{}\"}}", v);
@@ -799,7 +816,7 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
                             info!("Stderr matched!");
                         } else {
                             warn!("Stderr did not match!");
-                            info!("Expected: {{\"\n{}\"}}", stderr_record);
+                            warn!("Expected: {{\"\n{}\"}}", stderr_record);
                             match std::str::from_utf8(&output.stderr) {
                                 Ok(v) => {
                                     info!("Found: {{\"\n{}\"}}", v);
