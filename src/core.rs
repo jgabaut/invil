@@ -536,25 +536,59 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
     }
 }
 
-pub fn semver_compare(v1: &str, v2: &str) -> std::cmp::Ordering {
-    let parse_version = |version: &str| {
-        version
-            .split('.')
-            .filter_map(|s| s.parse::<u64>().ok())
-            .collect::<Vec<_>>()
+fn parse_version_core(version: &str) -> Vec<u64> {
+    version
+        .split('.')
+        .filter_map(|s| s.parse::<u64>().ok())
+        .collect()
+}
+
+fn parse_version_parts(version: &str) -> (Vec<u64>, String, String) {
+    let parts: Vec<&str> = version.splitn(2, '-').collect();
+    let version_core = parse_version_core(parts[0]);
+
+    let (pre_release, build) = if parts.len() == 2 {
+        let mut subparts = parts[1].splitn(2, '+');
+        let pre_release = subparts.next().unwrap_or_default();
+        let build = subparts.next().unwrap_or_default();
+        (pre_release.to_string(), build.to_string())
+    } else {
+        (String::new(), String::new())
     };
 
-    let version1 = parse_version(v1);
-    let version2 = parse_version(v2);
+    (version_core, pre_release, build)
+}
 
-    for (a, b) in version1.iter().zip(version2.iter()) {
+fn semver_compare(v1: &str, v2: &str) -> Ordering {
+    let (version_core1, pre_release1, build1) = parse_version_parts(v1);
+    let (version_core2, pre_release2, build2) = parse_version_parts(v2);
+
+    for (a, b) in version_core1.iter().zip(version_core2.iter()) {
         match a.cmp(b) {
             Ordering::Equal => continue,
             other => return other,
         }
     }
 
-    version1.len().cmp(&version2.len())
+    // If version cores are equal, compare pre-release metadata
+    match (pre_release1.is_empty(), pre_release2.is_empty()) {
+        (true, true) => {} // Both are empty, continue
+        (true, false) => return Ordering::Greater, // v1 is normal, v2 has pre-release
+        (false, true) => return Ordering::Less, // v1 has pre-release, v2 is normal
+        (false, false) => match pre_release1.cmp(&pre_release2) {
+            Ordering::Equal => {}
+            other => return other,
+        },
+    }
+
+    // If pre-release metadata is equal or both are empty, compare build metadata
+    match build1.cmp(&build2) {
+        Ordering::Equal => {}
+        other => return other,
+    }
+
+    // If everything is equal so far, compare lengths
+    version_core1.len().cmp(&version_core2.len())
 }
 
 pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
