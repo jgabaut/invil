@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, SemVerKey};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey};
 use crate::utils::try_parse_stego;
 use std::process::Command;
 use std::io::{self, Write};
@@ -1012,6 +1012,19 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: AmbosoLintMode) -> Re
                     }
                     Err(e) => {
                         error!("Failed lint for {{{}}}.\nError was:    {e}",stego_path.display());
+                        return Err(e);
+                    }
+                }
+            }
+            AmbosoLintMode::Lex => {
+                let res = lex_stego_toml(stego_path);
+                match res {
+                    Ok(_) => {
+                        info!("Lex successful for {{{}}}.", stego_path.display());
+                        return Ok("Linter lex check success".to_string());
+                    }
+                    Err(e) => {
+                        error!("Failed lex for {{{}}}.\nError was:    {e}",stego_path.display());
                         return Err(e);
                     }
                 }
