@@ -1535,3 +1535,38 @@ impl fmt::Display for SemVerKey {
         write!(f, "{}", self.0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_semver_compare() {
+
+        // Test case 1
+        assert_eq!(semver_compare("1.2.3", "1.2.4"), Ordering::Less);
+        assert_eq!(semver_compare("2.0.0", "1.9.9"), Ordering::Greater);
+        assert_eq!(semver_compare("1.2.0", "1.20.9"), Ordering::Less);
+        assert_eq!(semver_compare("1.10.0", "1.1.10"), Ordering::Greater);
+
+        // Test case 2: Test with pre-release metadata
+        assert_eq!(semver_compare("1.0.0-alpha", "1.0.0-beta"), Ordering::Less);
+
+        // Test case 3: Test with build metadata
+        assert_eq!(semver_compare("1.0.0+build123", "1.0.0+build456"), Ordering::Equal);
+        assert_eq!(semver_compare("1.0.0+pr123", "1.0.0+pr456"), Ordering::Equal);
+        assert_eq!(semver_compare("1.0.0+pr123", "1.0.0+build456"), Ordering::Equal);
+
+        // Test case 4: Test with both pre-release and build metadata
+        assert_eq!(semver_compare("1.0.0-pr1+build123", "1.0.0-pr1+build456"), Ordering::Less);
+        assert_eq!(semver_compare("1.0.0-pr2+build123", "1.0.0-pr1+build456"), Ordering::Greater);
+        assert_eq!(semver_compare("1.0.0-pr2+build456", "1.0.0-pr1+build123"), Ordering::Greater);
+
+        // Test case 5: Test with only version core and some extension
+        assert_eq!(semver_compare("1.0.0", "1.0.0-pr1+build456"), Ordering::Greater);
+        assert_eq!(semver_compare("1.0.0", "1.0.0+build456"), Ordering::Greater);
+        assert_eq!(semver_compare("1.0.0", "1.0.0-patch123"), Ordering::Greater);
+
+    }
+
+}
