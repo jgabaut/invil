@@ -1,6 +1,21 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.7] - 2023-12-20
+
+### Added
+
+- -Lx functionality
+- Tests for semver_compare()
+- Added better logic for SemVerKey comparison
+- Count test results in test macro
+
+### Changed
+
+- Error if two key conflict when trying to fill version maps
+- Internal ordering of version maps
+- Test macro returns Err if any test failed
+
+## [0.1.6] - 2023-12-17
 
 ### Added
 

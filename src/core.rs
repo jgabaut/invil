@@ -189,6 +189,7 @@ pub enum AmbosoMode {
 pub enum AmbosoLintMode {
     FullCheck,
     LintOnly,
+    Lex,
 }
 
 #[derive(Debug)]
@@ -536,25 +537,59 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
     }
 }
 
-pub fn semver_compare(v1: &str, v2: &str) -> std::cmp::Ordering {
-    let parse_version = |version: &str| {
-        version
-            .split('.')
-            .filter_map(|s| s.parse::<u64>().ok())
-            .collect::<Vec<_>>()
+fn parse_version_core(version: &str) -> Vec<u64> {
+    version
+        .split('.')
+        .filter_map(|s| s.parse::<u64>().ok())
+        .collect()
+}
+
+fn parse_version_parts(version: &str) -> (Vec<u64>, String, String) {
+    let parts: Vec<&str> = version.splitn(2, '-').collect();
+    let version_core = parse_version_core(parts[0]);
+
+    let (pre_release, build) = if parts.len() == 2 {
+        let mut subparts = parts[1].splitn(2, '+');
+        let pre_release = subparts.next().unwrap_or_default();
+        let build = subparts.next().unwrap_or_default();
+        (pre_release.to_string(), build.to_string())
+    } else {
+        (String::new(), String::new())
     };
 
-    let version1 = parse_version(v1);
-    let version2 = parse_version(v2);
+    (version_core, pre_release, build)
+}
 
-    for (a, b) in version1.iter().zip(version2.iter()) {
+fn semver_compare(v1: &str, v2: &str) -> Ordering {
+    let (version_core1, pre_release1, build1) = parse_version_parts(v1);
+    let (version_core2, pre_release2, build2) = parse_version_parts(v2);
+
+    for (a, b) in version_core1.iter().zip(version_core2.iter()) {
         match a.cmp(b) {
             Ordering::Equal => continue,
             other => return other,
         }
     }
 
-    version1.len().cmp(&version2.len())
+    // If version cores are equal, compare pre-release metadata
+    match (pre_release1.is_empty(), pre_release2.is_empty()) {
+        (true, true) => {} // Both are empty, continue
+        (true, false) => return Ordering::Greater, // v1 is normal, v2 has pre-release
+        (false, true) => return Ordering::Less, // v1 has pre-release, v2 is normal
+        (false, false) => match pre_release1.cmp(&pre_release2) {
+            Ordering::Equal => {}
+            other => return other,
+        },
+    }
+
+    // If pre-release metadata is equal or both are empty, compare build metadata
+    match build1.cmp(&build2) {
+        Ordering::Equal => {}
+        other => return other,
+    }
+
+    // If everything is equal so far, compare lengths
+    version_core1.len().cmp(&version_core2.len())
 }
 
 pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
@@ -839,13 +874,27 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                                 error!("Invalid semver key: {{{}}}", trimmed_key);
                                 return Err("Invalid semver key".to_string());
                             }
-                            anvil_env.basemode_versions_table.insert(SemVerKey(trimmed_key), value.clone());
+                            let ins_res = anvil_env.basemode_versions_table.insert(SemVerKey(trimmed_key.clone()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    error!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
+                                    return Err("Basemode version conflict".to_string());
+                                }
+                            }
                         } else {
                             if ! is_semver(&key.to_string()) {
                                 error!("Invalid semver key: {{{}}}", key);
                                 return Err("Invalid semver key".to_string());
                             }
-                            anvil_env.gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
+                            let ins_res = anvil_env.gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    error!("parse_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
+                                    return Err("Gitmode version conflict".to_string());
+                                }
+                            }
                         }
                     }
                 }
@@ -1485,5 +1534,165 @@ impl PartialOrd for SemVerKey {
 impl fmt::Display for SemVerKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_semver_compare() {
+
+        // Test case 1
+        assert_eq!(semver_compare("1.2.3", "1.2.4"), Ordering::Less);
+        assert_eq!(semver_compare("2.0.0", "1.9.9"), Ordering::Greater);
+        assert_eq!(semver_compare("1.2.0", "1.20.9"), Ordering::Less);
+        assert_eq!(semver_compare("1.10.0", "1.1.10"), Ordering::Greater);
+
+        // Test case 2: Test with pre-release metadata
+        assert_eq!(semver_compare("1.0.0-alpha", "1.0.0-beta"), Ordering::Less);
+
+        // Test case 3: Test with build metadata
+        assert_eq!(semver_compare("1.0.0+build123", "1.0.0+build456"), Ordering::Equal);
+        assert_eq!(semver_compare("1.0.0+pr123", "1.0.0+pr456"), Ordering::Equal);
+        assert_eq!(semver_compare("1.0.0+pr123", "1.0.0+build456"), Ordering::Equal);
+
+        // Test case 4: Test with both pre-release and build metadata
+        assert_eq!(semver_compare("1.0.0-pr1+build123", "1.0.0-pr1+build456"), Ordering::Less);
+        assert_eq!(semver_compare("1.0.0-pr2+build123", "1.0.0-pr1+build456"), Ordering::Greater);
+        assert_eq!(semver_compare("1.0.0-pr2+build456", "1.0.0-pr1+build123"), Ordering::Greater);
+
+        // Test case 5: Test with only version core and some extension
+        assert_eq!(semver_compare("1.0.0", "1.0.0-pr1+build456"), Ordering::Greater);
+        assert_eq!(semver_compare("1.0.0", "1.0.0+build456"), Ordering::Greater);
+        assert_eq!(semver_compare("1.0.0", "1.0.0-patch123"), Ordering::Greater);
+
+    }
+
+}
+
+pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
+    let start_time = Instant::now();
+    let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
+    trace!("Stego contents: {{{}}}", stego);
+    let toml_value = stego.parse::<Table>();
+    let mut stego_dir = stego_path.clone();
+    if ! stego_dir.pop() {
+        error!("Failed pop for {{{}}}", stego_dir.display());
+        return Err("Unexpected stego_dir value: {{{stego_dir.display()}}}".to_string());
+    }
+    if stego_dir.exists() {
+        info!("ANVIL_BINDIR = {{{}}}", stego_dir.display());
+    } else {
+        error!("Failed reading ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
+        return Err("Could not get stego_dir from {{{stego_path.display()}}}".to_string());
+    }
+    match toml_value {
+        Ok(y) => {
+            trace!("Toml value: {{{}}}", y);
+            if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
+                if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
+                    info!("ANVIL_SOURCE: {{{source_name}}}");
+                } else {
+                    error!("Missing ANVIL_SOURCE definition.");
+                    return Err("Missing ANVIL_SOURCE".to_string());
+                }
+                if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
+                    info!("ANVIL_BIN: {{{binary_name}}}");
+                } else {
+                    error!("Missing ANVIL_BIN definition.");
+                    return Err("Missing ANVIL_BIN".to_string());
+                }
+                if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
+                    info!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
+                } else {
+                    error!("Missing ANVIL_MAKE_VERS definition.");
+                    return Err("Missing ANVIL_MAKE".to_string());
+                }
+                if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
+                    info!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
+                } else {
+                    error!("Missing ANVIL_AUTOMAKE_VERS definition.");
+                    return Err("Missing ANVIL_AUTOMAKE_VERS".to_string());
+                }
+                if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
+                    info!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
+                } else {
+                    error!("Missing ANVIL_TESTDIR definition.");
+                    return Err("Missing ANVIL_TESTDIR".to_string());
+                }
+            } else {
+                error!("Missing ANVIL_BUILD section.");
+                return Err("Missing ANVIL_BUILD".to_string());
+            }
+            if let Some(tests_table) = y.get("tests").and_then(|v| v.as_table()) {
+                if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
+                    info!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
+                } else {
+                    error!("Missing ANVIL_BONEDIR definition.");
+                    return Err("Missing ANVIL_BONEDIR".to_string());
+                }
+                if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
+                    info!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
+                } else {
+                    error!("Missing ANVIL_KULPODIR definition.");
+                    return Err("Missing ANVIL_KULPODIR".to_string());
+                }
+            } else {
+                warn!("Missing ANVIL_TESTS section.");
+            }
+            if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
+                let mut basemode_versions_table = BTreeMap::new();
+                let mut gitmode_versions_table = BTreeMap::new();
+                let versions_table: BTreeMap<SemVerKey,String> = versions_tab.iter().map(|(key, value)| (SemVerKey(key.to_string()), value.as_str().unwrap().to_string()))
+                    .collect();
+                if versions_table.len() == 0 {
+                    warn!("versions_table is empty.");
+                } else {
+                    for (key, value) in versions_table.iter() {
+                        if key.to_string().starts_with('-') {
+                            let trimmed_key = key.to_string().trim_start_matches('-').to_string();
+                            if ! is_semver(&trimmed_key) {
+                                error!("Invalid semver key: {{{}}}", trimmed_key);
+                                return Err("Invalid semver key".to_string());
+                            }
+                            let ins_res = basemode_versions_table.insert(SemVerKey(trimmed_key.clone()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    error!("lex_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
+                                    return Err("Basemode version conflict".to_string());
+                                }
+                            }
+                        } else {
+                            if ! is_semver(&key.to_string()) {
+                                error!("Invalid semver key: {{{}}}", key);
+                                return Err("Invalid semver key".to_string());
+                            }
+                            let ins_res = gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    error!("lex_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
+                                    return Err("Gitmode version conflict".to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                warn!("Missing ANVIL_VERSIONS section.");
+            }
+            let elapsed = start_time.elapsed();
+            debug!("Done lexing stego.toml. Elapsed: {:.2?}", elapsed);
+            return Ok("Lex success".to_string());
+        }
+        Err(e) => {
+            let elapsed = start_time.elapsed();
+            debug!("Done lexing stego.toml. Elapsed: {:.2?}", elapsed);
+            error!("Failed lexing {{{}}} as TOML. Err: [{}]", stego, e);
+            return Err("Failed lexing TOML".to_string());
+        }
     }
 }

@@ -65,7 +65,7 @@
   - [ ] Clock flag: `-Y <startTime>`
   - [x] Linter mode: `-x`
     - [x] Lint only: `-l`
-    - [ ] Report lex: `-L`
+    - [x] Report lex: `-L`
   - [x] C header gen mode: `-G` (detailed info is empty)
   - [x] Verbose flag: `-V`
   - [x] Test macro: `-t`
@@ -89,6 +89,7 @@
   - [x] Ignore gitcheck flag: `-X`
   - [x] Silent: `-s`
   - [x] Pass config argument: `-C`
+  - [ ] Run make pack: `-z`
 
 
 ## Extensions

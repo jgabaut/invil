@@ -150,14 +150,18 @@ fn main() -> ExitCode {
 
     match args.linter {
         Some(ref x) => {
-            let lint_mode;
+            let mut lint_mode = AmbosoLintMode::FullCheck;
+            match args.list_all {
+                true => {
+                    lint_mode = AmbosoLintMode::Lex;
+                }
+                false => {}
+            }
             match args.list {
                 true => {
                     lint_mode = AmbosoLintMode::LintOnly;
                 }
-                false => {
-                    lint_mode = AmbosoLintMode::FullCheck;
-                }
+                false => {}
             }
             let res = handle_linter_flag(x, lint_mode);
             match res {
