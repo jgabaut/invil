@@ -455,7 +455,8 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                     trace!("{}", s);
                 }
                 Err(e) => {
-                    warn!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                    error!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                    exit(1);
                 }
             }
         }

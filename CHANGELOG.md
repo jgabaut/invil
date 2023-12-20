@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Test failure returns 1
+
 ## [0.1.7] - 2023-12-20
 
 ### Added
