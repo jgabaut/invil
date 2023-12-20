@@ -4,6 +4,19 @@
 
 ### Added
 
+- -Lx functionality
+- Tests for semver_compare()
+- Added better logic for SemVerKey comparison
+
+### Changed
+
+- Error if two key conflict when trying to fill version maps
+- Internal ordering of version maps
+
+## [0.1.6] - 2023-12-17
+
+### Added
+
 - --force flag to force build
 - --no_rebuild flag to force build
 - Reject invalid semver keys

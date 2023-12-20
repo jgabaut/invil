@@ -189,6 +189,7 @@ pub enum AmbosoMode {
 pub enum AmbosoLintMode {
     FullCheck,
     LintOnly,
+    Lex,
 }
 
 #[derive(Debug)]
@@ -1569,4 +1570,129 @@ mod tests {
 
     }
 
+}
+
+pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
+    let start_time = Instant::now();
+    let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
+    trace!("Stego contents: {{{}}}", stego);
+    let toml_value = stego.parse::<Table>();
+    let mut stego_dir = stego_path.clone();
+    if ! stego_dir.pop() {
+        error!("Failed pop for {{{}}}", stego_dir.display());
+        return Err("Unexpected stego_dir value: {{{stego_dir.display()}}}".to_string());
+    }
+    if stego_dir.exists() {
+        info!("ANVIL_BINDIR = {{{}}}", stego_dir.display());
+    } else {
+        error!("Failed reading ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
+        return Err("Could not get stego_dir from {{{stego_path.display()}}}".to_string());
+    }
+    match toml_value {
+        Ok(y) => {
+            trace!("Toml value: {{{}}}", y);
+            if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
+                if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
+                    info!("ANVIL_SOURCE: {{{source_name}}}");
+                } else {
+                    error!("Missing ANVIL_SOURCE definition.");
+                    return Err("Missing ANVIL_SOURCE".to_string());
+                }
+                if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
+                    info!("ANVIL_BIN: {{{binary_name}}}");
+                } else {
+                    error!("Missing ANVIL_BIN definition.");
+                    return Err("Missing ANVIL_BIN".to_string());
+                }
+                if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
+                    info!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
+                } else {
+                    error!("Missing ANVIL_MAKE_VERS definition.");
+                    return Err("Missing ANVIL_MAKE".to_string());
+                }
+                if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
+                    info!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
+                } else {
+                    error!("Missing ANVIL_AUTOMAKE_VERS definition.");
+                    return Err("Missing ANVIL_AUTOMAKE_VERS".to_string());
+                }
+                if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
+                    info!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
+                } else {
+                    error!("Missing ANVIL_TESTDIR definition.");
+                    return Err("Missing ANVIL_TESTDIR".to_string());
+                }
+            } else {
+                error!("Missing ANVIL_BUILD section.");
+                return Err("Missing ANVIL_BUILD".to_string());
+            }
+            if let Some(tests_table) = y.get("tests").and_then(|v| v.as_table()) {
+                if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
+                    info!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
+                } else {
+                    error!("Missing ANVIL_BONEDIR definition.");
+                    return Err("Missing ANVIL_BONEDIR".to_string());
+                }
+                if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
+                    info!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
+                } else {
+                    error!("Missing ANVIL_KULPODIR definition.");
+                    return Err("Missing ANVIL_KULPODIR".to_string());
+                }
+            } else {
+                warn!("Missing ANVIL_TESTS section.");
+            }
+            if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
+                let mut basemode_versions_table = BTreeMap::new();
+                let mut gitmode_versions_table = BTreeMap::new();
+                let versions_table: BTreeMap<SemVerKey,String> = versions_tab.iter().map(|(key, value)| (SemVerKey(key.to_string()), value.as_str().unwrap().to_string()))
+                    .collect();
+                if versions_table.len() == 0 {
+                    warn!("versions_table is empty.");
+                } else {
+                    for (key, value) in versions_table.iter() {
+                        if key.to_string().starts_with('-') {
+                            let trimmed_key = key.to_string().trim_start_matches('-').to_string();
+                            if ! is_semver(&trimmed_key) {
+                                error!("Invalid semver key: {{{}}}", trimmed_key);
+                                return Err("Invalid semver key".to_string());
+                            }
+                            let ins_res = basemode_versions_table.insert(SemVerKey(trimmed_key.clone()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    error!("lex_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
+                                    return Err("Basemode version conflict".to_string());
+                                }
+                            }
+                        } else {
+                            if ! is_semver(&key.to_string()) {
+                                error!("Invalid semver key: {{{}}}", key);
+                                return Err("Invalid semver key".to_string());
+                            }
+                            let ins_res = gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
+                            match ins_res {
+                                None => {},
+                                Some(old) => {
+                                    error!("lex_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
+                                    return Err("Gitmode version conflict".to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                warn!("Missing ANVIL_VERSIONS section.");
+            }
+            let elapsed = start_time.elapsed();
+            debug!("Done lexing stego.toml. Elapsed: {:.2?}", elapsed);
+            return Ok("Lex success".to_string());
+        }
+        Err(e) => {
+            let elapsed = start_time.elapsed();
+            debug!("Done lexing stego.toml. Elapsed: {:.2?}", elapsed);
+            error!("Failed lexing {{{}}} as TOML. Err: [{}]", stego, e);
+            return Err("Failed lexing TOML".to_string());
+        }
+    }
 }
