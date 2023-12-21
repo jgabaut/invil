@@ -5,6 +5,7 @@
 ### Changed
 
 - Test failure returns 1
+- is_semver() rejects build and prerelease metadata
 
 ## [0.1.7] - 2023-12-20
 

@@ -1509,12 +1509,21 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 }
 
 fn is_semver(input: &str) -> bool {
-    let semver_regex = Regex::new(
+    let full_regex = Regex::new(
         r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
     )
     .expect("Failed to create regex");
+    let strict_regex = Regex::new(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$").unwrap();
 
-    semver_regex.is_match(input)
+    if strict_regex.is_match(input) {
+        return true;
+    } else {
+        if full_regex.is_match(input) {
+            error!("Prerelease or build metadata is not allowed in a strict SemVer key.");
+            return false;
+        }
+        return false;
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -1541,6 +1550,18 @@ impl fmt::Display for SemVerKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_is_semver() {
+        assert_eq!(is_semver("1.2.3"), true);
+        assert_eq!(is_semver("1.20.3"), true);
+        assert_eq!(is_semver("1.2.3-pr2"), false);
+        assert_eq!(is_semver("1.2.3-pr2+b123"), false);
+        assert_eq!(is_semver("1.2.3+b123"), false);
+        assert_eq!(is_semver("01.2.3"), false);
+        assert_eq!(is_semver("1.02.3"), false);
+        assert_eq!(is_semver("1.2.03"), false);
+    }
 
     #[test]
     fn test_semver_compare() {
