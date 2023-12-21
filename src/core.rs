@@ -869,8 +869,8 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     warn!("versions_table is empty.");
                 } else {
                     for (key, value) in anvil_env.versions_table.iter() {
-                        if key.to_string().starts_with('-') {
-                            let trimmed_key = key.to_string().trim_start_matches('-').to_string();
+                        if key.to_string().starts_with('B') {
+                            let trimmed_key = key.to_string().trim_start_matches('B').to_string();
                             if ! is_semver(&trimmed_key) {
                                 error!("Invalid semver key: {{{}}}", trimmed_key);
                                 return Err("Invalid semver key".to_string());
@@ -1673,8 +1673,8 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
                     warn!("versions_table is empty.");
                 } else {
                     for (key, value) in versions_table.iter() {
-                        if key.to_string().starts_with('-') {
-                            let trimmed_key = key.to_string().trim_start_matches('-').to_string();
+                        if key.to_string().starts_with('B') {
+                            let trimmed_key = key.to_string().trim_start_matches('B').to_string();
                             if ! is_semver(&trimmed_key) {
                                 error!("Invalid semver key: {{{}}}", trimmed_key);
                                 return Err("Invalid semver key".to_string());
