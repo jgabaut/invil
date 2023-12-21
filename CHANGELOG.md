@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Tests for is_semver()
+
 ### Changed
 
 - Test failure returns 1
