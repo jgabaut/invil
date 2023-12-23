@@ -151,19 +151,19 @@ pub struct Args {
     pub ignore_gitcheck: bool,
 
     /// Output to log file
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'J', long, default_value = "false")]
     pub logged: bool,
 
     /// Disable color output
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'P', long, default_value = "false")]
     pub no_color: bool,
 
     /// Enable force build
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'F', long, default_value = "false")]
     pub force: bool,
 
     /// Disable calling make rebuild
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'R', long, default_value = "false")]
     pub no_rebuild: bool,
 
     /// Pass configuration argument
@@ -534,6 +534,7 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 }
             }
         }
+        //TODO: be make when no args are supplied
         _ => {}
     }
 }

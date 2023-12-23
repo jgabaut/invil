@@ -4,6 +4,7 @@
 
 ### Added
 
+- New short versions of extensions, compatible with amboso 2.0
 - Tests for is_semver()
 
 ### Changed
