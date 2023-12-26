@@ -34,7 +34,7 @@ use std::fmt;
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const INVIL_OS: &str = env::consts::OS;
-pub const INVIL_LOG_FILE: &str = "invil.log";
+pub const INVIL_LOG_FILE: &str = "anvil.log";
 pub const ANVIL_SOURCE_KEYNAME: &str = "source";
 pub const ANVIL_BIN_KEYNAME: &str = "bin";
 pub const ANVIL_MAKE_VERS_KEYNAME: &str = "makevers";
@@ -42,7 +42,7 @@ pub const ANVIL_AUTOMAKE_VERS_KEYNAME: &str = "automakevers";
 pub const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
 pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "1.9.9";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.0";
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]

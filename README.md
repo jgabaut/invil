@@ -15,7 +15,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's almost on par with the original implementation, as of `amboso` `1.9.9`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.0`.
   Check the [next section](#supported_amboso) for more support info.
 
   Invil can be used to:
@@ -92,7 +92,7 @@
   - [ ] Run make pack: `-z`
   - [x] No rebuild: `-R`
   - [x] Logged run: `-J`
-    - Outputs to `./invil.log`. Not backwards compatible with repos not ignoring the file explicitly.
+    - Outputs to `./anvil.log`. Not backwards compatible with repos not ignoring the file explicitly.
   - [x] No color: `-P`
   - [x] Force build: `-F`
   - [ ] Run make when no arguments are provided
