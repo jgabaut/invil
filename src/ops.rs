@@ -1132,8 +1132,7 @@ pub fn handle_running_make() {
                     exit(1);
                 }
             }
-
-        } else if Path::new(".configure.ac").exists() && Path::new("./Makefile.am").exists() {
+        } else if Path::new("./configure.ac").exists() && Path::new("./Makefile.am").exists() {
             debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure; make\'");
             let output = Command::new("sh")
                 .arg("-c")
