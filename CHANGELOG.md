@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2023-12-26
+
+### Fixed
+
+- Check later if we're supposed to run make
+- Typo for configure.ac path
+
+### Changed
+
+- Rename handle_empty_subcommand() to handle_running_make()
+
 ## [0.2.0] - 2023-12-26
 
 ### Added
