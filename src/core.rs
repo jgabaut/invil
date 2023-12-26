@@ -534,7 +534,6 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 }
             }
         }
-        //TODO: be make when no args are supplied
         _ => {}
     }
 }
