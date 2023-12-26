@@ -155,6 +155,18 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     cflg_str = "".to_string();
                                 }
                             }
+                            let cc = "CC";
+                            let cc_str;
+                            match env::var(cc) {
+                                Ok(val) => {
+                                    debug!("Using {{{}: {}}}", cc, val);
+                                    cc_str = format!("{}",val);
+                                },
+                                Err(e) => {
+                                    error!("Failed reading {{{}: {}}}", cc, e);
+                                    cc_str = "gcc".to_string();
+                                }
+                            }
                             if use_make {
                                 trace!("Using make mode");
                                 Command::new("sh")
@@ -165,7 +177,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             } else {
                                 Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("{} gcc {} -o {} -lm", cflg_str, source_path.display(), bin_path.display()))
+                                    .arg(format!("{} {} {} -o {} -lm", cflg_str, cc_str, source_path.display(), bin_path.display()))
                                     .output()
                                     .expect("failed to execute process")
                             }
