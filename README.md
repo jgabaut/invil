@@ -95,7 +95,7 @@
     - Outputs to `./anvil.log`. Not backwards compatible with repos not ignoring the file explicitly.
   - [x] No color: `-P`
   - [x] Force build: `-F`
-  - [ ] Run make when no arguments are provided
+  - [x] Run make when no arguments are provided
 
 
 ## Extensions, relative to amboso 1.9.9
