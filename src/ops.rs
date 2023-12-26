@@ -752,8 +752,12 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         }
                     }
                 }
-                _ => {
+                AmbosoMode::GitMode | AmbosoMode::BaseMode => {
+                    if ! env.do_init && ! env.do_purge {
+                        handle_running_make();
+                    }
                 }
+                _ => {}
             }
             warn!("No tag provided for query op.");
             return Err("No tag provided.".to_string())
@@ -1090,7 +1094,7 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: AmbosoLintMode) -> Re
     }
 }
 
-pub fn handle_empty_subcommand() {
+pub fn handle_running_make() {
     if cfg!(target_os = "windows") {
         todo!("Support windows make run?");
         /*

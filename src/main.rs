@@ -35,7 +35,6 @@ use crate::utils::{
 };
 use crate::ops::{
     handle_linter_flag,
-    handle_empty_subcommand,
 };
 use clap::Parser;
 
@@ -147,9 +146,6 @@ fn main() -> ExitCode {
         Some(Commands::Version) => {
             println!("{INVIL_VERSION}\n");
             return ExitCode::SUCCESS;
-        }
-        None => {
-           handle_empty_subcommand();
         }
         _ => {} //Other subcommands may be handled later, in handle_amboso_env()
     }
