@@ -7,6 +7,7 @@
 - New short versions of extensions, compatible with amboso 2.0
 - Tests for is_semver()
 - Read CFLAGS from env for do_build()
+- Try doing make when no args are provided
 
 ### Changed
 
