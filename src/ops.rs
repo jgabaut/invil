@@ -753,7 +753,7 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     }
                 }
                 AmbosoMode::GitMode | AmbosoMode::BaseMode => {
-                    if ! env.do_init && ! env.do_purge {
+                    if ! env.do_init && ! env.do_purge && ! args.list && ! args.list_all {
                         handle_running_make();
                     }
                 }
