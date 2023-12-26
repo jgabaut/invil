@@ -20,6 +20,7 @@ use is_executable::is_executable;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use git2::Repository;
+use std::env;
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -142,17 +143,29 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
+                            let cflg = "CFLAGS";
+                            let cflg_str;
+                            match env::var(cflg) {
+                                Ok(val) => {
+                                    debug!("Using {{{}: {}}}", cflg, val);
+                                    cflg_str = format!("CFLAGS={}", &val);
+                                },
+                                Err(e) => {
+                                    debug!("Failed reading {{{}: {}}}", cflg, e);
+                                    cflg_str = "".to_string();
+                                }
+                            }
                             if use_make {
                                 trace!("Using make mode");
                                 Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("( cd {} || echo \"cd failed\"; make )", build_path.display()))
+                                    .arg(format!("( cd {} || echo \"cd failed\"; {} make )", build_path.display(), cflg_str))
                                     .output()
                                     .expect("failed to execute process")
                             } else {
                                 Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("gcc {} -o {} -lm", source_path.display(), bin_path.display()))
+                                    .arg(format!("{} gcc {} -o {} -lm", cflg_str, source_path.display(), bin_path.display()))
                                     .output()
                                     .expect("failed to execute process")
                             }
@@ -163,6 +176,18 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
+                            let cflg = "CFLAGS";
+                            let cflg_str;
+                            match env::var(cflg) {
+                                Ok(val) => {
+                                    debug!("Using {{{}: {}}}", cflg, val);
+                                    cflg_str = format!("CFLAGS={}", &val);
+                                },
+                                Err(e) => {
+                                    debug!("Failed reading {{{}: {}}}", cflg, e);
+                                    cflg_str = "".to_string();
+                                }
+                            }
                             trace!("Git mode, checking out {}",query);
 
                             let output = Command::new("sh")
@@ -189,7 +214,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                         debug!("Running \'make\'");
                                                         output = Command::new("sh")
                                                             .arg("-c")
-                                                            .arg(format!("make"))
+                                                            .arg(format!("{} make", cflg_str))
                                                             .output()
                                                             .expect("failed to execute process");
                                                     }
@@ -197,7 +222,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                         debug!("Running \'make rebuild\'");
                                                         output = Command::new("sh")
                                                             .arg("-c")
-                                                            .arg(format!("make rebuild"))
+                                                            .arg(format!("{} make rebuild", cflg_str))
                                                             .output()
                                                             .expect("failed to execute process");
                                                     }
