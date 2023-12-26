@@ -1,16 +1,19 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0] - 2023-12-26
 
 ### Added
 
 - New short versions of extensions, compatible with amboso 2.0
 - Tests for is_semver()
+- Read CFLAGS from env for do_build()
 
 ### Changed
 
 - Test failure returns 1
 - is_semver() rejects build and prerelease metadata
+- Log file is now anvil.log
+- Expected amboso version bumped to 2.0.0
 
 ## [0.1.7] - 2023-12-20
 

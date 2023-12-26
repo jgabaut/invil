@@ -6,6 +6,8 @@ hello_world
 #ignore .o files
 *.o
 
+#ignore anvil.log
+anvil.log
 #ignore invil.log
 invil.log
 
