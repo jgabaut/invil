@@ -13,13 +13,14 @@
  */
 use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey};
 use crate::utils::try_parse_stego;
-use std::process::Command;
+use std::process::{Command, exit};
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use is_executable::is_executable;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use git2::Repository;
+use std::env;
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -142,17 +143,41 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
+                            let cflg = "CFLAGS";
+                            let cflg_str;
+                            match env::var(cflg) {
+                                Ok(val) => {
+                                    debug!("Using {{{}: {}}}", cflg, val);
+                                    cflg_str = format!("CFLAGS={}", &val);
+                                },
+                                Err(e) => {
+                                    debug!("Failed reading {{{}: {}}}", cflg, e);
+                                    cflg_str = "".to_string();
+                                }
+                            }
+                            let cc = "CC";
+                            let cc_str;
+                            match env::var(cc) {
+                                Ok(val) => {
+                                    debug!("Using {{{}: {}}}", cc, val);
+                                    cc_str = format!("{}",val);
+                                },
+                                Err(e) => {
+                                    error!("Failed reading {{{}: {}}}", cc, e);
+                                    cc_str = "gcc".to_string();
+                                }
+                            }
                             if use_make {
                                 trace!("Using make mode");
                                 Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("( cd {} || echo \"cd failed\"; make )", build_path.display()))
+                                    .arg(format!("( cd {} || echo \"cd failed\"; {} make )", build_path.display(), cflg_str))
                                     .output()
                                     .expect("failed to execute process")
                             } else {
                                 Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("gcc {} -o {} -lm", source_path.display(), bin_path.display()))
+                                    .arg(format!("{} {} {} -o {} -lm", cflg_str, cc_str, source_path.display(), bin_path.display()))
                                     .output()
                                     .expect("failed to execute process")
                             }
@@ -163,6 +188,18 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
+                            let cflg = "CFLAGS";
+                            let cflg_str;
+                            match env::var(cflg) {
+                                Ok(val) => {
+                                    debug!("Using {{{}: {}}}", cflg, val);
+                                    cflg_str = format!("CFLAGS={}", &val);
+                                },
+                                Err(e) => {
+                                    debug!("Failed reading {{{}: {}}}", cflg, e);
+                                    cflg_str = "".to_string();
+                                }
+                            }
                             trace!("Git mode, checking out {}",query);
 
                             let output = Command::new("sh")
@@ -189,7 +226,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                         debug!("Running \'make\'");
                                                         output = Command::new("sh")
                                                             .arg("-c")
-                                                            .arg(format!("make"))
+                                                            .arg(format!("{} make", cflg_str))
                                                             .output()
                                                             .expect("failed to execute process");
                                                     }
@@ -197,7 +234,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                         debug!("Running \'make rebuild\'");
                                                         output = Command::new("sh")
                                                             .arg("-c")
-                                                            .arg(format!("make rebuild"))
+                                                            .arg(format!("{} make rebuild", cflg_str))
                                                             .output()
                                                             .expect("failed to execute process");
                                                     }
@@ -981,7 +1018,7 @@ const char *get_INVIL__OS__(void)
 {{
     return INVIL__OS__STRING;
 }}
-#endif");
+#endif\n");
     match output {
         Ok(mut f) => {
             let res = write!(f, "{}", c_impl_string);
@@ -1050,5 +1087,78 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: AmbosoLintMode) -> Re
     } else {
         error!("Could not find file: {{{}}}", stego_path.display());
         return Err("Failed linter call".to_string());
+    }
+}
+
+pub fn handle_empty_subcommand() {
+    if cfg!(target_os = "windows") {
+        todo!("Support windows make run?");
+        /*
+         * let output = Command::new("cmd")
+         *   .args(["/C", "echo hello"])
+         *   .output()
+         *   .expect("failed to execute process")
+         */
+    } else {
+        if Path::new("./Makefile").exists() {
+            info!("Found Makefile");
+            debug!("Running \'make\'");
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg(format!("make"))
+                .output()
+                .expect("failed to execute process");
+
+            match output.status.code() {
+                Some(make_ec) => {
+                    if make_ec == 0 {
+                        debug!("make succeded with status: {}", make_ec.to_string());
+                        exit(make_ec);
+                    } else {
+                        error!("make failed with status: {}", make_ec.to_string());
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        exit(make_ec);
+                    }
+                }
+                None => {
+                    error!("make command failed");
+                    io::stdout().write_all(&output.stdout).unwrap();
+                    io::stderr().write_all(&output.stderr).unwrap();
+                    exit(1);
+                }
+            }
+
+        } else if Path::new(".configure.ac").exists() && Path::new("./Makefile.am").exists() {
+            debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure; make\'");
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure; make"))
+                .output()
+                .expect("failed to execute process");
+
+            match output.status.code() {
+                Some(autotools_prep_ec) => {
+                    if autotools_prep_ec == 0 {
+                        debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
+                        exit(autotools_prep_ec);
+                    } else {
+                        error!("Automake failed with status: {}", autotools_prep_ec.to_string());
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        exit(autotools_prep_ec);
+                    }
+                }
+                None => {
+                    error!("Automake prep command failed");
+                    io::stdout().write_all(&output.stdout).unwrap();
+                    io::stderr().write_all(&output.stderr).unwrap();
+                    exit(1);
+                }
+            }
+        } else {
+            error!("Can't find Makefile or configure.ac and Makefile.am. Quitting.");
+            exit(1);
+        }
     }
 }

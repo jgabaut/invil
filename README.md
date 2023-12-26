@@ -15,7 +15,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's almost on par with the original implementation, as of `amboso` `1.9.9`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.0`.
   Check the [next section](#supported_amboso) for more support info.
 
   Invil can be used to:
@@ -50,14 +50,14 @@
     - Record test output with `-b`
       - Not compliant with amboso <1.9.7 expectations: missing trailing `$`.
   - Passing configure arguments: complete support
-    - Not compliament with amboso <1.9.9 expectations: -C flag was passing the arguments directly, not by reading a file.
+    - Not compliant with amboso <1.9.9 expectations: -C flag was passing the arguments directly, not by reading a file.
   - Subcommands:
     - build    Quickly build latest version for current mode
     - init     Prepare new project with amboso
     - version  Print invil version
 
   - Note:
-    - As of version `0.1.6`, by default `make rebuild` is called on build operation. To revert to original behaviour and call just `make`, run with `--no-rebuild`.
+    - As of version `0.1.6`, by default `make rebuild` is called on build operation. This is the expected behaviour of `amboso` `2.x`. To revert to `1.x` original behaviour and call just `make`, run with `--no-rebuild`.
 
   Flags support status:
 
@@ -90,9 +90,15 @@
   - [x] Silent: `-s`
   - [x] Pass config argument: `-C`
   - [ ] Run make pack: `-z`
+  - [x] No rebuild: `-R`
+  - [x] Logged run: `-J`
+    - Outputs to `./anvil.log`. Not backwards compatible with repos not ignoring the file explicitly.
+  - [x] No color: `-P`
+  - [x] Force build: `-F`
+  - [x] Run make when no arguments are provided
 
 
-## Extensions
+## Extensions, relative to amboso 1.9.9
 
   - [x] When in `make` build mode, call `make rebuild` by default
     - [x] `--no-rebuild` to disable make rebuild and run just `make`

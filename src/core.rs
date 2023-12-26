@@ -34,7 +34,7 @@ use std::fmt;
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const INVIL_OS: &str = env::consts::OS;
-pub const INVIL_LOG_FILE: &str = "invil.log";
+pub const INVIL_LOG_FILE: &str = "anvil.log";
 pub const ANVIL_SOURCE_KEYNAME: &str = "source";
 pub const ANVIL_BIN_KEYNAME: &str = "bin";
 pub const ANVIL_MAKE_VERS_KEYNAME: &str = "makevers";
@@ -42,7 +42,7 @@ pub const ANVIL_AUTOMAKE_VERS_KEYNAME: &str = "automakevers";
 pub const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
 pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "1.9.9";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.0";
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]
@@ -151,19 +151,19 @@ pub struct Args {
     pub ignore_gitcheck: bool,
 
     /// Output to log file
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'J', long, default_value = "false")]
     pub logged: bool,
 
     /// Disable color output
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'P', long, default_value = "false")]
     pub no_color: bool,
 
     /// Enable force build
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'F', long, default_value = "false")]
     pub force: bool,
 
     /// Disable calling make rebuild
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'R', long, default_value = "false")]
     pub no_rebuild: bool,
 
     /// Pass configuration argument
@@ -455,7 +455,8 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                     trace!("{}", s);
                 }
                 Err(e) => {
-                    warn!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                    error!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                    exit(1);
                 }
             }
         }
@@ -868,8 +869,8 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     warn!("versions_table is empty.");
                 } else {
                     for (key, value) in anvil_env.versions_table.iter() {
-                        if key.to_string().starts_with('-') {
-                            let trimmed_key = key.to_string().trim_start_matches('-').to_string();
+                        if key.to_string().starts_with('B') {
+                            let trimmed_key = key.to_string().trim_start_matches('B').to_string();
                             if ! is_semver(&trimmed_key) {
                                 error!("Invalid semver key: {{{}}}", trimmed_key);
                                 return Err("Invalid semver key".to_string());
@@ -1508,12 +1509,21 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 }
 
 fn is_semver(input: &str) -> bool {
-    let semver_regex = Regex::new(
+    let full_regex = Regex::new(
         r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$",
     )
     .expect("Failed to create regex");
+    let strict_regex = Regex::new(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$").expect("Failed to create regex");
 
-    semver_regex.is_match(input)
+    if strict_regex.is_match(input) {
+        return true;
+    } else {
+        if full_regex.is_match(input) {
+            error!("Prerelease or build metadata is not allowed in a strict SemVer key.");
+            return false;
+        }
+        return false;
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -1540,6 +1550,18 @@ impl fmt::Display for SemVerKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_is_semver() {
+        assert_eq!(is_semver("1.2.3"), true);
+        assert_eq!(is_semver("1.20.3"), true);
+        assert_eq!(is_semver("1.2.3-pr2"), false);
+        assert_eq!(is_semver("1.2.3-pr2+b123"), false);
+        assert_eq!(is_semver("1.2.3+b123"), false);
+        assert_eq!(is_semver("01.2.3"), false);
+        assert_eq!(is_semver("1.02.3"), false);
+        assert_eq!(is_semver("1.2.03"), false);
+    }
 
     #[test]
     fn test_semver_compare() {
@@ -1651,8 +1673,8 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
                     warn!("versions_table is empty.");
                 } else {
                     for (key, value) in versions_table.iter() {
-                        if key.to_string().starts_with('-') {
-                            let trimmed_key = key.to_string().trim_start_matches('-').to_string();
+                        if key.to_string().starts_with('B') {
+                            let trimmed_key = key.to_string().trim_start_matches('B').to_string();
                             if ! is_semver(&trimmed_key) {
                                 error!("Invalid semver key: {{{}}}", trimmed_key);
                                 return Err("Invalid semver key".to_string());
