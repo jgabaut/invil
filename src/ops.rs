@@ -13,9 +13,9 @@
  */
 use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey};
 use crate::utils::try_parse_stego;
-use std::process::Command;
+use std::process::{Command, exit};
 use std::io::{self, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use is_executable::is_executable;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -1075,5 +1075,78 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: AmbosoLintMode) -> Re
     } else {
         error!("Could not find file: {{{}}}", stego_path.display());
         return Err("Failed linter call".to_string());
+    }
+}
+
+pub fn handle_empty_subcommand() {
+    if cfg!(target_os = "windows") {
+        todo!("Support windows make run?");
+        /*
+         * let output = Command::new("cmd")
+         *   .args(["/C", "echo hello"])
+         *   .output()
+         *   .expect("failed to execute process")
+         */
+    } else {
+        if Path::new("./Makefile").exists() {
+            info!("Found Makefile");
+            debug!("Running \'make\'");
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg(format!("make"))
+                .output()
+                .expect("failed to execute process");
+
+            match output.status.code() {
+                Some(make_ec) => {
+                    if make_ec == 0 {
+                        debug!("make succeded with status: {}", make_ec.to_string());
+                        exit(make_ec);
+                    } else {
+                        error!("make failed with status: {}", make_ec.to_string());
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        exit(make_ec);
+                    }
+                }
+                None => {
+                    error!("make command failed");
+                    io::stdout().write_all(&output.stdout).unwrap();
+                    io::stderr().write_all(&output.stderr).unwrap();
+                    exit(1);
+                }
+            }
+
+        } else if Path::new(".configure.ac").exists() && Path::new("./Makefile.am").exists() {
+            debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure; make\'");
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure; make"))
+                .output()
+                .expect("failed to execute process");
+
+            match output.status.code() {
+                Some(autotools_prep_ec) => {
+                    if autotools_prep_ec == 0 {
+                        debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
+                        exit(autotools_prep_ec);
+                    } else {
+                        error!("Automake failed with status: {}", autotools_prep_ec.to_string());
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        exit(autotools_prep_ec);
+                    }
+                }
+                None => {
+                    error!("Automake prep command failed");
+                    io::stdout().write_all(&output.stdout).unwrap();
+                    io::stderr().write_all(&output.stderr).unwrap();
+                    exit(1);
+                }
+            }
+        } else {
+            error!("Can't find Makefile or configure.ac and Makefile.am. Quitting.");
+            exit(1);
+        }
     }
 }
