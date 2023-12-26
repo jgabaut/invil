@@ -5,6 +5,7 @@
 ### Fixed
 
 - Check later if we're supposed to run make
+- Typo for configure.ac path
 
 ### Changed
 
