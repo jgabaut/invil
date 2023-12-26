@@ -981,7 +981,7 @@ const char *get_INVIL__OS__(void)
 {{
     return INVIL__OS__STRING;
 }}
-#endif");
+#endif\n");
     match output {
         Ok(mut f) => {
             let res = write!(f, "{}", c_impl_string);
