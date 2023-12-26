@@ -7,6 +7,7 @@
 - New short versions of extensions, compatible with amboso 2.0
 - Tests for is_semver()
 - Read CFLAGS from env for do_build()
+- Read CC from env for do_build() when below ANVIL_MAKEVERS
 - Try doing make when no args are provided
 
 ### Changed
