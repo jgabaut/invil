@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Check later if we're supposed to run make
+
+### Changed
+
+- Rename handle_empty_subcommand() to handle_running_make()
+
 ## [0.2.0] - 2023-12-26
 
 ### Added
