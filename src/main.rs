@@ -127,7 +127,7 @@ fn main() -> ExitCode {
     }
 
     //Debug pretty-print of args
-    trace!("Args: {:#?}\n", args);
+    //trace!("Args: {:#?}\n", args);
     trace!("Log level: {}\n", log_level);
 
     if ! prog_name().expect("Failed resolvig current program name").eq("anvil") {

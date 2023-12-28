@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Add --strict flag to turn off extensions to amboso 2.0
+- print_extension_args() to trace passed flags
+
+### Changed
+
+- Less noisy logs, by not logging intermediate values before the full AmbosoEnv
+
+
 ## [0.2.1] - 2023-12-26
 
 ### Fixed

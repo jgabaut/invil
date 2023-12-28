@@ -194,6 +194,28 @@ pub fn print_op_args(args: &Args) {
     debug!("Op flags: {{-{}}}", op_flags_string);
 }
 
+pub fn print_extension_args(args: &Args) {
+    //Handle mode flags
+    let mut flags_string: String = "".to_owned();
+    let no_rebuild_string: String = "R".to_owned();
+    let force_rebuild_string: String = "F".to_owned();
+    let logged_string: String = "J".to_owned();
+    let no_color_string: String = "P".to_owned();
+    if args.no_rebuild {
+        flags_string.push_str(&no_rebuild_string);
+    }
+    if args.force {
+        flags_string.push_str(&force_rebuild_string);
+    }
+    if args.logged {
+        flags_string.push_str(&logged_string);
+    }
+    if args.no_color {
+        flags_string.push_str(&no_color_string);
+    }
+    debug!("Extension flags: {{-{}}}", flags_string);
+}
+
 
 pub fn print_grouped_args(args: &Args) {
     // Log asserted flags
@@ -202,6 +224,7 @@ pub fn print_grouped_args(args: &Args) {
     print_mode_args(&args);
     print_info_args(&args);
     print_op_args(&args);
+    print_extension_args(&args);
 }
 
 pub fn print_warranty_info() {

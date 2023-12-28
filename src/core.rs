@@ -20,7 +20,7 @@ use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
-use git2::{Repository, Error, Status, RepositoryInitOptions};
+use git2::{Repository, Status, RepositoryInitOptions};
 use is_executable::is_executable;
 use toml::Table;
 use std::process::ExitCode;
@@ -169,6 +169,10 @@ pub struct Args {
     /// Pass configuration argument
     #[arg(short = 'C', long, value_name = "CONFIG_ARG")]
     pub config: Option<String>,
+
+    /// Disable extensions to amboso 2.0
+    #[arg(long, default_value = "false")]
+    pub strict: bool,
 
     //TODO: Handle -C flag for passing start time for recursive calls
 
@@ -593,27 +597,42 @@ fn semver_compare(v1: &str, v2: &str) -> Ordering {
     version_core1.len().cmp(&version_core2.len())
 }
 
-pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
+pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, String> {
     // Open the repository
-    let repo = Repository::discover(path)?;
+    let repo = Repository::discover(path);
 
-    // Check if there are any modified files in the working directory
-    let statuses = repo.statuses(None)?;
+    match repo {
+        Ok(r) => {
+            // Check if there are any modified files in the working directory
+            let statuses = r.statuses(None);
+            match statuses {
+                Ok(s) => {
+                    for entry in s.iter() {
+                        match entry.status() {
+                            Status::WT_MODIFIED | Status::WT_NEW | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
+                                // There are uncommitted changes
+                                info!("Uncommitted changes:");
+                                info!("  {}", entry.path().unwrap());
+                                return Ok(false);
+                            }
+                            _ => (),
+                        }
+                    }
 
-    for entry in statuses.iter() {
-        match entry.status() {
-            Status::WT_MODIFIED | Status::WT_NEW | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
-                // There are uncommitted changes
-                info!("Uncommitted changes:");
-                info!("  {}", entry.path().unwrap());
-                return Ok(false);
+                    // No uncommitted changes
+                    Ok(true)
+                }
+                Err(e) => {
+                    error!("Failed getting repo statuses. Err: {e}");
+                    return Err("Failed repo.statuses()".to_string());
+                }
             }
-            _ => (),
+        }
+        Err(e) => {
+            error!("Failed discover of repo at {{{}}}. Err: {e}", path.display());
+            return Err("Failed repo discovery".to_string());
         }
     }
-
-    // No uncommitted changes
-    Ok(true)
 }
 
 
@@ -627,7 +646,7 @@ pub fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
             let res = parse_stego_toml(&stego_path);
             match res {
                 Ok(mut a) => {
-                    trace!("Stego contents: {{{:#?}}}", a);
+                    //trace!("Stego contents: {{{:#?}}}", a);
                     if a.support_testmode {
                         match a.bonetests_dir {
                             Some(ref b) => {
@@ -758,7 +777,7 @@ pub fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
 pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
-    trace!("Stego contents: {{{}}}", stego);
+    //trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
     let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
@@ -799,7 +818,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 start_time: start_time,
                 configure_arg: "".to_string(),
             };
-            trace!("Toml value: {{{}}}", y);
+            //trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
                 if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
                     trace!("ANVIL_SOURCE: {{{source_name}}}");
