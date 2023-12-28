@@ -20,7 +20,7 @@ use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
-use git2::{Repository, Status, RepositoryInitOptions};
+use git2::{Repository, Status, RepositoryInitOptions, ErrorCode};
 use is_executable::is_executable;
 use toml::Table;
 use std::process::ExitCode;
@@ -629,7 +629,13 @@ pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, String> {
             }
         }
         Err(e) => {
-            error!("Failed discover of repo at {{{}}}. Err: {e}", path.display());
+            error!("Failed discover of repo at {{{}}}.", path.display());
+            match e.code() {
+                ErrorCode::NotFound => {
+                    error!("Could not find repo.");
+                }
+                _ => {}
+            }
             return Err("Failed repo discovery".to_string());
         }
     }
@@ -1298,7 +1304,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 }
             }
             Err(e) => {
-                error!("Failed git check. Error was: {{{}}}", e);
+                error!("Failed git check");
                 return Err(e.to_string());
             }
         }
