@@ -1429,7 +1429,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     }
                 }
                 None => {
-                    warn!("stego.lock had no tests dir");
+                    warn!("Could not find tests dir in {{stego.lock}}.");
                     args.kazoj_dir = Some(PathBuf::from("./kazoj"));
                     if args.kazoj_dir.as_ref().unwrap().exists() {
                         debug!("{} exists", args.kazoj_dir.as_ref().unwrap().display());
@@ -1515,7 +1515,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     }
                 }
                 None => {
-                    warn!("stego.lock did not have a valid maketag arg.");
+                    warn!("Could not find a valid maketag arg in {{stego.lock}}.");
                     anvil_env.support_makemode = false;
                 }
             }
