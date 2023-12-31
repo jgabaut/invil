@@ -110,6 +110,12 @@
   - [x] `--no-color` to disable color output
   - [x] `--force` to overwrite ready targets
 
+## Extensions to amboso 2.0
+
+  - [x] Turn off extensions with `--strict`
+  - [x] Ignore missing repo in current work dir
+  - [x] Try checking ./stego.lock when amboso_dir is not found
+
 ## See how it behaves <a name = "try_anvil"></a>
 
 To see how this marvelous work of art works, run:
