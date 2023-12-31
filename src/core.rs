@@ -597,7 +597,7 @@ fn semver_compare(v1: &str, v2: &str) -> Ordering {
     version_core1.len().cmp(&version_core2.len())
 }
 
-pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, String> {
+pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
     // Open the repository
     let repo = Repository::discover(path);
 
@@ -633,6 +633,10 @@ pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, String> {
             match e.code() {
                 ErrorCode::NotFound => {
                     error!("Could not find repo.");
+                    if ! args.strict {
+                        //Without --strict, we return success when current directory is not a repo.
+                        return Ok(true);
+                    }
                 }
                 _ => {}
             }
@@ -1293,7 +1297,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     if args.ignore_gitcheck || args.base {
         info!("Ignoring git check.");
     } else {
-        let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"));
+        let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"), &args);
         match gitcheck_res {
             Ok(s) => {
                 if s {
