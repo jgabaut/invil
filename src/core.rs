@@ -636,6 +636,8 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
                     if ! args.strict {
                         //Without --strict, we return success when current directory is not a repo.
                         return Ok(true);
+                    } else {
+                        debug!("is_git_repo_clean():    Strict behaviour, quitting on missing repo");
                     }
                 }
                 _ => {}
@@ -646,7 +648,7 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
 }
 
 
-pub fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
+pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> {
     if dir.exists() {
         trace!("Found {}", dir.display());
         let mut stego_path = dir.clone();
@@ -780,6 +782,13 @@ pub fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
             return Err(format!("Can't find {}. Quitting.", stego_path.display()));
         }
     } else {
+        if ! args.strict {
+            debug!("Checking ./");
+            let retry_path = PathBuf::from(".");
+            return check_amboso_dir(&retry_path, &args);
+        } else {
+            debug!("check_amboso_dir():    Strict behaviour, quitting on missing amboso dir.");
+        }
         return Err(format!("Can't find {}. Quitting.", dir.display()));
     }
 }
@@ -863,6 +872,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     anvil_env.tests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_TESTDIR definition.");
+                    anvil_env.support_testmode = false;
                 }
             } else {
                 warn!("Missing ANVIL_BUILD section.");
@@ -877,6 +887,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     anvil_env.bonetests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_BONEDIR definition.");
+                    anvil_env.support_testmode = false;
                 }
                 if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
                     trace!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
@@ -887,9 +898,11 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     anvil_env.kulpotests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_KULPODIR definition.");
+                    anvil_env.support_testmode = false;
                 }
             } else {
                 warn!("Missing ANVIL_TESTS section.");
+                anvil_env.support_testmode = false;
             }
             if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
                 anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (SemVerKey(key.to_string()), value.as_str().unwrap().to_string()))
@@ -1318,7 +1331,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     match args.amboso_dir {
         Some(ref x) => {
             debug!("Amboso dir {{{}}}", x.display());
-            let res = check_amboso_dir(x);
+            let res = check_amboso_dir(x, &args);
             match res {
                 Ok(a) => {
                     trace!("{:#?}", a);
