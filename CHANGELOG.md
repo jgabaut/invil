@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.2] - 2023-12-31
+
+### Added
+
+- Add --strict flag to turn off extensions to amboso 2.0
+- print_extension_args() to trace passed flags
+- Ignore missing repo in current directory (turn off with --strict)
+- Try checking ./stego.lock when missing amboso_dir (turn off with --strict)
+
+### Changed
+
+- Less noisy logs, by not logging intermediate values before the full AmbosoEnv
+- Set testmode support to false when missing info from stego.lock
+
 ## [0.2.1] - 2023-12-26
 
 ### Fixed

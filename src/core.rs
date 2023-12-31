@@ -20,7 +20,7 @@ use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
-use git2::{Repository, Error, Status, RepositoryInitOptions};
+use git2::{Repository, Status, RepositoryInitOptions, ErrorCode};
 use is_executable::is_executable;
 use toml::Table;
 use std::process::ExitCode;
@@ -169,6 +169,10 @@ pub struct Args {
     /// Pass configuration argument
     #[arg(short = 'C', long, value_name = "CONFIG_ARG")]
     pub config: Option<String>,
+
+    /// Disable extensions to amboso 2.0
+    #[arg(long, default_value = "false")]
+    pub strict: bool,
 
     //TODO: Handle -C flag for passing start time for recursive calls
 
@@ -593,164 +597,203 @@ fn semver_compare(v1: &str, v2: &str) -> Ordering {
     version_core1.len().cmp(&version_core2.len())
 }
 
-pub fn is_git_repo_clean(path: &PathBuf) -> Result<bool, Error> {
+pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
     // Open the repository
-    let repo = Repository::discover(path)?;
+    let repo = Repository::discover(path);
 
-    // Check if there are any modified files in the working directory
-    let statuses = repo.statuses(None)?;
+    match repo {
+        Ok(r) => {
+            // Check if there are any modified files in the working directory
+            let statuses = r.statuses(None);
+            match statuses {
+                Ok(s) => {
+                    for entry in s.iter() {
+                        match entry.status() {
+                            Status::WT_MODIFIED | Status::WT_NEW | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
+                                // There are uncommitted changes
+                                info!("Uncommitted changes:");
+                                info!("  {}", entry.path().unwrap());
+                                return Ok(false);
+                            }
+                            _ => (),
+                        }
+                    }
 
-    for entry in statuses.iter() {
-        match entry.status() {
-            Status::WT_MODIFIED | Status::WT_NEW | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
-                // There are uncommitted changes
-                info!("Uncommitted changes:");
-                info!("  {}", entry.path().unwrap());
-                return Ok(false);
+                    // No uncommitted changes
+                    Ok(true)
+                }
+                Err(e) => {
+                    error!("Failed getting repo statuses. Err: {e}");
+                    return Err("Failed repo.statuses()".to_string());
+                }
             }
-            _ => (),
+        }
+        Err(e) => {
+            error!("Failed discover of repo at {{{}}}.", path.display());
+            match e.code() {
+                ErrorCode::NotFound => {
+                    error!("Could not find repo.");
+                    if ! args.strict {
+                        //Without --strict, we return success when current directory is not a repo.
+                        return Ok(true);
+                    } else {
+                        debug!("is_git_repo_clean():    Strict behaviour, quitting on missing repo");
+                    }
+                }
+                _ => {}
+            }
+            return Err("Failed repo discovery".to_string());
         }
     }
-
-    // No uncommitted changes
-    Ok(true)
 }
 
 
-pub fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
+fn check_stego_file(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
+    if stego_path.exists() {
+        trace!("Found {}", stego_path.display());
+        let res = parse_stego_toml(&stego_path);
+        match res {
+            Ok(mut a) => {
+                //trace!("Stego contents: {{{:#?}}}", a);
+                if a.support_testmode {
+                    match a.bonetests_dir {
+                        Some(ref b) => {
+                            trace!("Have bonetests_dir, value: {{{}}}", b.display());
+                        }
+                        None => {
+                            error!("Missing bonetests_dir value");
+                            return Err("Missing bonetests_dir value".to_string());
+                        }
+
+                    };
+                    match a.kulpotests_dir {
+                        Some(ref k) => {
+                            trace!("Have kulpotests_dir, value: {{{}}}", k.display());
+                        }
+                        None => {
+                            error!("Missing kulpotests_dir value");
+                            return Err("Missing kulpotests_dir value".to_string());
+                        }
+
+                    };
+                    match a.tests_dir {
+                        Some(ref s) => {
+                            trace!("Have tests_dir, value: {{{}}}", s.display());
+                        }
+                        None => {
+                            error!("Missing tests_dir value");
+                            return Err("Missing tests_dir value".to_string());
+                        }
+                    }
+                    if a.support_testmode {
+                        let kulpotests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.kulpotests_dir.as_ref().unwrap().display()));
+                        let kulpo_paths = fs::read_dir(kulpotests_path);
+                        match kulpo_paths {
+                            Ok(p) => {
+                                p.for_each(|x| {
+                                    match x {
+                                        Ok(d) => {
+                                            let test_path = d.path();
+                                            if test_path.ends_with(".stderr") {
+                                                trace!("Test stderr file: {{{}}}", test_path.display());
+                                            } else if test_path.ends_with(".stdout") {
+                                                trace!("Test stdout file: {{{}}}", test_path.display());
+                                            } else {
+                                                if is_executable(test_path.clone()) {
+                                                    debug!("Found kulpo test: {{{}}}", test_path.display());
+                                                    let test_name = test_path.file_name();
+                                                    match test_name {
+                                                        Some(t) => {
+                                                            a.kulpotests_table.insert(t.to_str().unwrap().to_string(), test_path);
+                                                        }
+                                                        None => {
+                                                            error!("Failed adding test to kulpo map");
+                                                        }
+                                                    }
+                                                } else {
+                                                    debug!("Kulpo test: {{{}}} not executable", test_path.display());
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            warn!("Error on kulpotests path loop. Err: {e}");
+                                        }
+                                    }
+                                });
+                            }
+                            Err(e) => {
+                                error!("Failed reading kulpotests dir. Err: {e}");
+                                return Err("Failed reading kulpotests dir".to_string());
+                            }
+                        }
+                        let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
+                        let bone_paths = fs::read_dir(bonetests_path);
+                        match bone_paths {
+                            Ok(p) => {
+                                p.for_each(|x| {
+                                    match x {
+                                        Ok(d) => {
+                                            let test_path = d.path();
+                                            if test_path.ends_with(".stderr") {
+                                                trace!("Test stderr file: {{{}}}", test_path.display());
+                                            } else if test_path.ends_with(".stdout") {
+                                                trace!("Test stdout file: {{{}}}", test_path.display());
+                                            } else {
+                                                if is_executable(test_path.clone()) {
+                                                    debug!("Found bone test: {{{}}}", test_path.display());
+                                                    let test_name = test_path.file_name();
+                                                    match test_name {
+                                                        Some(t) => {
+                                                            a.bonetests_table.insert(t.to_str().unwrap().to_string(), test_path);
+                                                        }
+                                                        None => {
+                                                            error!("Failed adding test to bone map");
+                                                        }
+                                                    }
+                                                } else {
+                                                    debug!("Bone test: {{{}}} not executable", test_path.display());
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            warn!("Error on bonetests path loop. Err: {e}");
+                                        }
+                                    }
+                                });
+                            }
+                            Err(e) => {
+                                error!("Failed reading bonetests dir. Err: {e}");
+                                return Err("Failed reading bonetests dir".to_string());
+                            }
+                        }
+                    }
+                }
+                return Ok(a);
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
+    } else {
+        return Err(format!("Can't find {}. Quitting.", stego_path.display()));
+    }
+}
+
+pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> {
     if dir.exists() {
         trace!("Found {}", dir.display());
         let mut stego_path = dir.clone();
         stego_path.push("stego.lock");
-        if stego_path.exists() {
-            trace!("Found {}", stego_path.display());
-            let res = parse_stego_toml(&stego_path);
-            match res {
-                Ok(mut a) => {
-                    trace!("Stego contents: {{{:#?}}}", a);
-                    if a.support_testmode {
-                        match a.bonetests_dir {
-                            Some(ref b) => {
-                                trace!("Have bonetests_dir, value: {{{}}}", b.display());
-                            }
-                            None => {
-                                error!("Missing bonetests_dir value");
-                                return Err("Missing bonetests_dir value".to_string());
-                            }
-
-                        };
-                        match a.kulpotests_dir {
-                            Some(ref k) => {
-                                trace!("Have kulpotests_dir, value: {{{}}}", k.display());
-                            }
-                            None => {
-                                error!("Missing kulpotests_dir value");
-                                return Err("Missing kulpotests_dir value".to_string());
-                            }
-
-                        };
-                        match a.tests_dir {
-                            Some(ref s) => {
-                                trace!("Have tests_dir, value: {{{}}}", s.display());
-                            }
-                            None => {
-                                error!("Missing tests_dir value");
-                                return Err("Missing tests_dir value".to_string());
-                            }
-                        }
-                        if a.support_testmode {
-                            let kulpotests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.kulpotests_dir.as_ref().unwrap().display()));
-                            let kulpo_paths = fs::read_dir(kulpotests_path);
-                            match kulpo_paths {
-                                Ok(p) => {
-                                    p.for_each(|x| {
-                                        match x {
-                                            Ok(d) => {
-                                                let test_path = d.path();
-                                                if test_path.ends_with(".stderr") {
-                                                    trace!("Test stderr file: {{{}}}", test_path.display());
-                                                } else if test_path.ends_with(".stdout") {
-                                                    trace!("Test stdout file: {{{}}}", test_path.display());
-                                                } else {
-                                                    if is_executable(test_path.clone()) {
-                                                        debug!("Found kulpo test: {{{}}}", test_path.display());
-                                                        let test_name = test_path.file_name();
-                                                        match test_name {
-                                                            Some(t) => {
-                                                                a.kulpotests_table.insert(t.to_str().unwrap().to_string(), test_path);
-                                                            }
-                                                            None => {
-                                                                error!("Failed adding test to kulpo map");
-                                                            }
-                                                        }
-                                                    } else {
-                                                        debug!("Kulpo test: {{{}}} not executable", test_path.display());
-                                                    }
-                                                }
-                                            }
-                                            Err(e) => {
-                                                warn!("Error on kulpotests path loop. Err: {e}");
-                                            }
-                                        }
-                                    });
-                                }
-                                Err(e) => {
-                                    error!("Failed reading kulpotests dir. Err: {e}");
-                                    return Err("Failed reading kulpotests dir".to_string());
-                                }
-                            }
-                            let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
-                            let bone_paths = fs::read_dir(bonetests_path);
-                            match bone_paths {
-                                Ok(p) => {
-                                    p.for_each(|x| {
-                                        match x {
-                                            Ok(d) => {
-                                                let test_path = d.path();
-                                                if test_path.ends_with(".stderr") {
-                                                    trace!("Test stderr file: {{{}}}", test_path.display());
-                                                } else if test_path.ends_with(".stdout") {
-                                                    trace!("Test stdout file: {{{}}}", test_path.display());
-                                                } else {
-                                                    if is_executable(test_path.clone()) {
-                                                        debug!("Found bone test: {{{}}}", test_path.display());
-                                                        let test_name = test_path.file_name();
-                                                        match test_name {
-                                                            Some(t) => {
-                                                                a.bonetests_table.insert(t.to_str().unwrap().to_string(), test_path);
-                                                            }
-                                                            None => {
-                                                                error!("Failed adding test to bone map");
-                                                            }
-                                                        }
-                                                    } else {
-                                                        debug!("Bone test: {{{}}} not executable", test_path.display());
-                                                    }
-                                                }
-                                            }
-                                            Err(e) => {
-                                                warn!("Error on bonetests path loop. Err: {e}");
-                                            }
-                                        }
-                                    });
-                                }
-                                Err(e) => {
-                                    error!("Failed reading bonetests dir. Err: {e}");
-                                    return Err("Failed reading bonetests dir".to_string());
-                                }
-                            }
-                        }
-                    }
-                    return Ok(a);
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        } else {
-            return Err(format!("Can't find {}. Quitting.", stego_path.display()));
-        }
+        return check_stego_file(&stego_path);
     } else {
+        if ! args.strict {
+            warn!("No amboso_dir found. Checking {{./stego.lock}}.");
+            let mut retry_path = PathBuf::from(".");
+            retry_path.push("stego.lock");
+            return check_stego_file(&retry_path);
+        } else {
+            debug!("check_amboso_dir():    Strict behaviour, quitting on missing amboso dir.");
+        }
         return Err(format!("Can't find {}. Quitting.", dir.display()));
     }
 }
@@ -758,7 +801,7 @@ pub fn check_amboso_dir(dir: &PathBuf) -> Result<AmbosoEnv,String> {
 pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
-    trace!("Stego contents: {{{}}}", stego);
+    //trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
     let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
@@ -799,7 +842,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 start_time: start_time,
                 configure_arg: "".to_string(),
             };
-            trace!("Toml value: {{{}}}", y);
+            //trace!("Toml value: {{{}}}", y);
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
                 if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
                     trace!("ANVIL_SOURCE: {{{source_name}}}");
@@ -834,6 +877,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     anvil_env.tests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_TESTDIR definition.");
+                    anvil_env.support_testmode = false;
                 }
             } else {
                 warn!("Missing ANVIL_BUILD section.");
@@ -848,6 +892,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     anvil_env.bonetests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_BONEDIR definition.");
+                    anvil_env.support_testmode = false;
                 }
                 if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
                     trace!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
@@ -858,9 +903,11 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     anvil_env.kulpotests_dir = Some(path);
                 } else {
                     warn!("Missing ANVIL_KULPODIR definition.");
+                    anvil_env.support_testmode = false;
                 }
             } else {
                 warn!("Missing ANVIL_TESTS section.");
+                anvil_env.support_testmode = false;
             }
             if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
                 anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (SemVerKey(key.to_string()), value.as_str().unwrap().to_string()))
@@ -1268,7 +1315,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     if args.ignore_gitcheck || args.base {
         info!("Ignoring git check.");
     } else {
-        let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"));
+        let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"), &args);
         match gitcheck_res {
             Ok(s) => {
                 if s {
@@ -1279,7 +1326,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 }
             }
             Err(e) => {
-                error!("Failed git check. Error was: {{{}}}", e);
+                error!("Failed git check");
                 return Err(e.to_string());
             }
         }
@@ -1289,7 +1336,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     match args.amboso_dir {
         Some(ref x) => {
             debug!("Amboso dir {{{}}}", x.display());
-            let res = check_amboso_dir(x);
+            let res = check_amboso_dir(x, &args);
             match res {
                 Ok(a) => {
                     trace!("{:#?}", a);
@@ -1387,7 +1434,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     }
                 }
                 None => {
-                    warn!("stego.lock had no tests dir");
+                    warn!("Could not find tests dir in {{stego.lock}}.");
                     args.kazoj_dir = Some(PathBuf::from("./kazoj"));
                     if args.kazoj_dir.as_ref().unwrap().exists() {
                         debug!("{} exists", args.kazoj_dir.as_ref().unwrap().display());
@@ -1473,7 +1520,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     }
                 }
                 None => {
-                    warn!("stego.lock did not have a valid maketag arg.");
+                    warn!("Could not find a valid maketag arg in {{stego.lock}}.");
                     anvil_env.support_makemode = false;
                 }
             }
