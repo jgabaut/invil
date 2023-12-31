@@ -216,6 +216,14 @@ pub fn print_extension_args(args: &Args) {
     debug!("Extension flags: {{-{}}}", flags_string);
 }
 
+fn print_strict_mode_notice(args: &Args) {
+    if args.strict {
+        warn!("Running in strict mode.");
+    } else {
+        debug!("No --strict, running with extensions.");
+    }
+}
+
 
 pub fn print_grouped_args(args: &Args) {
     // Log asserted flags
@@ -225,6 +233,7 @@ pub fn print_grouped_args(args: &Args) {
     print_info_args(&args);
     print_op_args(&args);
     print_extension_args(&args);
+    print_strict_mode_notice(&args);
 }
 
 pub fn print_warranty_info() {
