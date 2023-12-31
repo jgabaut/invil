@@ -6,6 +6,8 @@
 
 - Add --strict flag to turn off extensions to amboso 2.0
 - print_extension_args() to trace passed flags
+- Ignore missing repo in current directory (turn off with --strict)
+- Try checking ./stego.lock when missing amboso_dir (turn off with --strict)
 
 ### Changed
 
