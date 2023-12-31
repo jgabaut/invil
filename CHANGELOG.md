@@ -12,7 +12,7 @@
 ### Changed
 
 - Less noisy logs, by not logging intermediate values before the full AmbosoEnv
-
+- Set testmode support to false when missing info from stego.lock
 
 ## [0.2.1] - 2023-12-26
 
