@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.3] - 2024-01-04
+
+### Added
+
+- Add -e short flag for strict
+
+### Changed
+
+- Bump expected amboso version to 2.0.1
+
 ## [0.2.2] - 2023-12-31
 
 ### Added
