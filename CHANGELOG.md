@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Add -e short flag for strict
+
 ## [0.2.2] - 2023-12-31
 
 ### Added

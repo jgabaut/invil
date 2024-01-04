@@ -95,6 +95,7 @@
     - Outputs to `./anvil.log`. Not backwards compatible with repos not ignoring the file explicitly.
   - [x] No color: `-P`
   - [x] Force build: `-F`
+  - [x] Turn off extensions: `-e` (Only relative to 2.0.0)
   - [x] Run make when no arguments are provided
 
 
@@ -112,7 +113,7 @@
 
 ## Extensions to amboso 2.0
 
-  - [x] Turn off extensions with `--strict`
+  - [x] Turn off extensions with `-e, --strict`
   - [x] Ignore missing repo in current work dir
   - [x] Try checking ./stego.lock when amboso_dir is not found
 
