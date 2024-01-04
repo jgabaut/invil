@@ -171,7 +171,7 @@ pub struct Args {
     pub config: Option<String>,
 
     /// Disable extensions to amboso 2.0
-    #[arg(long, default_value = "false")]
+    #[arg(short = 'e', long, default_value = "false")]
     pub strict: bool,
 
     //TODO: Handle -C flag for passing start time for recursive calls
