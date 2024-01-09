@@ -1,6 +1,6 @@
 //  SPDX-License-Identifier: GPL-3.0-only
 /*  Build tool with support for git tags, wrapping make.
- *  Copyright (C) 2023  jgabaut
+ *  Copyright (C) 2023-2024  jgabaut
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, version 3 of the License.
