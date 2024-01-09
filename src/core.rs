@@ -1329,7 +1329,22 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     match args.anvil_version {
         Some (ref x) => {
             trace!("Passed anvil_version argument: {x}");
-            debug!("TODO:    Validate passed anvil_version");
+            if is_semver(x) {
+                if x.starts_with("2.0") {
+                    match x.as_str() {
+                        "2.0.0" => {
+                            todo!("Turn off extensions");
+                        }
+                        _ => {}
+                    }
+                    trace!("ANVIL_VERSION: {{{x}}}");
+                } else {
+                    trace!("ANVIL_VERSION: {{{x}}}");
+                }
+            } else {
+                error!("Invalid anvil_version: {{{}}}", x);
+                return Err("Invalid anvil_version".to_string());
+            }
         }
         None => {}
     }
