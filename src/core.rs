@@ -864,6 +864,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                         if anvil_v_str.starts_with("2.0") {
                             match anvil_v_str {
                                 "2.0.0" => {
+                                    info!("Running as 2.0, turning off extensions");
                                     anvil_env.enable_extensions = false;
                                 }
                                 _ => {}
@@ -1338,6 +1339,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 if x.starts_with("2.0") {
                     match x.as_str() {
                         "2.0.0" => {
+                            info!("Running as 2.0, turning off extensions.");
                             args.strict = true;
                             anvil_env.enable_extensions = false;
                         }
