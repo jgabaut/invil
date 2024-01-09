@@ -855,7 +855,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
                 if let Some(anvil_version) = anvil_table.get(ANVIL_VERSION_KEYNAME) {
-                    todo!("Validate anvil_version from stego: {}", anvil_version);
+                    debug!("TODO:    Validate anvil_version from stego: {}", anvil_version);
                     trace!("ANVIL_VERSION: {{{anvil_version}}}");
                     anvil_env.anvil_version = format!("{}", anvil_version.as_str().expect("toml conversion failed"));
                 } else {
@@ -1312,7 +1312,8 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match args.anvil_version {
         Some (ref x) => {
-            todo!("Handle anvil_version argument: {x}")
+            trace!("Passed anvil_version argument: {x}");
+            debug!("TODO:    Validate passed anvil_version");
         }
         None => {}
     }
