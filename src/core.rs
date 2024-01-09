@@ -855,12 +855,23 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
                 if let Some(anvil_version) = anvil_table.get(ANVIL_VERSION_KEYNAME) {
-                    if is_semver(anvil_version.as_str().expect("toml conversion failed")) {
-                        debug!("TODO:    check anvil_version value");
-                        trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                        anvil_env.anvil_version = format!("{}", anvil_version.as_str().expect("toml conversion failed"));
+                    let anvil_v_str = anvil_version.as_str().expect("toml conversion failed");
+                    if is_semver(anvil_v_str) {
+                        if anvil_v_str.starts_with("2.0") {
+                            match anvil_v_str {
+                                "2.0.0" => {
+                                    todo!("Turn off extensions");
+                                }
+                                _ => {}
+                            }
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_env.anvil_version = format!("{}", anvil_v_str);
+                        } else {
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_env.anvil_version = format!("{}", anvil_v_str);
+                        }
                     } else {
-                        error!("Invalid anvil_version: {{{}}}", anvil_version);
+                        error!("Invalid anvil_version: {{{}}}", anvil_v_str);
                         return Err("Invalid anvil_version".to_string());
                     }
                 } else {
