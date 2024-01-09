@@ -6,7 +6,9 @@
 
 - Add -a to set target amboso version
 - Add anvil_version to AmbosoEnv
-- Read anvil_version from stego.lock
+- Read anvil_version from stego.lock and use it to force --strict on 2.0
+- Add AnvilKern stub for AmbosoC
+- Add -k to set anvil_kern
 
 ## [0.2.3] - 2024-01-04
 

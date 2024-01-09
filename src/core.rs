@@ -72,6 +72,10 @@ pub struct Args {
     #[arg(short = 'a', long, value_name = "ANVIL_VERSION", default_value = EXPECTED_AMBOSO_API_LEVEL)]
     pub anvil_version: Option<String>,
 
+    /// Specify anvil kern target
+    #[arg(short = 'k', long, value_name = "ANVIL_KERN", default_value = "amboso-C")]
+    pub anvil_kern: Option<String>,
+
     /// Generate anvil C header for passed dir
     #[arg(short = 'G', long, value_name = "C_HEADER_DIR", conflicts_with_all(["base","test","testmacro", "linter"]))]
     pub gen_c_header: Option<PathBuf>,
@@ -202,6 +206,11 @@ pub enum AmbosoLintMode {
 }
 
 #[derive(Debug)]
+pub enum AnvilKern {
+    AmbosoC,
+}
+
+#[derive(Debug)]
 pub struct AmbosoEnv {
 
     /// Anvil version we run as
@@ -281,6 +290,9 @@ pub struct AmbosoEnv {
 
     /// Start time
     pub start_time: Instant,
+
+    /// Anvil kern
+    pub anvil_kern: AnvilKern,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -855,6 +867,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 configure_arg: "".to_string(),
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
                 enable_extensions: true,
+                anvil_kern: AnvilKern::AmbosoC,
             };
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
@@ -866,6 +879,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                                 "2.0.0" => {
                                     info!("Running as 2.0, turning off extensions");
                                     anvil_env.enable_extensions = false;
+                                    anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
                                 _ => {}
                             }
@@ -1330,6 +1344,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         configure_arg: "".to_string(),
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
         enable_extensions: true,
+        anvil_kern: AnvilKern::AmbosoC,
     };
 
     match args.anvil_version {
@@ -1342,6 +1357,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             info!("Running as 2.0, turning off extensions.");
                             args.strict = true;
                             anvil_env.enable_extensions = false;
+                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
                         _ => {}
                     }
@@ -1667,6 +1683,16 @@ impl PartialOrd for SemVerKey {
 impl fmt::Display for SemVerKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Display for AnvilKern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            AnvilKern::AmbosoC => {
+                write!(f, "amboso-C")
+            }
+        }
     }
 }
 
