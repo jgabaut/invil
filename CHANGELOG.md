@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Add -a to set target amboso version
+- Add anvil_version to AmbosoEnv
+- Read anvil_version from stego.lock
+
 ## [0.2.3] - 2024-01-04
 
 ### Added
