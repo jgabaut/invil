@@ -855,9 +855,14 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
                 if let Some(anvil_version) = anvil_table.get(ANVIL_VERSION_KEYNAME) {
-                    debug!("TODO:    Validate anvil_version from stego: {}", anvil_version);
-                    trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                    anvil_env.anvil_version = format!("{}", anvil_version.as_str().expect("toml conversion failed"));
+                    if is_semver(anvil_version.as_str().expect("toml conversion failed")) {
+                        debug!("TODO:    check anvil_version value");
+                        trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                        anvil_env.anvil_version = format!("{}", anvil_version.as_str().expect("toml conversion failed"));
+                    } else {
+                        error!("Invalid anvil_version: {{{}}}", anvil_version);
+                        return Err("Invalid anvil_version".to_string());
+                    }
                 } else {
                     debug!("Missing ANVIL_VERSION definition.");
                 }
