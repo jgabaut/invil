@@ -42,6 +42,7 @@ pub const ANVIL_AUTOMAKE_VERS_KEYNAME: &str = "automakevers";
 pub const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
 pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
+pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.1";
 
 #[derive(Parser, Debug, Clone)]
@@ -66,6 +67,10 @@ pub struct Args {
     /// Specify min tag using make as build/clean step
     #[arg(short = 'M', long, value_name = "MAKE_MINTAG")]
     pub maketag: Option<String>,
+
+    /// Specify anvil version target
+    #[arg(short = 'a', long, value_name = "ANVIL_VERSION", default_value = EXPECTED_AMBOSO_API_LEVEL)]
+    pub anvil_version: Option<String>,
 
     /// Generate anvil C header for passed dir
     #[arg(short = 'G', long, value_name = "C_HEADER_DIR", conflicts_with_all(["base","test","testmacro", "linter"]))]
@@ -198,7 +203,11 @@ pub enum AmbosoLintMode {
 
 #[derive(Debug)]
 pub struct AmbosoEnv {
-    ///Runmode
+
+    /// Anvil version we run as
+    pub anvil_version: String,
+
+    /// Runmode
     pub run_mode: Option<AmbosoMode>,
 
     /// Path to builds dir from wd
@@ -841,8 +850,20 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 do_purge : false,
                 start_time: start_time,
                 configure_arg: "".to_string(),
+                anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
             };
             //trace!("Toml value: {{{}}}", y);
+            if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
+                if let Some(anvil_version) = anvil_table.get(ANVIL_VERSION_KEYNAME) {
+                    todo!("Validate anvil_version from stego: {}", anvil_version);
+                    trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                    anvil_env.anvil_version = format!("{}", anvil_version.as_str().expect("toml conversion failed"));
+                } else {
+                    debug!("Missing ANVIL_VERSION definition.");
+                }
+            } else {
+                debug!("Missing ANVIL section.");
+            }
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
                 if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
                     trace!("ANVIL_SOURCE: {{{source_name}}}");
@@ -1286,7 +1307,15 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_purge : false,
         start_time: start_time,
         configure_arg: "".to_string(),
+        anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
     };
+
+    match args.anvil_version {
+        Some (ref x) => {
+            todo!("Handle anvil_version argument: {x}")
+        }
+        None => {}
+    }
 
     match args.config {
         Some (ref x) => {
