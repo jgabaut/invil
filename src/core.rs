@@ -207,6 +207,9 @@ pub struct AmbosoEnv {
     /// Anvil version we run as
     pub anvil_version: String,
 
+    /// Enable extensions to amboso 2.0
+    pub enable_extensions: bool,
+
     /// Runmode
     pub run_mode: Option<AmbosoMode>,
 
@@ -851,6 +854,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 start_time: start_time,
                 configure_arg: "".to_string(),
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
+                enable_extensions: true,
             };
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
@@ -860,7 +864,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                         if anvil_v_str.starts_with("2.0") {
                             match anvil_v_str {
                                 "2.0.0" => {
-                                    todo!("Turn off extensions");
+                                    anvil_env.enable_extensions = false;
                                 }
                                 _ => {}
                             }
@@ -1324,6 +1328,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         start_time: start_time,
         configure_arg: "".to_string(),
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
+        enable_extensions: true,
     };
 
     match args.anvil_version {
@@ -1333,7 +1338,8 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 if x.starts_with("2.0") {
                     match x.as_str() {
                         "2.0.0" => {
-                            todo!("Turn off extensions");
+                            args.strict = true;
+                            anvil_env.enable_extensions = false;
                         }
                         _ => {}
                     }
@@ -1347,6 +1353,13 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             }
         }
         None => {}
+    }
+
+    match args.strict {
+        true => {
+            anvil_env.enable_extensions = false;
+        }
+        false => {}
     }
 
     match args.config {
