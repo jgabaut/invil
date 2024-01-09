@@ -36,6 +36,7 @@ pub fn print_config_args(args: &Args) {
     let execname_string: String = "E".to_owned();
     let maketag_string: String = "M".to_owned();
     let ignore_gitcheck_string: String = "X".to_owned();
+    let anvil_version_string: String = "a".to_owned();
     match args.amboso_dir {
         Some(ref x) => {
             debug!("Passed amboso_dir: {{{}}}", x.display());
@@ -68,6 +69,13 @@ pub fn print_config_args(args: &Args) {
         Some(ref x) => {
             debug!("Passed maketag: {{{}}}", x);
             config_string.push_str(&maketag_string);
+        }
+        None => {}
+    }
+    match args.anvil_version {
+        Some(ref x) => {
+            debug!("Passed anvil_version: {{{}}}", x);
+            config_string.push_str(&anvil_version_string);
         }
         None => {}
     }
