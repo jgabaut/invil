@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.4] - 2024-01-10
 
 ### Added
 
@@ -14,6 +14,10 @@
 
 - Generated configure.ac for init subcommand uses globs to match host
 - Working anvil symlink creation for init subcommand
+
+### Changed
+
+- Bump EXPECTED_AMBOSO_API_LEVEL to 2.0.2
 
 ## [0.2.3] - 2024-01-04
 
