@@ -116,6 +116,8 @@
   - [x] Turn off extensions with `-e, --strict`
   - [x] Ignore missing repo in current work dir
   - [x] Try checking ./stego.lock when amboso_dir is not found
+  - [x] `-a` to set compatibility level
+  - [x] `-k` to set project type
 
 ## See how it behaves <a name = "try_anvil"></a>
 
