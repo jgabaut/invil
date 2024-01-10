@@ -1,6 +1,6 @@
 //  SPDX-License-Identifier: GPL-3.0-only
 /*  Build tool with support for git tags, wrapping make.
- *  Copyright (C) 2023  jgabaut
+ *  Copyright (C) 2023-2024  jgabaut
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, version 3 of the License.
@@ -42,7 +42,8 @@ pub const ANVIL_AUTOMAKE_VERS_KEYNAME: &str = "automakevers";
 pub const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
 pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.1";
+pub const ANVIL_VERSION_KEYNAME: &str = "version";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.2";
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]
@@ -66,6 +67,14 @@ pub struct Args {
     /// Specify min tag using make as build/clean step
     #[arg(short = 'M', long, value_name = "MAKE_MINTAG")]
     pub maketag: Option<String>,
+
+    /// Specify anvil version target
+    #[arg(short = 'a', long, value_name = "ANVIL_VERSION", default_value = EXPECTED_AMBOSO_API_LEVEL)]
+    pub anvil_version: Option<String>,
+
+    /// Specify anvil kern target
+    #[arg(short = 'k', long, value_name = "ANVIL_KERN", default_value = "amboso-C")]
+    pub anvil_kern: Option<String>,
 
     /// Generate anvil C header for passed dir
     #[arg(short = 'G', long, value_name = "C_HEADER_DIR", conflicts_with_all(["base","test","testmacro", "linter"]))]
@@ -197,8 +206,20 @@ pub enum AmbosoLintMode {
 }
 
 #[derive(Debug)]
+pub enum AnvilKern {
+    AmbosoC,
+}
+
+#[derive(Debug)]
 pub struct AmbosoEnv {
-    ///Runmode
+
+    /// Anvil version we run as
+    pub anvil_version: String,
+
+    /// Enable extensions to amboso 2.0
+    pub enable_extensions: bool,
+
+    /// Runmode
     pub run_mode: Option<AmbosoMode>,
 
     /// Path to builds dir from wd
@@ -269,6 +290,9 @@ pub struct AmbosoEnv {
 
     /// Start time
     pub start_time: Instant,
+
+    /// Anvil kern
+    pub anvil_kern: AnvilKern,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -841,8 +865,40 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 do_purge : false,
                 start_time: start_time,
                 configure_arg: "".to_string(),
+                anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
+                enable_extensions: true,
+                anvil_kern: AnvilKern::AmbosoC,
             };
             //trace!("Toml value: {{{}}}", y);
+            if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
+                if let Some(anvil_version) = anvil_table.get(ANVIL_VERSION_KEYNAME) {
+                    let anvil_v_str = anvil_version.as_str().expect("toml conversion failed");
+                    if is_semver(anvil_v_str) {
+                        if anvil_v_str.starts_with("2.0") {
+                            match anvil_v_str {
+                                "2.0.0" => {
+                                    info!("Running as 2.0, turning off extensions");
+                                    anvil_env.enable_extensions = false;
+                                    anvil_env.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                _ => {}
+                            }
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_env.anvil_version = format!("{}", anvil_v_str);
+                        } else {
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_env.anvil_version = format!("{}", anvil_v_str);
+                        }
+                    } else {
+                        error!("Invalid anvil_version: {{{}}}", anvil_v_str);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                } else {
+                    debug!("Missing ANVIL_VERSION definition.");
+                }
+            } else {
+                debug!("Missing ANVIL section.");
+            }
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
                 if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
                     trace!("ANVIL_SOURCE: {{{source_name}}}");
@@ -1094,7 +1150,7 @@ errortestsdir = \"errors\"\n
                     let gitignore_path = format!("{}/.gitignore", target.display());
                     trace!("Generating .gitignore Target path: {{{}}}", gitignore_path);
                     let output = File::create(gitignore_path);
-                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\nhello_world\n# also explicitly ignore our windows executable for good measure\nhello_world.exe\n# also explicitly ignore our debug executable for good measure\nhello_world_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore invil log file\ninvil.log\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n");
+                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\nhello_world\n# also explicitly ignore our windows executable for good measure\nhello_world.exe\n# also explicitly ignore our debug executable for good measure\nhello_world_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore anvil log file\nanvil.log\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n");
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", gitignore_string);
@@ -1138,7 +1194,7 @@ errortestsdir = \"errors\"\n
                     let configureac_path = format!("{}/configure.ac", target.display());
                     trace!("Generating configure.ac - Target path: {{{}}}", configureac_path);
                     let output = File::create(configureac_path);
-                    let configureac_string = format!("AC_INIT([hello_world], [0.1.0], [email@example.com])\nAM_INIT_AUTOMAKE([foreign -Wall])\nAC_CANONICAL_HOST\necho \"Host os:  $host_os\"\nAM_CONDITIONAL([OS_DARWIN], [test \"$host_os\" = \"darwin\"])\nAM_CONDITIONAL([MINGW32_BUILD], [test \"$host_os\" = \"mingw32\"])\nAC_ARG_ENABLE([debug],  [AS_HELP_STRING([--enable-debug], [Enable debug build])],  [enable_debug=$enableval],  [enable_debug=no])\nAM_CONDITIONAL([DEBUG_BUILD], [test \"$enable_debug\" = \"yes\"])\nif test \"$host_os\" = \"mingw32\"; then\n  echo \"Building for mingw32: [$host_cpu-$host_vendor-$host_os]\"\n  AC_SUBST([HW_CFLAGS], [\"-I/usr/x86_64-w64-mingw32/include -static -fstack-protector -DMINGW32_BUILD\"])\n  AC_SUBST([HW_LDFLAGS], [\"-L/usr/x86_64-w64-mingw32/lib\"])\n  AC_SUBST([CCOMP], [\"/usr/bin/x86_64-w64-mingw32-gcc\"])\n  AC_SUBST([OS], [\"w64-mingw32\"])\n  AC_SUBST([TARGET], [\"hello_world.exe\"])\nfi\nif test \"$host_os\" = \"darwin\"; then\n  echo \"Building for macos: [$host_cpu-$host_vendor-$host_os]\"\n  AC_SUBST([HW_CFLAGS], [\"-I/opt/homebrew/opt/ncurses/include\"])\n  AC_SUBST([HW_LDFLAGS], [\"-L/opt/homebrew/opt/ncurses/lib\"])\n  AC_SUBST([OS], [\"darwin\"])\n  AC_SUBST([TARGET], [\"hello_world\"])\nfi\nif test \"$host_os\" = \"linux-gnu\"; then\n  echo \"Building for Linux: [$host_cpu-$host_vendor-$host_os]\"\n  AC_SUBST([HW_CFLAGS], [\"\"])\n  AC_SUBST([HW_LDFLAGS], [\"\"])\n  AC_SUBST([OS], [\"Linux\"])\n  AC_SUBST([TARGET], [\"hello_world\"])\nfi\nAC_ARG_VAR([VERSION], [Version number])\nif test -z \"$VERSION\"; then\n  VERSION=\"0.3.11\"\nfi\nAC_DEFINE_UNQUOTED([VERSION], [\"$VERSION\"], [Version number])\nAC_CHECK_PROGS([CCOMP], [gcc clang])\nAC_CHECK_HEADERS([stdio.h])\nAC_CHECK_FUNCS([malloc calloc])\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n");
+                    let configureac_string = format!("# Generated by invil v{INVIL_VERSION}\nAC_INIT([hello_world], [0.1.0], [email@example.com])\nAM_INIT_AUTOMAKE([foreign -Wall])\nAC_CANONICAL_HOST\nbuild_linux=no\nbuild_windows=no\nbuild_mac=no\necho \"Host os:  $host_os\"\n\nAC_ARG_ENABLE([debug],  [AS_HELP_STRING([--enable-debug], [Enable debug build])],  [enable_debug=$enableval],  [enable_debug=no])\nAM_CONDITIONAL([DEBUG_BUILD], [test \"$enable_debug\" = \"yes\"])\ncase \"${{host_os}}\" in\n\tmingw*)\n\t\techo \"Building for mingw32: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_windows=yes\n\t\tAC_SUBST([HW_CFLAGS], [\"-I/usr/x86_64-w64-mingw32/include -static -fstack-protector\"])\n\t\tAC_SUBST([HW_LDFLAGS], [\"-L/usr/x86_64-w64-mingw32/lib\"])\n\t\tAC_SUBST([CCOMP], [\"/usr/bin/x86_64-w64-mingw32-gcc\"])\n\t\tAC_SUBST([OS], [\"w64-mingw32\"])\n\t\tAC_SUBST([TARGET], [\"hello_world.exe\"])\n\t;;\n\tdarwin*)\n\t\tbuild_mac=yes\n\t\techo \"Building for macos: [$host_cpu-$host_vendor-$host_os]\"\n\t\tAC_SUBST([HW_CFLAGS], [\"-I/opt/homebrew/opt/ncurses/include\"])\n\t\tAC_SUBST([HW_LDFLAGS], [\"-L/opt/homebrew/opt/ncurses/lib\"])\n\t\tAC_SUBST([OS], [\"darwin\"])\n\t\tAC_SUBST([TARGET], [\"hello_world\"])\n\t;;\n\tlinux*)\n\t\techo \"Building for Linux: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_linux=yes\n\t\tAC_SUBST([HW_CFLAGS], [\"\"])\n\t\tAC_SUBST([HW_LDFLAGS], [\"\"])\n\t\tAC_SUBST([OS], [\"Linux\"])\n\t\tAC_SUBST([TARGET], [\"hello_world\"])\n\t;;\nesac\n\nAM_CONDITIONAL([DARWIN_BUILD], [test \"$build_mac\" = \"yes\"])\nAM_CONDITIONAL([WINDOWS_BUILD], [test \"$build_windows\" = \"yes\"])\nAM_CONDITIONAL([LINUX_BUILD], [test \"$build_linux\" = \"yes\"])\n\nAC_ARG_VAR([VERSION], [Version number])\nif test -z \"$VERSION\"; then\n  VERSION=\"0.1.0\"\nfi\nAC_DEFINE_UNQUOTED([VERSION], [\"$VERSION\"], [Version number])\nAC_CHECK_PROGS([CCOMP], [gcc clang])\nAC_CHECK_HEADERS([stdio.h])\nAC_CHECK_FUNCS([malloc calloc])\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n");
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", configureac_string);
@@ -1197,8 +1253,7 @@ errortestsdir = \"errors\"\n
 
                             let mut anvil_path = target.clone();
                             anvil_path.push("anvil");
-                            let mut amboso_prog_path = target.clone();
-                            amboso_prog_path.push("amboso/amboso");
+                            let amboso_prog_path = PathBuf::from("amboso/amboso");
 
                             if cfg!(target_os = "windows") {
                                 todo!("Support windows symlink");
@@ -1286,7 +1341,43 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_purge : false,
         start_time: start_time,
         configure_arg: "".to_string(),
+        anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
+        enable_extensions: true,
+        anvil_kern: AnvilKern::AmbosoC,
     };
+
+    match args.anvil_version {
+        Some (ref x) => {
+            trace!("Passed anvil_version argument: {x}");
+            if is_semver(x) {
+                if x.starts_with("2.0") {
+                    match x.as_str() {
+                        "2.0.0" => {
+                            info!("Running as 2.0, turning off extensions.");
+                            args.strict = true;
+                            anvil_env.enable_extensions = false;
+                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
+                        }
+                        _ => {}
+                    }
+                    trace!("ANVIL_VERSION: {{{x}}}");
+                } else {
+                    trace!("ANVIL_VERSION: {{{x}}}");
+                }
+            } else {
+                error!("Invalid anvil_version: {{{}}}", x);
+                return Err("Invalid anvil_version".to_string());
+            }
+        }
+        None => {}
+    }
+
+    match args.strict {
+        true => {
+            anvil_env.enable_extensions = false;
+        }
+        false => {}
+    }
 
     match args.config {
         Some (ref x) => {
@@ -1591,6 +1682,16 @@ impl PartialOrd for SemVerKey {
 impl fmt::Display for SemVerKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl fmt::Display for AnvilKern {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self {
+            AnvilKern::AmbosoC => {
+                write!(f, "amboso-C")
+            }
+        }
     }
 }
 

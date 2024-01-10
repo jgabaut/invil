@@ -15,7 +15,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.0`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.2`.
   Check the [next section](#supported_amboso) for more support info.
 
   Invil can be used to:
@@ -116,6 +116,8 @@
   - [x] Turn off extensions with `-e, --strict`
   - [x] Ignore missing repo in current work dir
   - [x] Try checking ./stego.lock when amboso_dir is not found
+  - [x] `-a` to set compatibility level
+  - [x] `-k` to set project type
 
 ## See how it behaves <a name = "try_anvil"></a>
 
@@ -131,7 +133,7 @@ Our version was slightly modified to actually make cargo build the release versi
 
 ## Basic benchmark <a name = "base_bench"></a>
 
-Check out [this page](https://github.com/jgabaut/invil/blob/master/bench/gitmode-0.0.9-bench.md) for a very basic benchmark of runtime, relative to bash `amboso` implementation.
+Check out [this page](https://github.com/jgabaut/invil/blob/master/bench/gitmode-0.2.3-bench.md) for a very basic benchmark of runtime, relative to bash `amboso` implementation.
 
 ## Todo <a name = "todo"></a>
 

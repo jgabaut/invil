@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.4] - 2024-01-10
+
+### Added
+
+- Add -a to set target amboso version
+- Add anvil_version to AmbosoEnv
+- Read anvil_version from stego.lock and use it to force --strict on 2.0
+- Add AnvilKern stub for AmbosoC
+- Add -k to set anvil_kern
+
+### Fixed
+
+- Generated configure.ac for init subcommand uses globs to match host
+- Working anvil symlink creation for init subcommand
+
+### Changed
+
+- Bump EXPECTED_AMBOSO_API_LEVEL to 2.0.2
+
 ## [0.2.3] - 2024-01-04
 
 ### Added
