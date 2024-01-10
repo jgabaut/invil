@@ -15,7 +15,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.0`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.2`.
   Check the [next section](#supported_amboso) for more support info.
 
   Invil can be used to:
