@@ -10,6 +10,11 @@
 - Add AnvilKern stub for AmbosoC
 - Add -k to set anvil_kern
 
+### Fixed
+
+- Generated configure.ac for init subcommand uses globs to match host
+- Working anvil symlink creation for init subcommand
+
 ## [0.2.3] - 2024-01-04
 
 ### Added
