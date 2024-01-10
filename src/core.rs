@@ -1253,8 +1253,7 @@ errortestsdir = \"errors\"\n
 
                             let mut anvil_path = target.clone();
                             anvil_path.push("anvil");
-                            let mut amboso_prog_path = target.clone();
-                            amboso_prog_path.push("amboso/amboso");
+                            let amboso_prog_path = PathBuf::from("amboso/amboso");
 
                             if cfg!(target_os = "windows") {
                                 todo!("Support windows symlink");
