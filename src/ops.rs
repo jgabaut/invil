@@ -21,6 +21,7 @@ use std::collections::BTreeMap;
 use std::fs::{self, File};
 use git2::Repository;
 use std::env;
+use std::time::SystemTime;
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -896,6 +897,17 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
     let id;
     let commit_time;
     let mut commit_message = "".to_string();
+    let gen_time = SystemTime::now();
+    let gen_timestamp = gen_time.duration_since(SystemTime::UNIX_EPOCH);
+    let mut fgen_time = "".to_string();
+    match gen_timestamp {
+        Ok(t) => {
+            fgen_time = format!("{}", t.as_secs());
+        }
+        Err(e) => {
+            error!("Failed getting gen timestamp. Err: {e}");
+        }
+    }
     match repo {
         Ok(r) => {
             let head = r.head();
@@ -963,9 +975,11 @@ const char *get_ANVIL__VERSION__AUTHOR__(void); /**< Returns a version author st
 static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char INVIL__OS__STRING[] = \"{INVIL_OS}\"; /**< Represents build os used for [anvil__{bin_name}.h] generated header.*/\n
 static const char INVIL__COMMIT__DESC__STRING[] = \"{commit_message}\"; /**< Represents message for HEAD commit used for [anvil__{bin_name}.h] generated header.*/\n
+static const char INVIL__HEADERGEN__TIME__STRING[] = \"{fgen_time}\"; /**< Represents gen time for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for invil version of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__OS__(void); /**< Returns a version string for os used for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__COMMIT__DESC__(void); /**< Returns a string for HEAD commit message used for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_INVIL__HEADERGEN__TIME__(void); /**< Returns a string for time of gen for [anvil__{bin_name}.h] generated header.*/\n
 #endif // INVIL__{bin_name}__HEADER__
 #endif\n");
     match output {
@@ -1017,6 +1031,10 @@ const char *get_INVIL__API__LEVEL__(void)
 const char *get_INVIL__COMMIT__DESC__(void)
 {{
     return INVIL__COMMIT__DESC__STRING;
+}}\n
+const char *get_INVIL__HEADERGEN__TIME__(void)
+{{
+    return INVIL__HEADERGEN__TIME__STRING;
 }}\n
 const char *get_INVIL__OS__(void)
 {{
