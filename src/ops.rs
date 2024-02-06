@@ -1237,10 +1237,11 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
     let mut _mainexpr_arr: Vec<String> = Vec::new();
     let mut rules_arr: Vec<String> = Vec::new();
     let mut ruleingrs_arr: Vec<String> = Vec::new();
-    let mut _rulexpr_arr: Vec<String> = Vec::new();
+    let mut rulexpr_arr: Vec<String> = Vec::new();
     let mut _tot_warns: u64 = 0;
     let mut _cur_line: u64 = 0;
     let mut rule_i: usize = 0;
+    let mut rulexpr_i: u64 = 0;
     // Read the file line by line
     if let Ok(file) = File::open(&path) {
         let tab_regex = Regex::new(&format!("^{}", RULELINE_MARK_CHAR)).expect("Failed to create ruleline regex");
@@ -1258,8 +1259,10 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                     let rulename = cut_line_at_char(&stripped_line, ':', CutDirection::Before);
                     let mut rule_ingredients = cut_line_at_char(&cut_line_at_char(&stripped_line, ':', CutDirection::After), ' ', CutDirection::After); // Cut ': '
                     let mut ingrs_len = 0;
+                    rulexpr_i = 0;
                     let ingrs_arr: Vec<_>;
                     ruleingrs_arr.push("".to_string());
+                    rulexpr_arr.push("".to_string());
                     let set_len: bool = rule_ingredients.is_empty();
                     if set_len {
                         rule_ingredients = "NO_DEPS";
@@ -1349,7 +1352,18 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                     }
                     rule_i += 1;
                 } else if tab_regex.is_match(&stripped_line) {
-                    println!("Line starts with a tab: {}", stripped_line);
+                    //println!("Line starts with a tab: {}", stripped_line);
+                    let stripped_rulexpr_line = cut_line_at_char(stripped_line, '\t', CutDirection::After);
+                    if stripped_rulexpr_line.is_empty() {
+                        trace!("Ignoring empty stripped rulexpr line.");
+                        continue;
+                    }
+                    if dbg_print {
+                        println!("\t{{RULE_EXPR}} -> {{{stripped_rulexpr_line}}}, [#{rulexpr_i}],");
+                    }
+                    let rulexpr_str = format!("{{RULE_EXPR #{rulexpr_i}}} {{{stripped_rulexpr_line}}}, ");
+                    rulexpr_arr[rule_i-1] = format!("{}{}", rulexpr_arr[rule_i-1], rulexpr_str);
+                    rulexpr_i += 1;
                 } else {
                     if stripped_line.is_empty() {
                         trace!("Ignoring empty stripped line.");
@@ -1368,13 +1382,18 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
         if !do_recap { return Ok(()); }
 
         println!("{{RULES}} -> {{");
-        for rule in rules_arr {
+        for rule in &rules_arr {
             println!("\t[{}],", rule);
         }
         println!("}}");
         println!("{{DEPS}} -> {{");
         for ruleingr in ruleingrs_arr {
             println!("\t[{}],", ruleingr);
+        }
+        println!("}}");
+        println!("{{RULE_EXPRS}} -> {{");
+        for (i, rulexpr) in rulexpr_arr.iter().enumerate() {
+            println!("\t[[{}] --> [{rulexpr}]],", rules_arr[i]);
         }
         println!("}}");
     } else {
