@@ -14,7 +14,7 @@
 use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey};
 use crate::utils::try_parse_stego;
 use std::process::{Command, exit};
-use std::io::{self, Write};
+use std::io::{self, Write, BufRead};
 use std::path::{Path, PathBuf};
 use is_executable::is_executable;
 use std::collections::BTreeMap;
@@ -22,6 +22,7 @@ use std::fs::{self, File};
 use git2::Repository;
 use std::env;
 use std::time::SystemTime;
+use regex::Regex;
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -1066,6 +1067,19 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: AmbosoLintMode) -> Re
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
         match lint_mode {
+            AmbosoLintMode::Experimental => {
+                let res = lex_makefile(stego_path);
+                match res {
+                    Ok(_) => {
+                        info!("Lex successful for {{{}}}.", stego_path.display());
+                        return Ok("Lex success".to_string());
+                }
+                    Err(e) => {
+                        trace!("Failed lex for {{{}}}.\nError was:    {e}",stego_path.display());
+                        return Err("Lex failure".to_string());
+                    }
+                }
+            }
             AmbosoLintMode::LintOnly => {
                 let res = try_parse_stego(stego_path);
                 match res {
@@ -1182,4 +1196,170 @@ pub fn handle_running_make() {
             exit(1);
         }
     }
+}
+
+const RULELINE_MARK_CHAR: char = '\t';
+const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
+
+enum CutDirection {
+    Before,
+    After,
+}
+
+fn cut_line_at_char(line: &str, delimiter: char, direction: CutDirection) -> &str {
+    if let Some(index) = line.find(delimiter) {
+        match direction {
+            CutDirection::After => &line[index + delimiter.len_utf8()..],
+            CutDirection::Before => &line[..index],
+        }
+    } else {
+        match direction {
+            CutDirection::After => "",
+            CutDirection::Before => line,
+        }
+    }
+}
+
+pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
+    let path = file_path.as_ref();
+
+    // Check if the file exists
+    if !path.exists() {
+        eprintln!("File not found: {}", path.display());
+        std::process::exit(1);
+    }
+
+    let dbg_print: bool = true;
+    let do_recap: bool = true;
+
+    let mut last_rulename: &str = "";
+    let mut _ingr_i: u64 = 0;
+    let mut _mainexpr_arr: Vec<String> = Vec::new();
+    let mut rules_arr: Vec<String> = Vec::new();
+    let mut _ruleingrs_arr: Vec<String> = Vec::new();
+    let mut _rulexpr_arr: Vec<String> = Vec::new();
+    let mut _tot_warns: u64 = 0;
+    let mut _cur_line: u64 = 0;
+    let mut rule_i: u64 = 0;
+    // Read the file line by line
+    if let Ok(file) = File::open(&path) {
+        let tab_regex = Regex::new(&format!("^{}", RULELINE_MARK_CHAR)).expect("Failed to create ruleline regex");
+        let rule_regex = Regex::new(RULE_REGEX).expect("Failed to create rule regex");
+
+        for line in io::BufReader::new(file).lines() {
+            if let Ok(line_content) = line {
+                if line_content.is_empty() {
+                    trace!("Ignoring empty line.");
+                    continue;
+                }
+                let _comment = cut_line_at_char(&line_content, '#', CutDirection::After);
+                let stripped_line = cut_line_at_char(&line_content, '#', CutDirection::Before);
+                if rule_regex.is_match(&stripped_line) {
+                    let rulename = cut_line_at_char(&stripped_line, ':', CutDirection::Before);
+                    let mut rule_ingredients = cut_line_at_char(&cut_line_at_char(&stripped_line, ':', CutDirection::After), ' ', CutDirection::After); // Cut ': '
+                    let mut ingrs_len = 0;
+                    let ingrs_arr: Vec<_>;
+                    let set_len: bool = rule_ingredients.is_empty();
+                    if set_len {
+                        rule_ingredients = "NO_DEPS";
+                        ingrs_len = 0;
+                    }
+                    ingrs_arr = rule_ingredients.split_whitespace().collect();
+                    if !set_len {
+                        ingrs_len = ingrs_arr.len();
+                    }
+                    //println!("Line matches rule regex: {}", stripped_line);
+                    last_rulename = rulename;
+                    let mod_time: String;
+                    let rule_path = Path::new(rulename);
+                    if rule_path.exists() {
+                        let metadata = fs::metadata(rulename)?;
+
+                        if let Ok(time) = metadata.modified() {
+                            let mod_timestamp = time.duration_since(SystemTime::UNIX_EPOCH);
+                            match mod_timestamp {
+                                Ok(t) => {
+                                    mod_time=format!("{}", t.as_secs());
+                                }
+                                Err(e) => {
+                                    panic!("Failed getting modification time for {}. Err: {e}", rule_path.display());
+                                }
+                            }
+                        } else {
+                            // This branch is meant for unsupported platforms.
+                            mod_time="NO_TIME".to_string();
+                        }
+                    } else {
+                        mod_time="NO_TIME".to_string();
+                    }
+                    let rulepart_decl = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}}");
+                    let rulepart_deps = format!("<- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
+                    //let rule_str = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}} <- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
+                    let rule_str = format!("{rulepart_decl} {rulepart_deps}");
+                    rules_arr.push(rule_str.clone());
+                    if dbg_print {
+                        println!("{rulepart_decl}\n\t{rulepart_deps}");
+                    }
+                    let mut ingr_mod_time: String;
+                    if !set_len {
+                        for (ingr_i, ingr) in ingrs_arr.iter().enumerate() {
+                            let ingr_path = Path::new(ingr);
+                            if ingr_path.exists() {
+                                let ingr_metadata = fs::metadata(ingr_path)?;
+
+                                if let Ok(time) = ingr_metadata.modified() {
+                                    let mod_timestamp = time.duration_since(SystemTime::UNIX_EPOCH);
+                                    match mod_timestamp {
+                                        Ok(t) => {
+                                            ingr_mod_time=format!("{}", t.as_secs());
+                                        }
+                                        Err(e) => {
+                                            panic!("Failed getting modification time for {}. Err: {e}", ingr_path.display());
+                                        }
+                                    }
+                                } else {
+                                    // This branch is meant for unsupported platforms.
+                                    ingr_mod_time="NO_TIME".to_string();
+                                }
+                            } else {
+                                ingr_mod_time="NO_TIME".to_string();
+                            }
+
+                            let ingr_str = format!("{{INGR}} - {{{ingr}}} [{ingr_i}], [{ingr_mod_time}]");
+                            if dbg_print {
+                                println!("\t\t{}", ingr_str);
+                            }
+                        }
+                    } else {
+                        if dbg_print {
+                            println!("\t\t{{{rule_ingredients}}}");
+                        }
+                    }
+                    if dbg_print {
+                        println!("\t}};");
+                    }
+                    rule_i += 1;
+                } else if tab_regex.is_match(&stripped_line) {
+                    println!("Line starts with a tab: {}", stripped_line);
+                } else {
+                    if stripped_line.is_empty() {
+                        trace!("Ignoring empty stripped line.");
+                        continue;
+                    }
+                    println!("Line does not start with a tab: {}", stripped_line);
+                }
+            }
+        }
+
+        if do_recap {
+            for rule in rules_arr {
+                println!("{}",rule);
+            }
+        }
+    } else {
+        eprintln!("Failed to open file: {}", path.display());
+        std::process::exit(1);
+    }
+
+    Ok(())
 }
