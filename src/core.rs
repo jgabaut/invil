@@ -203,7 +203,9 @@ pub enum AmbosoLintMode {
     FullCheck,
     LintOnly,
     Lex,
-    Experimental,
+    NajloFull,
+    NajloDebug,
+    NajloQuiet,
 }
 
 #[derive(Debug)]
