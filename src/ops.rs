@@ -1294,7 +1294,12 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                         mod_time="NO_TIME".to_string();
                     }
                     let rulepart_decl = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}}");
-                    let rulepart_deps = format!("<- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
+                    let rulepart_deps;
+                    if !set_len {
+                        rulepart_deps = format!("<- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
+                    } else {
+                        rulepart_deps = format!("<- {{DEPS}} -> {{}} -> [#{ingrs_len}]");
+                    }
                     //let rule_str = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}} <- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
                     let rule_str = format!("{rulepart_decl} {rulepart_deps}");
                     rules_arr.push(rule_str.clone());
