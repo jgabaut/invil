@@ -1236,7 +1236,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
     let mut _ingr_i: u64 = 0;
     let mut _mainexpr_arr: Vec<String> = Vec::new();
     let mut rules_arr: Vec<String> = Vec::new();
-    let mut _ruleingrs_arr: Vec<String> = Vec::new();
+    let mut ruleingrs_arr: Vec<String> = Vec::new();
     let mut _rulexpr_arr: Vec<String> = Vec::new();
     let mut _tot_warns: u64 = 0;
     let mut _cur_line: u64 = 0;
@@ -1325,15 +1325,17 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                                 ingr_mod_time="NO_TIME".to_string();
                             }
 
-                            let ingr_str = format!("{{INGR}} - {{{ingr}}} [{ingr_i}], [{ingr_mod_time}]");
+                            let ingr_str = format!("{{{ingr}}} {{[{ingr_i}], [{ingr_mod_time}]}}, ");
                             if dbg_print {
-                                println!("\t\t{}", ingr_str);
+                                println!("\t\t{{INGR}} - {{{ingr}}} [{ingr_i}], [{ingr_mod_time}]");
                             }
+                            ruleingrs_arr.push(format!("{{RULE: {rulename} #{rule_i}}} <-- [{ingr_str}]"));
                         }
                     } else {
                         if dbg_print {
                             println!("\t\t{{{rule_ingredients}}}");
                         }
+                        ruleingrs_arr.push(format!("{{RULE: {rulename} #{rule_i}}} <-- [{{NO_DEPS}}]"));
                     }
                     if dbg_print {
                         println!("\t}};");
@@ -1353,7 +1355,10 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
 
         if do_recap {
             for rule in rules_arr {
-                println!("{}",rule);
+                println!("{}", rule);
+            }
+            for ruleingr in ruleingrs_arr {
+                println!("{}", ruleingr);
             }
         }
     } else {
