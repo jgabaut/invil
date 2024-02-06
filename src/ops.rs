@@ -1232,7 +1232,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
     let dbg_print: bool = true;
     let do_recap: bool = true;
 
-    let mut last_rulename: &str = "";
+    let mut last_rulename: String = "".to_string();
     let mut _ingr_i: u64 = 0;
     let mut _mainexpr_arr: Vec<String> = Vec::new();
     let mut rules_arr: Vec<String> = Vec::new();
@@ -1240,7 +1240,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
     let mut _rulexpr_arr: Vec<String> = Vec::new();
     let mut _tot_warns: u64 = 0;
     let mut _cur_line: u64 = 0;
-    let mut rule_i: u64 = 0;
+    let mut rule_i: usize = 0;
     // Read the file line by line
     if let Ok(file) = File::open(&path) {
         let tab_regex = Regex::new(&format!("^{}", RULELINE_MARK_CHAR)).expect("Failed to create ruleline regex");
@@ -1259,6 +1259,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                     let mut rule_ingredients = cut_line_at_char(&cut_line_at_char(&stripped_line, ':', CutDirection::After), ' ', CutDirection::After); // Cut ': '
                     let mut ingrs_len = 0;
                     let ingrs_arr: Vec<_>;
+                    ruleingrs_arr.push("".to_string());
                     let set_len: bool = rule_ingredients.is_empty();
                     if set_len {
                         rule_ingredients = "NO_DEPS";
@@ -1269,7 +1270,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                         ingrs_len = ingrs_arr.len();
                     }
                     //println!("Line matches rule regex: {}", stripped_line);
-                    last_rulename = rulename;
+                    last_rulename = rulename.to_string();
                     let mod_time: String;
                     let rule_path = Path::new(rulename);
                     if rule_path.exists() {
@@ -1329,13 +1330,14 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                             if dbg_print {
                                 println!("\t\t{{INGR}} - {{{ingr}}} [{ingr_i}], [{ingr_mod_time}]");
                             }
-                            ruleingrs_arr.push(format!("{{RULE: {rulename} #{rule_i}}} <-- [{ingr_str}]"));
+                            ruleingrs_arr[rule_i] = format!("{}{ingr_str}", ruleingrs_arr[rule_i]);
                         }
+                        ruleingrs_arr[rule_i] = format!("{{RULE: {rulename} #{rule_i}}} <-- [{}]", ruleingrs_arr[rule_i]);
                     } else {
                         if dbg_print {
                             println!("\t\t{{{rule_ingredients}}}");
                         }
-                        ruleingrs_arr.push(format!("{{RULE: {rulename} #{rule_i}}} <-- [{{NO_DEPS}}]"));
+                        ruleingrs_arr[rule_i] = format!("{{RULE: {rulename} #{rule_i}}} <-- [{{NO_DEPS}}]");
                     }
                     if dbg_print {
                         println!("\t}};");
@@ -1349,18 +1351,27 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                         continue;
                     }
                     println!("Line does not start with a tab: {}", stripped_line);
+                    if last_rulename.is_empty() {
+                        println!("Line is an expression before any rule was found");
+                    } else {
+                        println!("Line is an expression after at least one rule was found");
+                    }
                 }
             }
         }
 
-        if do_recap {
-            for rule in rules_arr {
-                println!("{}", rule);
-            }
-            for ruleingr in ruleingrs_arr {
-                println!("{}", ruleingr);
-            }
+        if !do_recap { return Ok(()); }
+
+        println!("{{RULES}} -> {{");
+        for rule in rules_arr {
+            println!("\t[{}],", rule);
         }
+        println!("}}");
+        println!("{{DEPS}} -> {{");
+        for ruleingr in ruleingrs_arr {
+            println!("\t[{}],", ruleingr);
+        }
+        println!("}}");
     } else {
         eprintln!("Failed to open file: {}", path.display());
         std::process::exit(1);
