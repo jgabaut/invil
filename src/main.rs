@@ -165,6 +165,12 @@ fn main() -> ExitCode {
                 }
                 false => {}
             }
+            match args.ignore_gitcheck {
+                true => {
+                    lint_mode = AmbosoLintMode::Experimental;
+                }
+                false => {}
+            }
             let res = handle_linter_flag(x, lint_mode);
             match res {
                 Ok(s) => {
