@@ -1200,6 +1200,7 @@ pub fn handle_running_make() {
 
 const RULELINE_MARK_CHAR: char = '\t';
 const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
+const RULEWARN_REGEX: &str = "^ +";
 
 enum CutDirection {
     Before,
@@ -1220,7 +1221,7 @@ fn cut_line_at_char(line: &str, delimiter: char, direction: CutDirection) -> &st
     }
 }
 
-pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
+pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<u64> {
     let path = file_path.as_ref();
 
     // Check if the file exists
@@ -1234,14 +1235,15 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
 
     let mut last_rulename: String = "".to_string();
     let mut _ingr_i: u64 = 0;
-    let mut _mainexpr_arr: Vec<String> = Vec::new();
+    let mut mainexpr_arr: Vec<String> = Vec::new();
     let mut rules_arr: Vec<String> = Vec::new();
     let mut ruleingrs_arr: Vec<String> = Vec::new();
     let mut rulexpr_arr: Vec<String> = Vec::new();
-    let mut _tot_warns: u64 = 0;
+    let mut tot_warns: u64 = 0;
     let mut _cur_line: u64 = 0;
     let mut rule_i: usize = 0;
     let mut rulexpr_i: u64 = 0;
+    let mut mainexpr_i: u64 = 0;
     // Read the file line by line
     if let Ok(file) = File::open(&path) {
         let tab_regex = Regex::new(&format!("^{}", RULELINE_MARK_CHAR)).expect("Failed to create ruleline regex");
@@ -1307,7 +1309,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                     let rule_str = format!("{rulepart_decl} {rulepart_deps}");
                     rules_arr.push(rule_str.clone());
                     if dbg_print {
-                        println!("{rulepart_decl}\n\t{rulepart_deps}");
+                        println!("{rulepart_decl}\n\t{rulepart_deps} ->");
                     }
                     let mut ingr_mod_time: String;
                     if !set_len {
@@ -1365,22 +1367,48 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
                     rulexpr_arr[rule_i-1] = format!("{}{}", rulexpr_arr[rule_i-1], rulexpr_str);
                     rulexpr_i += 1;
                 } else {
+                    //println!("Line does not start with a tab: {}", stripped_line);
                     if stripped_line.is_empty() {
                         trace!("Ignoring empty stripped line.");
                         continue;
-                    }
-                    println!("Line does not start with a tab: {}", stripped_line);
-                    if last_rulename.is_empty() {
-                        println!("Line is an expression before any rule was found");
                     } else {
-                        println!("Line is an expression after at least one rule was found");
+                        rulexpr_i = 0;
+                    }
+                    if last_rulename.is_empty() {
+                        //println!("Line is an expression before any rule was found");
+                        let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
+                        if dbg_print {
+                            println!("{},", mainexpr_str);
+                        }
+                        mainexpr_arr.push(mainexpr_str);
+                        mainexpr_i += 1;
+                    } else {
+                        //println!("Line is an expression after at least one rule was found");
+                        let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
+                        if dbg_print {
+                            println!("{},", mainexpr_str);
+                        }
+                        let rulewarn_regex = Regex::new(RULEWARN_REGEX).expect("Failed to create rulewarn regex");
+                        if rulewarn_regex.is_match(&stripped_line) {
+                            warn!("A recipe line must start with a tab.");
+                            warn!("{stripped_line}");
+                            warn!("^^^ Any recipe line starting with a space will be interpreted as a main expression.");
+                            tot_warns += 1;
+                        }
+                        mainexpr_arr.push(mainexpr_str);
+                        mainexpr_i += 1;
                     }
                 }
             }
         }
 
-        if !do_recap { return Ok(()); }
+        if !do_recap { return Ok(tot_warns); }
 
+        println!("{{MAIN}} -> {{");
+        for mexpr in mainexpr_arr {
+            println!("\t[{}],", mexpr);
+        }
+        println!("}}");
         println!("{{RULES}} -> {{");
         for rule in &rules_arr {
             println!("\t[{}],", rule);
@@ -1401,5 +1429,5 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<()> {
         std::process::exit(1);
     }
 
-    Ok(())
+    Ok(tot_warns)
 }
