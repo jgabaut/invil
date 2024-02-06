@@ -1252,7 +1252,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     let mut ruleingrs_arr: Vec<String> = Vec::new();
     let mut rulexpr_arr: Vec<String> = Vec::new();
     let mut tot_warns: u64 = 0;
-    let mut _cur_line: u64 = 0;
+    let mut cur_line: u64 = 0;
     let mut rule_i: usize = 0;
     let mut rulexpr_i: u64 = 0;
     let mut mainexpr_i: u64 = 0;
@@ -1263,6 +1263,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
 
         for line in io::BufReader::new(file).lines() {
             if let Ok(line_content) = line {
+                cur_line += 1;
                 if line_content.is_empty() {
                     trace!("Ignoring empty line.");
                     continue;
@@ -1372,8 +1373,24 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
                         trace!("Ignoring empty stripped rulexpr line.");
                         continue;
                     }
+                    if last_rulename.is_empty() {
+                        // This branch is not 1-1 in najlo, but it's needed
+                        debug!("Found mainexpr starting with a tab. {{{stripped_rulexpr_line}}}");
+                        //println!("Line is an expression before any rule was found");
+                        let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
+                        if dbg_print {
+                            println!("{},", mainexpr_str);
+                        }
+                        mainexpr_arr.push(mainexpr_str);
+                        mainexpr_i += 1;
+                        continue;
+                    }
                     if dbg_print {
                         println!("\t{{RULE_EXPR}} -> {{{stripped_rulexpr_line}}}, [#{rulexpr_i}],");
+                    }
+                    if rulexpr_arr.len() == 0 {
+                        error!("Can't have this. Line: [#{cur_line}], Stripped rulexpr line: {{{stripped_rulexpr_line}}}");
+                        panic!("OUCH");
                     }
                     let rulexpr_str = format!("{{RULE_EXPR #{rulexpr_i}}} {{{stripped_rulexpr_line}}}, ");
                     rulexpr_arr[rule_i-1] = format!("{}{}", rulexpr_arr[rule_i-1], rulexpr_str);
