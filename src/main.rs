@@ -167,14 +167,35 @@ fn main() -> ExitCode {
             }
             match args.ignore_gitcheck {
                 true => {
-                    lint_mode = AmbosoLintMode::Experimental;
+                    lint_mode = match args.list_all {
+                        true => {
+                            AmbosoLintMode::NajloDebug
+                        }
+                        false => {
+                            match args.quiet {
+                                true => {
+                                    AmbosoLintMode::NajloQuiet
+                                }
+                                false => {
+                                    AmbosoLintMode::NajloFull
+                                }
+                            }
+                        }
+                    }
                 }
                 false => {}
             }
-            let res = handle_linter_flag(x, lint_mode);
+            let res = handle_linter_flag(x, &lint_mode);
             match res {
                 Ok(s) => {
-                    info!("{s}");
+                    match lint_mode {
+                        AmbosoLintMode::NajloFull => {
+                            debug!("{s}");
+                        }
+                        _ => {
+                            info!("{s}");
+                        }
+                    }
                     return ExitCode::SUCCESS;
                 }
                 Err(e) => {

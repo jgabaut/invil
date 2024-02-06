@@ -1062,23 +1062,38 @@ const char *get_INVIL__OS__(void)
     Ok("Done C generationg".to_string())
 }
 
-pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: AmbosoLintMode) -> Result<String,String> {
+fn try_lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bool, report_warns: bool) -> Result<String,String> {
+    let path = file_path.as_ref();
+    let res = lex_makefile(path, dbg_print, skip_recap, report_warns);
+    match res {
+        Ok(warns) => {
+            if warns != 0 {
+                trace!("Failed lex for {{{}}}.\nTot warns: {warns}.", path.display());
+                return Err(format!("Lex failure, {warns} warnings."));
+            }
+            debug!("Lex successful for {{{}}}.", path.display());
+            return Ok(format!("Lex success with {warns} warns."));
+        }
+        Err(e) => {
+            trace!("Failed lex for {{{}}}.\nError was:    {e}", path.display());
+            return Err("Lex failure".to_string());
+        }
+    }
+}
+
+pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> Result<String,String> {
     info!("Linter for file: {{{}}}", stego_path.display());
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
         match lint_mode {
-            AmbosoLintMode::Experimental => {
-                let res = lex_makefile(stego_path);
-                match res {
-                    Ok(_) => {
-                        info!("Lex successful for {{{}}}.", stego_path.display());
-                        return Ok("Lex success".to_string());
-                }
-                    Err(e) => {
-                        trace!("Failed lex for {{{}}}.\nError was:    {e}",stego_path.display());
-                        return Err("Lex failure".to_string());
-                    }
-                }
+            AmbosoLintMode::NajloFull => {
+                return try_lex_makefile(stego_path, false, false, true);
+            }
+            AmbosoLintMode::NajloDebug => {
+                return try_lex_makefile(stego_path, true, false, true);
+            }
+            AmbosoLintMode::NajloQuiet => {
+                return try_lex_makefile(stego_path, false, true, true);
             }
             AmbosoLintMode::LintOnly => {
                 let res = try_parse_stego(stego_path);
@@ -1221,7 +1236,7 @@ fn cut_line_at_char(line: &str, delimiter: char, direction: CutDirection) -> &st
     }
 }
 
-pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<u64> {
+pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bool, report_warns: bool) -> io::Result<u64> {
     let path = file_path.as_ref();
 
     // Check if the file exists
@@ -1229,9 +1244,6 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<u64> {
         eprintln!("File not found: {}", path.display());
         std::process::exit(1);
     }
-
-    let dbg_print: bool = true;
-    let do_recap: bool = true;
 
     let mut last_rulename: String = "".to_string();
     let mut _ingr_i: u64 = 0;
@@ -1389,7 +1401,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<u64> {
                             println!("{},", mainexpr_str);
                         }
                         let rulewarn_regex = Regex::new(RULEWARN_REGEX).expect("Failed to create rulewarn regex");
-                        if rulewarn_regex.is_match(&stripped_line) {
+                        if report_warns && rulewarn_regex.is_match(&stripped_line) {
                             warn!("A recipe line must start with a tab.");
                             warn!("{stripped_line}");
                             warn!("^^^ Any recipe line starting with a space will be interpreted as a main expression.");
@@ -1402,7 +1414,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>) -> io::Result<u64> {
             }
         }
 
-        if !do_recap { return Ok(tot_warns); }
+        if skip_recap { return Ok(tot_warns); }
 
         println!("{{MAIN}} -> {{");
         for mexpr in mainexpr_arr {
