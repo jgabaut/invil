@@ -1399,8 +1399,8 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
                             // Correctly concatenate the expressions, in some way
                             // Current implementation may be a bit clunky but is close
                             //
-                            debug!("Found mainexpr starting with a tab. {{{stripped_line}}}");
-                            todo!("Implement handling tabbed main_exprs");
+                            //debug!("Found mainexpr starting with a tab. {{{stripped_line}}}");
+                            //todo!("Implement handling tabbed main_exprs");
                             /*
                             let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
                             if dbg_print {
