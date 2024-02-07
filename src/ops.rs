@@ -1255,7 +1255,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     let mut cur_line: u64 = 0;
     let mut rule_i: usize = 0;
     let mut rulexpr_i: u64 = 0;
-    let mut mainexpr_i: u64 = 0;
+    let mut mainexpr_i: usize = 0;
     // Read the file line by line
     if let Ok(file) = File::open(&path) {
         let tab_regex = Regex::new(&format!("^{}", RULELINE_MARK_CHAR)).expect("Failed to create ruleline regex");
@@ -1366,23 +1366,11 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
                         println!("\t}};");
                     }
                     rule_i += 1;
-                } else if tab_regex.is_match(&stripped_line) {
+                } else if !last_rulename.is_empty() && tab_regex.is_match(&stripped_line) {
                     //println!("Line starts with a tab: {}", stripped_line);
                     let stripped_rulexpr_line = cut_line_at_char(stripped_line, '\t', CutDirection::After);
                     if stripped_rulexpr_line.is_empty() {
                         trace!("Ignoring empty stripped rulexpr line.");
-                        continue;
-                    }
-                    if last_rulename.is_empty() {
-                        // This branch is not 1-1 in najlo, but it's needed
-                        debug!("Found mainexpr starting with a tab. {{{stripped_rulexpr_line}}}");
-                        //println!("Line is an expression before any rule was found");
-                        let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
-                        if dbg_print {
-                            println!("{},", mainexpr_str);
-                        }
-                        mainexpr_arr.push(mainexpr_str);
-                        mainexpr_i += 1;
                         continue;
                     }
                     if dbg_print {
@@ -1404,6 +1392,24 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
                         rulexpr_i = 0;
                     }
                     if last_rulename.is_empty() {
+                        if tab_regex.is_match(&stripped_line) {
+                            // This branch is not 1-1 in najlo, but it's needed
+                            //
+                            // TODO
+                            // Correctly concatenate the expressions, in some way
+                            // Current implementation may be a bit clunky but is close
+                            //
+                            debug!("Found mainexpr starting with a tab. {{{stripped_line}}}");
+                            todo!("Implement handling tabbed main_exprs");
+                            /*
+                            let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
+                            if dbg_print {
+                                println!("{},", mainexpr_str);
+                            }
+                            mainexpr_arr[mainexpr_i-1] = format!("{}{}", mainexpr_arr[mainexpr_i-1], mainexpr_str);
+                            continue;
+                            */
+                        }
                         //println!("Line is an expression before any rule was found");
                         let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
                         if dbg_print {
