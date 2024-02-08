@@ -44,6 +44,9 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.2";
+pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
+pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
+pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]
@@ -884,13 +887,24 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                                     anvil_env.enable_extensions = false;
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                _ => {}
+                                "2.0.1" | "2.0.2" => {
+                                    info!("Running as <2.0.3");
+                                    anvil_env.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                "2.0.3" => {
+                                    info!("Running as 2.0.3");
+                                    anvil_env.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
                             }
                             trace!("ANVIL_VERSION: {{{anvil_version}}}");
                             anvil_env.anvil_version = format!("{}", anvil_v_str);
                         } else {
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_env.anvil_version = format!("{}", anvil_v_str);
+                            error!("Invalid anvil_version: {{{anvil_version}}}");
+                            return Err("Invalid anvil_version".to_string());
                         }
                     } else {
                         error!("Invalid anvil_version: {{{}}}", anvil_v_str);
@@ -1349,6 +1363,8 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         anvil_kern: AnvilKern::AmbosoC,
     };
 
+    let mut override_stego_anvil_version = false;
+
     match args.anvil_version {
         Some (ref x) => {
             trace!("Passed anvil_version argument: {x}");
@@ -1361,11 +1377,33 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             anvil_env.enable_extensions = false;
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
-                        _ => {}
+                        "2.0.1" | "2.0.2" => {
+                            info!("Running as {}", x.as_str());
+                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
+                        }
+                        "2.0.3" => {
+                            info!("Running as {}", x.as_str());
+                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
+                        }
+                        _ => {
+                            error!("Invalid anvil_version: {{{}}}", x);
+                            return Err("Invalid anvil_version".to_string());
+                        }
                     }
                     trace!("ANVIL_VERSION: {{{x}}}");
+
+                    match semver_compare(x, MIN_AMBOSO_V_STEGO_NOFORCE) {
+                        Ordering::Greater | Ordering::Equal => {
+                            override_stego_anvil_version = true;
+                        }
+                        Ordering::Less => {
+                            warn!("Taken legacy path: stego-provided anvil_version always overrides passed one. Query was: {{{}}}", x);
+                            override_stego_anvil_version = false;
+                        }
+                    }
                 } else {
-                    trace!("ANVIL_VERSION: {{{x}}}");
+                    error!("Invalid anvil_version: {{{}}}", x);
+                    return Err("Invalid anvil_version".to_string());
                 }
             } else {
                 error!("Invalid anvil_version: {{{}}}", x);
@@ -1379,7 +1417,14 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         true => {
             anvil_env.enable_extensions = false;
         }
-        false => {}
+        false => {
+            match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_EXTENSIONS) {
+                Ordering::Less => {
+                    anvil_env.enable_extensions = false;
+                },
+                _ => {}
+            }
+        }
     }
 
     match args.config {
@@ -1432,9 +1477,12 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             debug!("Amboso dir {{{}}}", x.display());
             let res = check_amboso_dir(x, &args);
             match res {
-                Ok(a) => {
+                Ok(mut a) => {
                     trace!("{:#?}", a);
                     debug!("Check pass: amboso_dir");
+                    if override_stego_anvil_version {
+                        a.anvil_version = anvil_env.anvil_version;
+                    }
                     anvil_env = a;
                 }
                 Err(e) => {
