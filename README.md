@@ -15,7 +15,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.2`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.3`.
   Check the [next section](#supported_amboso) for more support info.
 
   Invil can be used to:
@@ -23,6 +23,7 @@
     - Ideally, the build command should be as short as `invil build`.
   - Run tests for a repo-curated directory with output comparison.
   - Generate new projects supporting the build tool using `invil init <DIR>`
+  - Generate a basic header+impl containing project info, such as time of current commit
 
   At the moment, only C projects are supported.
   Different build modes are provided internally, depending on how full your autotool build support is:
@@ -118,6 +119,7 @@
   - [x] Try checking ./stego.lock when amboso_dir is not found
   - [x] `-a` to set compatibility level
   - [x] `-k` to set project type
+  - [x] `-O` to set stego.lock dir (defaults to working directory)
 
 ## See how it behaves <a name = "try_anvil"></a>
 
