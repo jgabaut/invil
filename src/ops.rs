@@ -1261,15 +1261,29 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
         let tab_regex = Regex::new(&format!("^{}", RULELINE_MARK_CHAR)).expect("Failed to create ruleline regex");
         let rule_regex = Regex::new(RULE_REGEX).expect("Failed to create rule regex");
 
+        let mut continuation = false;
+        let mut current_line = String::new();
+
         for line in io::BufReader::new(file).lines() {
             if let Ok(line_content) = line {
+                if continuation {
+                    current_line.pop();
+                    current_line.push_str(&line_content);
+                } else {
+                    current_line = line_content.to_string();
+                }
+                continuation = current_line.ends_with("\\");
+
+                if continuation {
+                    continue
+                }
                 cur_line += 1;
-                if line_content.is_empty() {
+                if current_line.is_empty() {
                     trace!("Ignoring empty line.");
                     continue;
                 }
-                let _comment = cut_line_at_char(&line_content, '#', CutDirection::After);
-                let stripped_line = cut_line_at_char(&line_content, '#', CutDirection::Before);
+                let _comment = cut_line_at_char(&current_line, '#', CutDirection::After);
+                let stripped_line = cut_line_at_char(&current_line, '#', CutDirection::Before);
                 if rule_regex.is_match(&stripped_line) {
                     let rulename = cut_line_at_char(&stripped_line, ':', CutDirection::Before);
                     let mut rule_ingredients = cut_line_at_char(&cut_line_at_char(&stripped_line, ':', CutDirection::After), ' ', CutDirection::After); // Cut ': '
@@ -1399,8 +1413,8 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
                             // Correctly concatenate the expressions, in some way
                             // Current implementation may be a bit clunky but is close
                             //
-                            //debug!("Found mainexpr starting with a tab. {{{stripped_line}}}");
-                            //todo!("Implement handling tabbed main_exprs");
+                            debug!("Found mainexpr starting with a tab. {{{stripped_line}}}");
+                            todo!("Implement handling tabbed main_exprs");
                             /*
                             let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
                             if dbg_print {
