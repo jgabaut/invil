@@ -1511,7 +1511,16 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 } else {
                     match semver_compare(x, MIN_AMBOSO_V_LEGACYPARSE) {
                         Ordering::Less => {
-                            warn!("Running as legacy 1.x");
+                            match semver_compare(x, "1.0.0") {
+                                Ordering::Equal | Ordering::Greater => {
+                                    warn!("Running as legacy 1.x");
+                                    debug!("Query was: {{{}}}", x);
+                                }
+                                Ordering::Less => {
+                                    error!("Invalid anvil_version: {{{}}}", x);
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
                         }
                         _ => {
                             error!("Invalid anvil_version: {{{}}}", x);
