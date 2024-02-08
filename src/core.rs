@@ -55,6 +55,10 @@ pub struct Args {
     #[arg(short = 'D', long, default_value = "./bin", value_name = "BIN_DIR")]
     pub amboso_dir: Option<PathBuf>,
 
+    /// Specify the directory to host stego.lock
+    #[arg(short = 'O', long, default_value = ".", value_name = "STEGO_DIR")]
+    pub stego_dir: Option<PathBuf>,
+
     /// Specify the directory to host tests
     #[arg(short = 'K', long, value_name = "TESTS_DIR")]
     pub kazoj_dir: Option<PathBuf>,
@@ -227,6 +231,9 @@ pub struct AmbosoEnv {
 
     /// Runmode
     pub run_mode: Option<AmbosoMode>,
+
+    /// Path to stego.lock dir
+    pub stego_dir: Option<PathBuf>,
 
     /// Path to builds dir from wd
     pub builds_dir: Option<PathBuf>,
@@ -805,16 +812,49 @@ fn check_stego_file(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             }
         }
     } else {
-        return Err(format!("Can't find {}. Quitting.", stego_path.display()));
+        return Err(format!("Can't find {}.", stego_path.display()));
     }
 }
 
 pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> {
     if dir.exists() {
-        trace!("Found {}", dir.display());
-        let mut stego_path = dir.clone();
-        stego_path.push("stego.lock");
-        return check_stego_file(&stego_path);
+        match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_STEGODIR) {
+            Ordering::Less => {
+                trace!("Found {}", dir.display());
+                let mut stego_path = dir.clone();
+                stego_path.push("stego.lock");
+                return check_stego_file(&stego_path);
+            }
+            Ordering:: Equal | Ordering::Greater => {
+                trace!("Found {}", dir.display());
+                let mut stego_path;
+                match &args.stego_dir {
+                    Some(query_dir) => {
+                        // We use the provided dir
+                        stego_path = query_dir.clone();
+                        stego_path.push("stego.lock");
+                        let amb_env = check_stego_file(&stego_path);
+                        match amb_env {
+                            Ok(a) => {
+                                return Ok(a);
+                            }
+                            Err(e) => {
+                                warn!("Failed reading stego.lock at {{{}}}. Err: {e}.", stego_path.display());
+                                warn!("Will retry to find it at {{{}}}.", dir.display());
+                                stego_path = dir.clone();
+                                stego_path.push("stego.lock");
+                            }
+                        }
+                    }
+                    None => {
+                        // We look into amboso_dir when no stego_dir was passed
+                        stego_path = dir.clone();
+                        stego_path.push("stego.lock");
+                    }
+                }
+                return check_stego_file(&stego_path);
+            }
+        }
     } else {
         if ! args.strict {
             warn!("No amboso_dir found. Checking {{./stego.lock}}.");
@@ -849,6 +889,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
                 run_mode : None,
                 builds_dir: Some(stego_dir),
+                stego_dir: None,
                 source : None,
                 bin : None,
                 mintag_make : None,
@@ -1336,6 +1377,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     let mut anvil_env: AmbosoEnv = AmbosoEnv {
         run_mode : None,
         builds_dir: None,
+        stego_dir: None,
         source : None,
         bin : None,
         mintag_make : None,
