@@ -1246,7 +1246,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
 
     // Check if the file exists
     if !path.exists() {
-        eprintln!("File not found: {}", path.display());
+        error!("File not found: {}", path.display());
         std::process::exit(1);
     }
 
