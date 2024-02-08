@@ -1,5 +1,12 @@
 # Changelog
 
+
+## [0.2.5] - 2024-01-22
+
+### Added
+
+- Generated C header contains generation time
+
 ## [0.2.4] - 2024-01-10
 
 ### Added
