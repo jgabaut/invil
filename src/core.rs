@@ -49,6 +49,7 @@ pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
 pub const MIN_AMBOSO_V_KERN: &str = "2.0.2";
+pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]
