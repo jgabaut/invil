@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX};
 use crate::utils::try_parse_stego;
 use std::process::{Command, exit};
 use std::io::{self, Write, BufRead};
@@ -581,6 +581,11 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
 pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
         Some(ref q) => {
+            let interpreter_regex = Regex::new(ANVIL_INTERPRETER_TAG_REGEX).expect("Failed to create ruleline regex");
+            if interpreter_regex.is_match(q) {
+                info!("Running as interpreter for {{{q}}}");
+                handle_running_make();
+            }
             match env.run_mode.as_ref().unwrap() {
                 AmbosoMode::GitMode => {
                     if ! env.gitmode_versions_table.contains_key(&SemVerKey(q.to_string())) {
