@@ -43,10 +43,12 @@ pub const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
 pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
+pub const ANVIL_KERN_KEYNAME: &str = "kern";
 pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.3";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
+pub const MIN_AMBOSO_V_KERN: &str = "2.0.2";
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]
@@ -953,6 +955,25 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     }
                 } else {
                     debug!("Missing ANVIL_VERSION definition.");
+                }
+
+                match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_KERN) {
+                    Ordering::Less => {},
+                    Ordering::Equal | Ordering::Greater => {
+                        if let Some(anvil_kern) = anvil_table.get(ANVIL_KERN_KEYNAME) {
+                            match anvil_kern.as_str().expect("toml conversion failed") {
+                                "amboso-C" => {
+                                    anvil_env.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                _ => {
+                                    error!("Invalid AnvilKern value: {{{anvil_kern}}}");
+                                    return Err("Invalid anvil_kern".to_string());
+                                }
+                            }
+                        } else {
+                            debug!("Missing ANVIL_KERN definition.");
+                        }
+                    }
                 }
             } else {
                 debug!("Missing ANVIL section.");
