@@ -49,7 +49,26 @@ pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
 pub const MIN_AMBOSO_V_KERN: &str = "2.0.2";
+pub const MIN_AMBOSO_V_LEGACYPARSE: &str = "1.8.0";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
+pub const RULELINE_MARK_CHAR: char = '\t';
+pub const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
+pub const RULEWARN_REGEX: &str = "^ +";
+
+pub enum CutDirection {
+    Before,
+    After,
+}
+
+pub const AMBOSO_BUILD_LEGACY_POS: u64 = 0;
+pub const AMBOSO_SOURCE_LEGACY_POS: u64 = 1;
+pub const AMBOSO_BIN_LEGACY_POS: u64 = 2;
+pub const AMBOSO_MAKEVERS_LEGACY_POS: u64 = 3;
+pub const AMBOSO_TESTS_LEGACY_POS: u64 = 4;
+pub const AMBOSO_AUTOMAKEVERS_LEGACY_POS: u64 = 5;
+pub const AMBOSO_VERSIONS_LEGACY_POS: u64 = 6;
+pub const AMBOSO_BONE_LEGACY_POS: u64 = 0;
+pub const AMBOSO_KULPO_LEGACY_POS: u64 = 2;
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about = format!("{} - A simple build tool leveraging make", INVIL_NAME), long_about = format!("{} - A drop-in replacement for amboso", INVIL_NAME), disable_version_flag = true)]
@@ -221,6 +240,12 @@ pub enum AmbosoLintMode {
 #[derive(Debug)]
 pub enum AnvilKern {
     AmbosoC,
+}
+
+#[derive(Debug)]
+pub enum StegoFormat {
+    Toml,
+    Legacy,
 }
 
 #[derive(Debug)]
@@ -688,10 +713,18 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
 }
 
 
-fn check_stego_file(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
+fn check_stego_file(stego_path: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
-        let res = parse_stego_toml(&stego_path);
+        let res;
+        match format {
+            StegoFormat::Toml => {
+                res = parse_stego_toml(&stego_path);
+            }
+            StegoFormat::Legacy => {
+                res = parse_legacy_stego(&stego_path);
+            }
+        }
         match res {
             Ok(mut a) => {
                 //trace!("Stego contents: {{{:#?}}}", a);
@@ -726,6 +759,7 @@ fn check_stego_file(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                         }
                     }
                     if a.support_testmode {
+                        trace!("Support for test mode is on");
                         let kulpotests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.kulpotests_dir.as_ref().unwrap().display()));
                         let kulpo_paths = fs::read_dir(kulpotests_path);
                         match kulpo_paths {
@@ -823,10 +857,19 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
     if dir.exists() {
         match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_STEGODIR) {
             Ordering::Less => {
+                warn!("Taken legacy path, checking for stego.lock at {{{}}}", dir.display());
                 trace!("Found {}", dir.display());
                 let mut stego_path = dir.clone();
                 stego_path.push("stego.lock");
-                return check_stego_file(&stego_path);
+                match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
+                    Ordering::Less => {
+                        warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
+                        return check_stego_file(&stego_path, StegoFormat::Legacy);
+                    }
+                    Ordering::Greater | Ordering::Equal => {
+                        return check_stego_file(&stego_path, StegoFormat::Toml);
+                    }
+                }
             }
             Ordering:: Equal | Ordering::Greater => {
                 trace!("Found {}", dir.display());
@@ -836,7 +879,7 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                         // We use the provided dir
                         stego_path = query_dir.clone();
                         stego_path.push("stego.lock");
-                        let amb_env = check_stego_file(&stego_path);
+                        let amb_env = check_stego_file(&stego_path, StegoFormat::Toml);
                         match amb_env {
                             Ok(a) => {
                                 return Ok(a);
@@ -855,7 +898,7 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                         stego_path.push("stego.lock");
                     }
                 }
-                return check_stego_file(&stego_path);
+                return check_stego_file(&stego_path, StegoFormat::Toml);
             }
         }
     } else {
@@ -863,7 +906,7 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
             warn!("No amboso_dir found. Checking {{./stego.lock}}.");
             let mut retry_path = PathBuf::from(".");
             retry_path.push("stego.lock");
-            return check_stego_file(&retry_path);
+            return check_stego_file(&retry_path, StegoFormat::Toml);
         } else {
             debug!("check_amboso_dir():    Strict behaviour, quitting on missing amboso dir.");
         }
@@ -1466,8 +1509,15 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         }
                     }
                 } else {
-                    error!("Invalid anvil_version: {{{}}}", x);
-                    return Err("Invalid anvil_version".to_string());
+                    match semver_compare(x, MIN_AMBOSO_V_LEGACYPARSE) {
+                        Ordering::Less => {
+                            warn!("Running as legacy 1.x");
+                        }
+                        _ => {
+                            error!("Invalid anvil_version: {{{}}}", x);
+                            return Err("Invalid anvil_version".to_string());
+                        }
+                    }
                 }
             } else {
                 error!("Invalid anvil_version: {{{}}}", x);
@@ -1982,7 +2032,21 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
     }
 }
 
-pub fn _parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
+pub fn cut_line_at_char(line: &str, delimiter: char, direction: CutDirection) -> &str {
+    if let Some(index) = line.find(delimiter) {
+        match direction {
+            CutDirection::After => &line[index + delimiter.len_utf8()..],
+            CutDirection::Before => &line[..index],
+        }
+    } else {
+        match direction {
+            CutDirection::After => "",
+            CutDirection::Before => line,
+        }
+    }
+}
+
+pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
@@ -2000,7 +2064,7 @@ pub fn _parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     if let Ok(file) = File::open(&stego_path) {
 
         let mut cur_line = 0;
-        let anvil_env: AmbosoEnv = AmbosoEnv {
+        let mut anvil_env: AmbosoEnv = AmbosoEnv {
             run_mode : None,
             builds_dir: Some(stego_dir),
             stego_dir: None,
@@ -2033,6 +2097,69 @@ pub fn _parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
 
         for line in BufReader::new(file).lines() {
             if let Ok(line_content) = line {
+                let _comment = cut_line_at_char(&line_content, '#', CutDirection::After);
+                let stripped_line = cut_line_at_char(&line_content, '#', CutDirection::Before).to_string();
+                if  cur_line == AMBOSO_BUILD_LEGACY_POS {
+                    trace!("Skipping legacy build header -> {{{}}}", stripped_line);
+                    cur_line += 1;
+                    continue;
+                } else if cur_line == AMBOSO_VERSIONS_LEGACY_POS {
+                    trace!("Skipping legacy versions header -> {{{}}}", stripped_line);
+                    cur_line += 1;
+                    continue;
+                } else if cur_line == AMBOSO_SOURCE_LEGACY_POS {
+                    debug!("Found ANVIL_SOURCE legacy def -> {{{}}}", stripped_line);
+                    anvil_env.source = Some(stripped_line.clone());
+                } else if cur_line == AMBOSO_BIN_LEGACY_POS {
+                    debug!("Found ANVIL_BIN legacy def -> {{{}}}", stripped_line);
+                    anvil_env.bin = Some(stripped_line.clone());
+                } else if cur_line == AMBOSO_MAKEVERS_LEGACY_POS {
+                    debug!("Found ANVIL_MAKEVERS legacy def -> {{{}}}", stripped_line);
+                    anvil_env.mintag_make = Some(stripped_line.clone());
+                } else if cur_line == AMBOSO_TESTS_LEGACY_POS {
+                    debug!("Found ANVIL_TESTDIR legacy def -> {{{}}}", stripped_line);
+                    anvil_env.tests_dir = Some(stripped_line.clone().into());
+
+                    let mut kazoj_path = anvil_env.tests_dir.clone().expect("Failed setting tests_dir");
+                    kazoj_path.push("kazoj.lock");
+
+                    let mut cur_kazoj_line = 0;
+
+                    if let Ok(kazoj_file) = File::open(&kazoj_path.clone()) {
+                        for kazoj_line in BufReader::new(kazoj_file).lines() {
+                            if let Ok(kazoj_line_content) = kazoj_line {
+                                let _kazoj_comment = cut_line_at_char(&kazoj_line_content, '#', CutDirection::After);
+                                let kazoj_stripped_line = cut_line_at_char(&kazoj_line_content, '#', CutDirection::Before);
+                                if cur_kazoj_line == AMBOSO_BONE_LEGACY_POS {
+                                    trace!("Skipping legacy tests dir header -> {{{}}}", kazoj_stripped_line);
+                                    cur_kazoj_line += 1;
+                                    continue;
+                                } else if cur_kazoj_line == AMBOSO_KULPO_LEGACY_POS {
+                                    trace!("Skipping legacy errortests dir header -> {{{}}}", kazoj_stripped_line);
+                                    cur_kazoj_line += 1;
+                                    continue;
+                                } else if cur_kazoj_line == (AMBOSO_BONE_LEGACY_POS +1) {
+                                    debug!("Found legacy tests dir def -> {{{}}}", kazoj_stripped_line);
+                                    anvil_env.bonetests_dir = Some(kazoj_stripped_line.into());
+                                } else if cur_kazoj_line == (AMBOSO_KULPO_LEGACY_POS +1) {
+                                    debug!("Found legacy errortests dir def -> {{{}}}", kazoj_stripped_line);
+                                    anvil_env.kulpotests_dir = Some(kazoj_stripped_line.into());
+                                }
+                                cur_kazoj_line += 1;
+                            } else {
+                                error!("Failed getting kazoj_line from {{{}}} -> {{{}}}", kazoj_path.clone().display(), cur_kazoj_line);
+                                return Err(format!("Can't read line {{{}}} from {{{}}}.", cur_kazoj_line, kazoj_path.display()));
+                            }
+                        }
+                    } else {
+                        warn!("Can't find kazoj.lock, expected at: {{{}}}", kazoj_path.clone().display());
+                        return Err(format!("Can't find kazoj.lock at {{{}}}", kazoj_path.display()));
+                    }
+
+                } else if cur_line == AMBOSO_AUTOMAKEVERS_LEGACY_POS {
+                    debug!("Found ANVIL_AUTOMAKEVERS legacy def -> {{{}}}", stripped_line);
+                    anvil_env.mintag_automake = Some(stripped_line.clone());
+                }
                 trace!("Line: {{{line_content}}}");
                 cur_line += 1;
             } else {

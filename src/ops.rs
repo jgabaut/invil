@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection};
 use crate::utils::try_parse_stego;
 use std::process::{Command, exit};
 use std::io::{self, Write, BufRead};
@@ -1214,29 +1214,6 @@ pub fn handle_running_make() {
         } else {
             error!("Can't find Makefile or configure.ac and Makefile.am. Quitting.");
             exit(1);
-        }
-    }
-}
-
-const RULELINE_MARK_CHAR: char = '\t';
-const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
-const RULEWARN_REGEX: &str = "^ +";
-
-enum CutDirection {
-    Before,
-    After,
-}
-
-fn cut_line_at_char(line: &str, delimiter: char, direction: CutDirection) -> &str {
-    if let Some(index) = line.find(delimiter) {
-        match direction {
-            CutDirection::After => &line[index + delimiter.len_utf8()..],
-            CutDirection::Before => &line[..index],
-        }
-    } else {
-        match direction {
-            CutDirection::After => "",
-            CutDirection::Before => line,
         }
     }
 }
