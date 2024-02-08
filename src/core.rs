@@ -24,7 +24,7 @@ use git2::{Repository, Status, RepositoryInitOptions, ErrorCode};
 use is_executable::is_executable;
 use toml::Table;
 use std::process::ExitCode;
-use std::io::Write;
+use std::io::{Write, BufReader, BufRead};
 use crate::utils::{
     print_grouped_args,
 };
@@ -879,13 +879,13 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
         error!("Failed pop for {{{}}}", stego_dir.display());
-        return Err("Unexpected stego_dir value: {{{stego_dir.display()}}}".to_string());
+        return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
     }
     if stego_dir.exists() {
         trace!("Setting ANVIL_BINDIR to {{{}}}", stego_dir.display());
     } else {
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
-        return Err("Could not get stego_dir from {{{stego_path.display()}}}".to_string());
+        return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
     }
     match toml_value {
         Ok(y) => {
@@ -1979,5 +1979,71 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
             error!("Failed lexing {{{}}} as TOML. Err: [{}]", stego, e);
             return Err("Failed lexing TOML".to_string());
         }
+    }
+}
+
+pub fn _parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
+    let start_time = Instant::now();
+    let mut stego_dir = stego_path.clone();
+    if ! stego_dir.pop() {
+        error!("Failed pop for {{{}}}", stego_dir.display());
+        return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
+    }
+    if stego_dir.exists() {
+        trace!("Setting ANVIL_BINDIR to {{{}}}", stego_dir.display());
+    } else {
+        error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
+        return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
+    }
+
+    // Check if the file exists
+    if let Ok(file) = File::open(&stego_path) {
+
+        let mut cur_line = 0;
+        let anvil_env: AmbosoEnv = AmbosoEnv {
+            run_mode : None,
+            builds_dir: Some(stego_dir),
+            stego_dir: None,
+            source : None,
+            bin : None,
+            mintag_make : None,
+            mintag_automake : None,
+            tests_dir : None,
+            bonetests_dir : None,
+            kulpotests_dir : None,
+            versions_table: BTreeMap::new(),
+            basemode_versions_table: BTreeMap::new(),
+            gitmode_versions_table: BTreeMap::new(),
+            support_testmode : true,
+            bonetests_table: BTreeMap::new(),
+            kulpotests_table: BTreeMap::new(),
+            support_makemode : true,
+            support_automakemode : false,
+            do_build : false,
+            do_run : false,
+            do_delete : false,
+            do_init : false,
+            do_purge : false,
+            start_time: start_time,
+            configure_arg: "".to_string(),
+            anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
+            enable_extensions: true,
+            anvil_kern: AnvilKern::AmbosoC,
+        };
+
+        for line in BufReader::new(file).lines() {
+            if let Ok(line_content) = line {
+                trace!("Line: {{{line_content}}}");
+                cur_line += 1;
+            } else {
+                error!("Failed reading line {{{cur_line}}} from {{{}}}", stego_path.display());
+                return  Err(format!("Error while reading {{{}}}", stego_path.display()));
+            }
+        }
+
+        return Ok(anvil_env);
+    } else {
+        error!("Failed opening stego.lock at path from {{{}}}", stego_path.display());
+        return  Err(format!("Can't find stego.lock, expected at {{{}}}", stego_path.display()));
     }
 }
