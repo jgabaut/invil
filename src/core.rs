@@ -2106,7 +2106,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
 
         for line in BufReader::new(file).lines() {
             if let Ok(line_content) = line {
-                let _comment = cut_line_at_char(&line_content, '#', CutDirection::After);
+                let comment = cut_line_at_char(&line_content, '#', CutDirection::After).to_string();
                 let stripped_line = cut_line_at_char(&line_content, '#', CutDirection::Before).to_string();
                 if  cur_line == AMBOSO_BUILD_LEGACY_POS {
                     trace!("Skipping legacy build header -> {{{}}}", stripped_line);
@@ -2168,12 +2168,46 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                 } else if cur_line == AMBOSO_AUTOMAKEVERS_LEGACY_POS {
                     debug!("Found ANVIL_AUTOMAKEVERS legacy def -> {{{}}}", stripped_line);
                     anvil_env.mintag_automake = Some(stripped_line.clone());
+                } else {
+                    debug!("Found version definition -> {{{}}}", stripped_line);
+                    anvil_env.versions_table.insert(SemVerKey(stripped_line), comment);
                 }
                 trace!("Line: {{{line_content}}}");
                 cur_line += 1;
             } else {
                 error!("Failed reading line {{{cur_line}}} from {{{}}}", stego_path.display());
                 return  Err(format!("Error while reading {{{}}}", stego_path.display()));
+            }
+        }
+
+        for (key, value) in anvil_env.versions_table.iter() {
+            if key.to_string().starts_with('?') {
+                let trimmed_key = key.to_string().trim_start_matches('?').to_string();
+                if ! is_semver(&trimmed_key) {
+                    error!("Invalid semver key: {{{}}}", trimmed_key);
+                    return Err("Invalid semver key".to_string());
+                }
+                let ins_res = anvil_env.basemode_versions_table.insert(SemVerKey(trimmed_key.clone()), value.clone());
+                match ins_res {
+                    None => {},
+                    Some(old) => {
+                        error!("parse_legacy_stego(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
+                        return Err("Basemode version conflict".to_string());
+                    }
+                }
+            } else {
+                if ! is_semver(&key.to_string()) {
+                    error!("Invalid semver key: {{{}}}", key);
+                    return Err("Invalid semver key".to_string());
+                }
+                let ins_res = anvil_env.gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
+                match ins_res {
+                    None => {},
+                    Some(old) => {
+                        error!("parse_legacy_stego(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
+                        return Err("Gitmode version conflict".to_string());
+                    }
+                }
             }
         }
 
