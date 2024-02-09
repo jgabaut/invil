@@ -2117,15 +2117,31 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     cur_line += 1;
                     continue;
                 } else if cur_line == AMBOSO_SOURCE_LEGACY_POS {
+                    if stripped_line.is_empty() {
+                        error!("Found empty ANVIL_SOURCE definition.");
+                        return Err("Invalid ANVIL_SOURCE definition".to_string());
+                    }
                     debug!("Found ANVIL_SOURCE legacy def -> {{{}}}", stripped_line);
                     anvil_env.source = Some(stripped_line.clone());
                 } else if cur_line == AMBOSO_BIN_LEGACY_POS {
+                    if stripped_line.is_empty() {
+                        error!("Found empty ANVIL_BIN definition.");
+                        return Err("Invalid ANVIL_BIN definition".to_string());
+                    }
                     debug!("Found ANVIL_BIN legacy def -> {{{}}}", stripped_line);
                     anvil_env.bin = Some(stripped_line.clone());
                 } else if cur_line == AMBOSO_MAKEVERS_LEGACY_POS {
+                    if stripped_line.is_empty() {
+                        error!("Found empty ANVIL_MAKEVERS definition.");
+                        return Err("Invalid ANVIL_MAKEVERS definition".to_string());
+                    }
                     debug!("Found ANVIL_MAKEVERS legacy def -> {{{}}}", stripped_line);
                     anvil_env.mintag_make = Some(stripped_line.clone());
                 } else if cur_line == AMBOSO_TESTS_LEGACY_POS {
+                    if stripped_line.is_empty() {
+                        error!("Found empty ANVIL_TESTDIR definition.");
+                        return Err("Invalid ANVIL_TESTDIR definition".to_string());
+                    }
                     debug!("Found ANVIL_TESTDIR legacy def -> {{{}}}", stripped_line);
                     anvil_env.tests_dir = Some(stripped_line.clone().into());
 
@@ -2148,9 +2164,17 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                                     cur_kazoj_line += 1;
                                     continue;
                                 } else if cur_kazoj_line == (AMBOSO_BONE_LEGACY_POS +1) {
+                                    if kazoj_stripped_line.is_empty() {
+                                        error!("Found empty ANVIL_BONEDIR definition.");
+                                        return Err("Invalid ANVIL_BONEDIR definition".to_string());
+                                    }
                                     debug!("Found legacy tests dir def -> {{{}}}", kazoj_stripped_line);
                                     anvil_env.bonetests_dir = Some(kazoj_stripped_line.into());
                                 } else if cur_kazoj_line == (AMBOSO_KULPO_LEGACY_POS +1) {
+                                    if kazoj_stripped_line.is_empty() {
+                                        error!("Found empty ANVIL_KULPODIR definition.");
+                                        return Err("Invalid ANVIL_KULPODIR definition".to_string());
+                                    }
                                     debug!("Found legacy errortests dir def -> {{{}}}", kazoj_stripped_line);
                                     anvil_env.kulpotests_dir = Some(kazoj_stripped_line.into());
                                 }
@@ -2166,9 +2190,17 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                     }
 
                 } else if cur_line == AMBOSO_AUTOMAKEVERS_LEGACY_POS {
+                    if stripped_line.is_empty() {
+                        error!("Found empty ANVIL_AUTOMAKEVERS definition.");
+                        return Err("Invalid ANVIL_AUTOMAKEVERS definition".to_string());
+                    }
                     debug!("Found ANVIL_AUTOMAKEVERS legacy def -> {{{}}}", stripped_line);
                     anvil_env.mintag_automake = Some(stripped_line.clone());
                 } else {
+                    //TODO
+                    //Should check the reference to ensure it's an error to have empty lines between versions, in legacy format?
+                    //If so, we should error when it's needed
+
                     debug!("Found version definition -> {{{}}}", stripped_line);
                     anvil_env.versions_table.insert(SemVerKey(stripped_line), comment);
                 }
