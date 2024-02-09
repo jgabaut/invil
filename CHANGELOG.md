@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.2.6] - 2024-02-09
+
+### Added
+
+- Experimental Makefile parsing, with -Xx
+  - Handle -d, -L, -q when in Makefile parser mode for output control
+- New -O flag to pass stego_dir path
+- New constants to lock in patch-specific behaviour of amboso >2.0
+- Interpreter branch for stego.lock in do_query()
+- Print compatibility level with -v -V(>3)
+- Try parsing legacy format stego.lock when running as <2.0
+
+### Changed
+
+- Expect stego.lock at stego_dir, not amboso_dir
+  - New default is "."
+  - For now, there's a safety check to still look at the old path when failing to find stego at first
+  - Our stego.lock was moved to repo root
+- Try reading anvil_kern from stego.lock
+
+## [0.2.5] - 2024-01-22
+
+### Added
+
+- Generated C header contains generation time
+
 ## [0.2.4] - 2024-01-10
 
 ### Added
