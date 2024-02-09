@@ -1325,6 +1325,10 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
                         for (ingr_i, ingr) in ingrs_arr.iter().enumerate() {
                             let ingr_path = Path::new(ingr);
                             if ingr_path.exists() {
+                                //TODO
+                                //In amboso 2.0.3, the embedded najlo version (0.0.3) wrongly
+                                //passes the rule name to the modification time call. A strict port
+                                //would do the same?
                                 let ingr_metadata = fs::metadata(ingr_path)?;
 
                                 if let Ok(time) = ingr_metadata.modified() {
