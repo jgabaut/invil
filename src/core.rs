@@ -237,9 +237,10 @@ pub enum AmbosoLintMode {
     NajloQuiet,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AnvilKern {
     AmbosoC,
+    AnvilPy,
 }
 
 #[derive(Debug)]
@@ -517,15 +518,22 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
             }
 
-            //By default, run do_query()
-            let query_res = do_query(&env,&args);
-            match query_res {
-                Ok(s) => {
-                    trace!("{}", s);
+            match env.anvil_kern {
+                AnvilKern::AmbosoC => {
+                    //By default, run do_query()
+                    let query_res = do_query(&env,&args);
+                    match query_res {
+                        Ok(s) => {
+                            trace!("{}", s);
+                        }
+                        Err(e) => {
+                            error!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                            exit(1);
+                        }
+                    }
                 }
-                Err(e) => {
-                    error!("do_query() failed in handle_amboso_env(). Err: {}", e);
-                    exit(1);
+                AnvilKern::AnvilPy => {
+                    trace!("Skipping do_query() since anvil_kern is anvilPy");
                 }
             }
         }
@@ -1016,6 +1024,10 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
                                 "amboso-C" => {
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
+                                "anvilPy" => {
+                                    warn!("The AnvilPy kern is experimental. Be careful.");
+                                    anvil_env.anvil_kern = AnvilKern::AnvilPy;
+                                }
                                 _ => {
                                     error!("Invalid AnvilKern value: {{{anvil_kern}}}");
                                     return Err("Invalid anvil_kern".to_string());
@@ -1497,7 +1509,6 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         }
                         "2.0.4" => {
                             info!("Running as {}", x.as_str());
-                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
                         _ => {
                             error!("Invalid anvil_version: {{{}}}", x);
@@ -1871,6 +1882,9 @@ impl fmt::Display for AnvilKern {
         match &self {
             AnvilKern::AmbosoC => {
                 write!(f, "amboso-C")
+            }
+            AnvilKern::AnvilPy => {
+                write!(f, "anvilPy")
             }
         }
     }
