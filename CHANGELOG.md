@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.7] - 2024-02-16
+
+### Changed
+
+- Try to create amboso dir  when missing
+- Try to create queried dirpath when missing in build op
+- Update init command to create stego.lock at target dir
+- Bump expected amboso to 2.0.4
+
 ## [0.2.6] - 2024-02-09
 
 ### Added

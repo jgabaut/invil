@@ -52,6 +52,21 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
             let tagdir_name = format!("v{}", query);
             queried_path.push(tagdir_name);
 
+            trace!("Looking for {{{}}}", queried_path.display());
+            trace!("Builds dir: {{{}}}", env.builds_dir.clone().unwrap().display());
+
+            if ! queried_path.exists() {
+                match fs::create_dir_all(queried_path.clone()) {
+                    Ok(_) => {
+                        debug!("Created query target dir, proceeding.");
+                    }
+                    Err(e) => {
+                        error!("Failed creating query target dir. Err: {e}");
+                        return Err("Failed creating query target dir.".to_string());
+                    }
+                }
+            }
+
             if queried_path.exists() {
                 trace!("Found {{{}}}", queried_path.display());
                 queried_path.push(env.bin.clone().unwrap());
@@ -971,21 +986,21 @@ static const char ANVIL__{bin_name}__VERSION_STRING[] = \"{target_tag}\"; /**< R
 static const char ANVIL__{bin_name}__VERSION_DESC[] = \"{id}\"; /**< Represents current version info for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__{bin_name}__VERSION_DATE[] = \"{commit_time}\"; /**< Represents date for current version for [anvil__{bin_name}.h] generated header.*/\n
 static const char ANVIL__{bin_name}__VERSION_AUTHOR[] = \"{head_author_name}\"; /**< Represents author for current version for [anvil__{bin_name}.h] generated header.*/\n
+static const char ANVIL__{bin_name}__HEADER_GENTIME[] = \"{fgen_time}\"; /**< Represents gen time for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__API__LEVEL__(void); /**< Returns a version string for amboso API of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__(void); /**< Returns a version string for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__DESC__(void); /**< Returns a version info string for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__DATE__(void); /**< Returns a version date string for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_ANVIL__VERSION__AUTHOR__(void); /**< Returns a version author string for [anvil__{bin_name}.h] generated header.*/\n
+const char *get_ANVIL__HEADER__GENTIME__(void); /**< Returns a string for time of gen for [anvil__{bin_name}.h] generated header.*/\n
 #ifndef INVIL__{bin_name}__HEADER__
 #define INVIL__{bin_name}__HEADER__
 static const char INVIL__VERSION__STRING[] = \"{INVIL_VERSION}\"; /**< Represents invil version used for [anvil__{bin_name}.h] generated header.*/\n
 static const char INVIL__OS__STRING[] = \"{INVIL_OS}\"; /**< Represents build os used for [anvil__{bin_name}.h] generated header.*/\n
 static const char INVIL__COMMIT__DESC__STRING[] = \"{commit_message}\"; /**< Represents message for HEAD commit used for [anvil__{bin_name}.h] generated header.*/\n
-static const char INVIL__HEADERGEN__TIME__STRING[] = \"{fgen_time}\"; /**< Represents gen time for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__API__LEVEL__(void); /**< Returns a version string for invil version of [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__OS__(void); /**< Returns a version string for os used for [anvil__{bin_name}.h] generated header.*/\n
 const char *get_INVIL__COMMIT__DESC__(void); /**< Returns a string for HEAD commit message used for [anvil__{bin_name}.h] generated header.*/\n
-const char *get_INVIL__HEADERGEN__TIME__(void); /**< Returns a string for time of gen for [anvil__{bin_name}.h] generated header.*/\n
 #endif // INVIL__{bin_name}__HEADER__
 #endif\n");
     match output {
@@ -1029,6 +1044,10 @@ const char *get_ANVIL__VERSION__AUTHOR__(void)
 {{
     return ANVIL__{bin_name}__VERSION_AUTHOR;
 }}\n
+const char *get_ANVIL__HEADER__GENTIME__(void)
+{{
+    return ANVIL__{bin_name}__HEADER_GENTIME;
+}}\n
 #ifdef INVIL__{bin_name}__HEADER__
 const char *get_INVIL__API__LEVEL__(void)
 {{
@@ -1037,10 +1056,6 @@ const char *get_INVIL__API__LEVEL__(void)
 const char *get_INVIL__COMMIT__DESC__(void)
 {{
     return INVIL__COMMIT__DESC__STRING;
-}}\n
-const char *get_INVIL__HEADERGEN__TIME__(void)
-{{
-    return INVIL__HEADERGEN__TIME__STRING;
 }}\n
 const char *get_INVIL__OS__(void)
 {{
@@ -1114,14 +1129,14 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
                 }
             }
             AmbosoLintMode::FullCheck => {
-                let res = parse_stego_toml(stego_path);
+                let res = parse_stego_toml(stego_path, &PathBuf::from(""));
                 match res {
                     Ok(_) => {
                         info!("Lint successful for {{{}}}.", stego_path.display());
                         return Ok("Full linter check success".to_string());
                     }
                     Err(e) => {
-                        error!("Failed lint for {{{}}}.\nError was:    {e}",stego_path.display());
+                        error!("Failed lint for {{{}}}.\nError was:    {e}", stego_path.display());
                         return Err(e);
                     }
                 }

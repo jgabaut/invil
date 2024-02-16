@@ -44,7 +44,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.3";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.4";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -713,13 +713,13 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
 }
 
 
-fn check_stego_file(stego_path: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
+fn check_stego_file(stego_path: &PathBuf, builds_path: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
         let res;
         match format {
             StegoFormat::Toml => {
-                res = parse_stego_toml(&stego_path);
+                res = parse_stego_toml(&stego_path, &builds_path);
             }
             StegoFormat::Legacy => {
                 res = parse_legacy_stego(&stego_path);
@@ -854,67 +854,74 @@ fn check_stego_file(stego_path: &PathBuf, format: StegoFormat) -> Result<AmbosoE
 }
 
 pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> {
-    if dir.exists() {
-        match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_STEGODIR) {
-            Ordering::Less => {
-                warn!("Taken legacy path, checking for stego.lock at {{{}}}", dir.display());
-                trace!("Found {}", dir.display());
-                let mut stego_path = dir.clone();
-                stego_path.push("stego.lock");
-                match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
-                    Ordering::Less => {
-                        warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
-                        return check_stego_file(&stego_path, StegoFormat::Legacy);
-                    }
-                    Ordering::Greater | Ordering::Equal => {
-                        return check_stego_file(&stego_path, StegoFormat::Toml);
-                    }
-                }
-            }
-            Ordering:: Equal | Ordering::Greater => {
-                trace!("Found {}", dir.display());
-                let mut stego_path;
-                match &args.stego_dir {
-                    Some(query_dir) => {
-                        // We use the provided dir
-                        stego_path = query_dir.clone();
-                        stego_path.push("stego.lock");
-                        let amb_env = check_stego_file(&stego_path, StegoFormat::Toml);
-                        match amb_env {
-                            Ok(a) => {
-                                return Ok(a);
-                            }
-                            Err(e) => {
-                                warn!("Failed reading stego.lock at {{{}}}. Err: {e}.", stego_path.display());
-                                warn!("Will retry to find it at {{{}}}.", dir.display());
-                                stego_path = dir.clone();
-                                stego_path.push("stego.lock");
-                            }
-                        }
-                    }
-                    None => {
-                        // We look into amboso_dir when no stego_dir was passed
-                        stego_path = dir.clone();
-                        stego_path.push("stego.lock");
-                    }
-                }
-                return check_stego_file(&stego_path, StegoFormat::Toml);
-            }
-        }
-    } else {
+    if ! dir.exists() {
         if ! args.strict {
-            warn!("No amboso_dir found. Checking {{./stego.lock}}.");
-            let mut retry_path = PathBuf::from(".");
-            retry_path.push("stego.lock");
-            return check_stego_file(&retry_path, StegoFormat::Toml);
+            debug!("No amboso_dir found at {{{}}}. Preparing it.", dir.display());
+            match fs::create_dir_all(dir.clone()) {
+                Ok(_) => {
+                    debug!("Created amboso dir, proceeding.");
+                }
+                Err(e) => {
+                    error!("Failed creating amboso dir. Err: {e}");
+                    return Err("Failed creating amboso dir.".to_string());
+                }
+            }
         } else {
             debug!("check_amboso_dir():    Strict behaviour, quitting on missing amboso dir.");
+            return Err(format!("Can't find {}. Quitting.", dir.display()));
         }
-        return Err(format!("Can't find {}. Quitting.", dir.display()));
+    }
+
+
+    match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_STEGODIR) {
+        Ordering::Less => {
+            warn!("Taken legacy path, checking for stego.lock at {{{}}}", dir.display());
+            trace!("Found {}", dir.display());
+            let mut stego_path = dir.clone();
+            stego_path.push("stego.lock");
+            match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
+                Ordering::Less => {
+                    warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
+                    return check_stego_file(&stego_path, &dir, StegoFormat::Legacy);
+                }
+                Ordering::Greater | Ordering::Equal => {
+                    return check_stego_file(&stego_path, &dir, StegoFormat::Toml);
+                }
+            }
+        }
+        Ordering:: Equal | Ordering::Greater => {
+            trace!("Found {}", dir.display());
+            let mut stego_path;
+            match &args.stego_dir {
+                Some(query_dir) => {
+                    // We use the provided dir
+                    stego_path = query_dir.clone();
+                    stego_path.push("stego.lock");
+                    let amb_env = check_stego_file(&stego_path, &dir, StegoFormat::Toml);
+                    match amb_env {
+                        Ok(a) => {
+                            return Ok(a);
+                        }
+                        Err(e) => {
+                            warn!("Failed reading stego.lock at {{{}}}. Err: {e}.", stego_path.display());
+                            warn!("Will retry to find it at {{{}}}.", dir.display());
+                            stego_path = dir.clone();
+                            stego_path.push("stego.lock");
+                        }
+                    }
+                }
+                None => {
+                    // We look into amboso_dir when no stego_dir was passed
+                    stego_path = dir.clone();
+                    stego_path.push("stego.lock");
+                }
+            }
+            return check_stego_file(&stego_path, &dir, StegoFormat::Toml);
+        }
     }
 }
 
-pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
+pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
@@ -925,7 +932,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
         return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
     }
     if stego_dir.exists() {
-        trace!("Setting ANVIL_BINDIR to {{{}}}", stego_dir.display());
+        trace!("Setting ANVIL_STEGODIR to {{{}}}", stego_dir.display());
     } else {
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
@@ -934,8 +941,8 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
                 run_mode : None,
-                builds_dir: Some(stego_dir),
-                stego_dir: None,
+                builds_dir: Some(builds_path.to_path_buf()),
+                stego_dir: Some(stego_dir),
                 source : None,
                 bin : None,
                 mintag_make : None,
@@ -974,12 +981,12 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                                     anvil_env.enable_extensions = false;
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.1" | "2.0.2" => {
-                                    info!("Running as <2.0.3");
+                                "2.0.1" | "2.0.2" | "2.0.3" => {
+                                    info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.3" => {
-                                    info!("Running as 2.0.3");
+                                "2.0.4" => {
+                                    info!("Running as 2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
                                 _ => {
@@ -1216,9 +1223,9 @@ pub fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
                         }
                     }
 
-                    let stego_path = format!("{}/stego.lock", bin.display());
+                    let stego_path = format!("{}/stego.lock", target.display());
                     trace!("Generating stego.lock -  Target path: {{{}}}", stego_path);
-                    let output = File::create(stego_path);
+                    let output = File::create(stego_path.clone());
                     let stego_string = format!("[build]\n
 source = \"main.c\"\n
 bin = \"hello_world\"\n
@@ -1238,13 +1245,13 @@ errortestsdir = \"errors\"\n
                                     debug!("Done generating stego.lock file");
                                 }
                                 Err(e) => {
-                                    error!("Failed writing stego.lock file. Err: {e}");
+                                    error!("Failed writing stego.lock file at {{{stego_path}}}. Err: {e}");
                                     return ExitCode::FAILURE;
                                 }
                             }
                         }
                         Err(e) => {
-                            error!("Failed opening stego.lock file. Err: {e}");
+                            error!("Failed opening stego.lock file at {{{stego_path}}}. Err: {e}");
                             return ExitCode::FAILURE;
                         }
                     }
@@ -1273,7 +1280,7 @@ errortestsdir = \"errors\"\n
                     let gitignore_path = format!("{}/.gitignore", target.display());
                     trace!("Generating .gitignore Target path: {{{}}}", gitignore_path);
                     let output = File::create(gitignore_path);
-                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\nhello_world\n# also explicitly ignore our windows executable for good measure\nhello_world.exe\n# also explicitly ignore our debug executable for good measure\nhello_world_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore anvil log file\nanvil.log\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n");
+                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\nhello_world\n# also explicitly ignore our windows executable for good measure\nhello_world.exe\n# also explicitly ignore our debug executable for good measure\nhello_world_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore anvil log file\nanvil.log\n#We want to ignore default anvil build dir\nbin\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n");
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", gitignore_string);
@@ -1484,11 +1491,11 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             anvil_env.enable_extensions = false;
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
-                        "2.0.1" | "2.0.2" => {
+                        "2.0.1" | "2.0.2" | "2.0.3" => {
                             info!("Running as {}", x.as_str());
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
-                        "2.0.3" => {
+                        "2.0.4" => {
                             info!("Running as {}", x.as_str());
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }

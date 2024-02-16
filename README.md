@@ -15,7 +15,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.3`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.4`.
   Check the [next section](#supported_amboso) for more support info.
 
   Invil can be used to:
@@ -58,7 +58,7 @@
     - version  Print invil version
 
   - Note:
-    - As of version `0.1.6`, by default `make rebuild` is called on build operation. This is the expected behaviour of `amboso` `2.x`. To revert to `1.x` original behaviour and call just `make`, run with `--no-rebuild`.
+    - As of version `0.1.6`, by default `make rebuild` is called on build operation. This is the expected behaviour of `amboso` `2.x`. To revert to `1.x` original behaviour and call just `make`, run with `-R` or `--no-rebuild`.
 
   Flags support status:
 
@@ -84,7 +84,6 @@
   - [x] List tags for current mode: `-l`
   - [x] List tags for git/base mode: `-L`
   - [x] Quiet flag: `-q`
-  - [ ] CFG flag: `-c`
   - [x] Watch flag: `-w`
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
