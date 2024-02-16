@@ -713,13 +713,13 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
 }
 
 
-fn check_stego_file(stego_path: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
+fn check_stego_file(stego_path: &PathBuf, builds_path: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
         let res;
         match format {
             StegoFormat::Toml => {
-                res = parse_stego_toml(&stego_path);
+                res = parse_stego_toml(&stego_path, &builds_path);
             }
             StegoFormat::Legacy => {
                 res = parse_legacy_stego(&stego_path);
@@ -882,10 +882,10 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
             match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
                 Ordering::Less => {
                     warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
-                    return check_stego_file(&stego_path, StegoFormat::Legacy);
+                    return check_stego_file(&stego_path, &dir, StegoFormat::Legacy);
                 }
                 Ordering::Greater | Ordering::Equal => {
-                    return check_stego_file(&stego_path, StegoFormat::Toml);
+                    return check_stego_file(&stego_path, &dir, StegoFormat::Toml);
                 }
             }
         }
@@ -897,7 +897,7 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                     // We use the provided dir
                     stego_path = query_dir.clone();
                     stego_path.push("stego.lock");
-                    let amb_env = check_stego_file(&stego_path, StegoFormat::Toml);
+                    let amb_env = check_stego_file(&stego_path, &dir, StegoFormat::Toml);
                     match amb_env {
                         Ok(a) => {
                             return Ok(a);
@@ -916,12 +916,12 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                     stego_path.push("stego.lock");
                 }
             }
-            return check_stego_file(&stego_path, StegoFormat::Toml);
+            return check_stego_file(&stego_path, &dir, StegoFormat::Toml);
         }
     }
 }
 
-pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
+pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
@@ -932,7 +932,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
         return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
     }
     if stego_dir.exists() {
-        trace!("Setting ANVIL_BINDIR to {{{}}}", stego_dir.display());
+        trace!("Setting ANVIL_STEGODIR to {{{}}}", stego_dir.display());
     } else {
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
@@ -941,8 +941,8 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
                 run_mode : None,
-                builds_dir: Some(stego_dir),
-                stego_dir: None,
+                builds_dir: Some(builds_path.to_path_buf()),
+                stego_dir: Some(stego_dir),
                 source : None,
                 bin : None,
                 mintag_make : None,
