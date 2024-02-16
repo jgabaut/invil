@@ -981,12 +981,12 @@ pub fn parse_stego_toml(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
                                     anvil_env.enable_extensions = false;
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.1" | "2.0.2" => {
-                                    info!("Running as <2.0.3");
+                                "2.0.1" | "2.0.2" | "2.0.3" => {
+                                    info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.3" => {
-                                    info!("Running as 2.0.3");
+                                "2.0.4" => {
+                                    info!("Running as 2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
                                 _ => {
