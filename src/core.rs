@@ -854,63 +854,70 @@ fn check_stego_file(stego_path: &PathBuf, format: StegoFormat) -> Result<AmbosoE
 }
 
 pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> {
-    if dir.exists() {
-        match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_STEGODIR) {
-            Ordering::Less => {
-                warn!("Taken legacy path, checking for stego.lock at {{{}}}", dir.display());
-                trace!("Found {}", dir.display());
-                let mut stego_path = dir.clone();
-                stego_path.push("stego.lock");
-                match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
-                    Ordering::Less => {
-                        warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
-                        return check_stego_file(&stego_path, StegoFormat::Legacy);
-                    }
-                    Ordering::Greater | Ordering::Equal => {
-                        return check_stego_file(&stego_path, StegoFormat::Toml);
-                    }
-                }
-            }
-            Ordering:: Equal | Ordering::Greater => {
-                trace!("Found {}", dir.display());
-                let mut stego_path;
-                match &args.stego_dir {
-                    Some(query_dir) => {
-                        // We use the provided dir
-                        stego_path = query_dir.clone();
-                        stego_path.push("stego.lock");
-                        let amb_env = check_stego_file(&stego_path, StegoFormat::Toml);
-                        match amb_env {
-                            Ok(a) => {
-                                return Ok(a);
-                            }
-                            Err(e) => {
-                                warn!("Failed reading stego.lock at {{{}}}. Err: {e}.", stego_path.display());
-                                warn!("Will retry to find it at {{{}}}.", dir.display());
-                                stego_path = dir.clone();
-                                stego_path.push("stego.lock");
-                            }
-                        }
-                    }
-                    None => {
-                        // We look into amboso_dir when no stego_dir was passed
-                        stego_path = dir.clone();
-                        stego_path.push("stego.lock");
-                    }
-                }
-                return check_stego_file(&stego_path, StegoFormat::Toml);
-            }
-        }
-    } else {
+    if ! dir.exists() {
         if ! args.strict {
-            warn!("No amboso_dir found. Checking {{./stego.lock}}.");
-            let mut retry_path = PathBuf::from(".");
-            retry_path.push("stego.lock");
-            return check_stego_file(&retry_path, StegoFormat::Toml);
+            debug!("No amboso_dir found at {{{}}}. Preparing it.", dir.display());
+            match fs::create_dir_all(dir.clone()) {
+                Ok(_) => {
+                    debug!("Created amboso dir, proceeding.");
+                }
+                Err(e) => {
+                    error!("Failed creating amboso dir. Err: {e}");
+                    return Err("Failed creating amboso dir.".to_string());
+                }
+            }
         } else {
             debug!("check_amboso_dir():    Strict behaviour, quitting on missing amboso dir.");
+            return Err(format!("Can't find {}. Quitting.", dir.display()));
         }
-        return Err(format!("Can't find {}. Quitting.", dir.display()));
+    }
+
+
+    match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_STEGODIR) {
+        Ordering::Less => {
+            warn!("Taken legacy path, checking for stego.lock at {{{}}}", dir.display());
+            trace!("Found {}", dir.display());
+            let mut stego_path = dir.clone();
+            stego_path.push("stego.lock");
+            match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
+                Ordering::Less => {
+                    warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
+                    return check_stego_file(&stego_path, StegoFormat::Legacy);
+                }
+                Ordering::Greater | Ordering::Equal => {
+                    return check_stego_file(&stego_path, StegoFormat::Toml);
+                }
+            }
+        }
+        Ordering:: Equal | Ordering::Greater => {
+            trace!("Found {}", dir.display());
+            let mut stego_path;
+            match &args.stego_dir {
+                Some(query_dir) => {
+                    // We use the provided dir
+                    stego_path = query_dir.clone();
+                    stego_path.push("stego.lock");
+                    let amb_env = check_stego_file(&stego_path, StegoFormat::Toml);
+                    match amb_env {
+                        Ok(a) => {
+                            return Ok(a);
+                        }
+                        Err(e) => {
+                            warn!("Failed reading stego.lock at {{{}}}. Err: {e}.", stego_path.display());
+                            warn!("Will retry to find it at {{{}}}.", dir.display());
+                            stego_path = dir.clone();
+                            stego_path.push("stego.lock");
+                        }
+                    }
+                }
+                None => {
+                    // We look into amboso_dir when no stego_dir was passed
+                    stego_path = dir.clone();
+                    stego_path.push("stego.lock");
+                }
+            }
+            return check_stego_file(&stego_path, StegoFormat::Toml);
+        }
     }
 }
 
