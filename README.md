@@ -15,7 +15,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.3`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.4`.
   Check the [next section](#supported_amboso) for more support info.
 
   Invil can be used to:
@@ -84,7 +84,6 @@
   - [x] List tags for current mode: `-l`
   - [x] List tags for git/base mode: `-L`
   - [x] Quiet flag: `-q`
-  - [ ] CFG flag: `-c`
   - [x] Watch flag: `-w`
   - [x] Warranty flag: `-W`
   - [x] Ignore gitcheck flag: `-X`
