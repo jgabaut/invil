@@ -58,7 +58,7 @@
     - version  Print invil version
 
   - Note:
-    - As of version `0.1.6`, by default `make rebuild` is called on build operation. This is the expected behaviour of `amboso` `2.x`. To revert to `1.x` original behaviour and call just `make`, run with `--no-rebuild`.
+    - As of version `0.1.6`, by default `make rebuild` is called on build operation. This is the expected behaviour of `amboso` `2.x`. To revert to `1.x` original behaviour and call just `make`, run with `-R` or `--no-rebuild`.
 
   Flags support status:
 
