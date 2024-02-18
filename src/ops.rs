@@ -991,6 +991,7 @@ const char *get_INVIL__OS__(void)
 }
 
 fn try_lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bool, report_warns: bool) -> Result<String,String> {
+    warn!("Makefile parsing is experimental.");
     let path = file_path.as_ref();
     let res = lex_makefile(path, dbg_print, skip_recap, report_warns);
     match res {
@@ -1406,7 +1407,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
             match anvilpy_env {
                 Ok(anvilpy_env) => {
                     debug!("Done parse_pyproject_toml()");
-                    debug!("Detected project version: {}", anvilpy_env.version);
+                    debug!("{:?}", anvilpy_env);
                 }
                 Err(e) => {
                     return Err(e);
