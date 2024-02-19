@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection, semver_compare, MIN_AMBOSO_V_PYKERN};
 use crate::utils::try_parse_stego;
 
 use std::process::{Command, exit};
@@ -24,6 +24,7 @@ use git2::Repository;
 use std::env;
 use std::time::SystemTime;
 use regex::Regex;
+use std::cmp::Ordering;
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -1398,8 +1399,25 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
             build_step_command = "make";
         }
         AnvilKern::AnvilPy => {
-            build_step_command = "python -m build"; // Using -o bin_path would allow skipping the
-                                                    // mv command
+            let mut use_python_build = true;
+            match args.strict {
+                true => {
+                    match semver_compare(&env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                        Ordering::Less => {
+                            warn!("Strict behaviour for v{}, still using make", env.anvil_version);
+                            use_python_build = false;
+                        }
+                        Ordering::Equal | Ordering::Greater => {}
+                    }
+                }
+                false => {}
+            }
+            if use_python_build {
+                build_step_command = "python -m build"; // Using -o bin_path would allow skipping the
+                                                        // mv command
+            } else {
+                build_step_command = "make";
+            }
         }
     }
 
