@@ -53,6 +53,7 @@ pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
 pub const MIN_AMBOSO_V_KERN: &str = "2.0.2";
 pub const MIN_AMBOSO_V_LEGACYPARSE: &str = "1.8.0";
 pub const MIN_AMBOSO_V_PYKERN: &str = "2.1.0";
+pub const MIN_AMBOSO_V_SKIPRETRYSTEGO: &str = "2.0.4";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 pub const RULELINE_MARK_CHAR: char = '\t';
 pub const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
@@ -918,9 +919,17 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                         }
                         Err(e) => {
                             warn!("Failed reading stego.lock at {{{}}}. Err: {e}.", stego_path.display());
-                            warn!("Will retry to find it at {{{}}}.", dir.display());
-                            stego_path = dir.clone();
-                            stego_path.push("stego.lock");
+                            match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_SKIPRETRYSTEGO) {
+                                Ordering::Less => {
+                                    warn!("Taken legacy path");
+                                    warn!("Will retry to find it at {{{}}}.", dir.display());
+                                    stego_path = dir.clone();
+                                    stego_path.push("stego.lock");
+                                }
+                                Ordering::Equal | Ordering::Greater => {
+                                    return Err(e);
+                                }
+                            }
                         }
                     }
                 }
@@ -1032,8 +1041,18 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
                                 "anvilPy" => {
-                                    warn!("The AnvilPy kern is experimental. Be careful.");
-                                    anvil_env.anvil_kern = AnvilKern::AnvilPy;
+                                    match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                                        Ordering::Less => {
+                                            error!("Unsupported AnvilKern value: {{{anvil_kern}}}");
+                                            warn!("Try running as >={MIN_AMBOSO_V_PYKERN}");
+                                            warn!("Current anvil_version: {{{}}}", anvil_env.anvil_version);
+                                            return Err("Unsupported anvil_kern".to_string());
+                                        },
+                                        Ordering::Equal | Ordering::Greater => {
+                                            warn!("The AnvilPy kern is experimental. Be careful.");
+                                            anvil_env.anvil_kern = AnvilKern::AnvilPy;
+                                        }
+                                    }
                                 }
                                 _ => {
                                     error!("Invalid AnvilKern value: {{{anvil_kern}}}");
