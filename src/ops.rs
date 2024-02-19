@@ -13,7 +13,6 @@
  */
 use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection};
 use crate::utils::try_parse_stego;
-use crate::anvil_py::parse_pyproject_toml;
 
 use std::process::{Command, exit};
 use std::io::{self, Write, BufRead};
@@ -1401,18 +1400,6 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         AnvilKern::AnvilPy => {
             build_step_command = "python -m build"; // Using -o bin_path would allow skipping the
                                                     // mv command
-            let mut pyproj_path = env.stego_dir.clone().expect("Failed initialising stego_dir");
-            pyproj_path.push("pyproject.toml");
-            let anvilpy_env = parse_pyproject_toml(&pyproj_path);
-            match anvilpy_env {
-                Ok(anvilpy_env) => {
-                    debug!("Done parse_pyproject_toml()");
-                    debug!("{:?}", anvilpy_env);
-                }
-                Err(e) => {
-                    return Err(e);
-                }
-            }
         }
     }
 
