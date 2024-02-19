@@ -1428,7 +1428,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 warn!("{{{}}} failed with status: {}", build_step_command, make_ec.to_string());
                 io::stdout().write_all(&output.stdout).unwrap();
                 io::stderr().write_all(&output.stderr).unwrap();
-                return Err("make failed".to_string());
+                return Err(format!("{{{build_step_command}}} failed"));
             }
         }
         None => {

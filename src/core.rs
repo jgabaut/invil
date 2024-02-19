@@ -31,6 +31,7 @@ use crate::utils::{
 };
 use regex::Regex;
 use std::fmt;
+use crate::anvil_py::AnvilPyEnv;
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -336,6 +337,9 @@ pub struct AmbosoEnv {
 
     /// Anvil kern
     pub anvil_kern: AnvilKern,
+
+    /// Optional AnvilPyEnv, only used when anvil_kern is AnvilPy
+    pub anvilpy_env: Option<AnvilPyEnv>,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -977,6 +981,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
                 enable_extensions: true,
                 anvil_kern: AnvilKern::AmbosoC,
+                anvilpy_env: None,
             };
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
@@ -1488,6 +1493,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
         enable_extensions: true,
         anvil_kern: AnvilKern::AmbosoC,
+        anvilpy_env: None,
     };
 
     let mut override_stego_anvil_version = false;
@@ -1641,6 +1647,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match anvil_env.anvil_kern {
         AnvilKern::AnvilPy => {
+            debug!("Reading pyproject-toml at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
             let mut pyproj_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
             pyproj_path.push("pyproject.toml");
             let anvilpy_env = parse_pyproject_toml(&pyproj_path);
@@ -1648,6 +1655,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 Ok(anvilpy_env) => {
                     debug!("Done parse_pyproject_toml()");
                     debug!("{:?}", anvilpy_env);
+                    anvil_env.anvilpy_env = Some(anvilpy_env);
                 }
                 Err(e) => {
                     return Err(e);
@@ -2142,6 +2150,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
             enable_extensions: true,
             anvil_kern: AnvilKern::AmbosoC,
+            anvilpy_env: None,
         };
 
         for line in BufReader::new(file).lines() {
