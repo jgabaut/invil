@@ -52,6 +52,7 @@ pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
 pub const MIN_AMBOSO_V_KERN: &str = "2.0.2";
 pub const MIN_AMBOSO_V_LEGACYPARSE: &str = "1.8.0";
+pub const MIN_AMBOSO_V_PYKERN: &str = "2.1.0";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 pub const RULELINE_MARK_CHAR: char = '\t';
 pub const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
@@ -1647,18 +1648,33 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     match anvil_env.anvil_kern {
         AnvilKern::AnvilPy => {
-            debug!("Reading pyproject-toml at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
-            let mut pyproj_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
-            pyproj_path.push("pyproject.toml");
-            let anvilpy_env = parse_pyproject_toml(&pyproj_path);
-            match anvilpy_env {
-                Ok(anvilpy_env) => {
-                    debug!("Done parse_pyproject_toml()");
-                    debug!("{:?}", anvilpy_env);
-                    anvil_env.anvilpy_env = Some(anvilpy_env);
+            let mut skip_pyparse = false;
+            match args.strict {
+                true => {
+                    match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                        Ordering::Less => {
+                            warn!("Strict behaviour for v{}, skipping reading pyproject.toml", anvil_env.anvil_version);
+                            skip_pyparse = true;
+                        }
+                        Ordering::Equal | Ordering::Greater => {}
+                    }
                 }
-                Err(e) => {
-                    return Err(e);
+                false => {}
+            }
+            if ! skip_pyparse {
+                debug!("Reading pyproject-toml at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
+                let mut pyproj_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
+                pyproj_path.push("pyproject.toml");
+                let anvilpy_env = parse_pyproject_toml(&pyproj_path);
+                match anvilpy_env {
+                    Ok(anvilpy_env) => {
+                        debug!("Done parse_pyproject_toml()");
+                        debug!("{:?}", anvilpy_env);
+                        anvil_env.anvilpy_env = Some(anvilpy_env);
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
                 }
             }
         }
