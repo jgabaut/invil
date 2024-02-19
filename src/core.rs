@@ -644,7 +644,7 @@ fn parse_version_parts(version: &str) -> (Vec<u64>, String, String) {
     (version_core, pre_release, build)
 }
 
-fn semver_compare(v1: &str, v2: &str) -> Ordering {
+pub fn semver_compare(v1: &str, v2: &str) -> Ordering {
     let (version_core1, pre_release1, build1) = parse_version_parts(v1);
     let (version_core2, pre_release2, build2) = parse_version_parts(v2);
 
