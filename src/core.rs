@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
 use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
+use crate::anvil_py::parse_pyproject_toml;
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
@@ -1636,6 +1637,24 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             error!("Missing amboso dir argument. Quitting.");
             return Err("Missing amboso_dir arg".to_string());
         }
+    }
+
+    match anvil_env.anvil_kern {
+        AnvilKern::AnvilPy => {
+            let mut pyproj_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
+            pyproj_path.push("pyproject.toml");
+            let anvilpy_env = parse_pyproject_toml(&pyproj_path);
+            match anvilpy_env {
+                Ok(anvilpy_env) => {
+                    debug!("Done parse_pyproject_toml()");
+                    debug!("{:?}", anvilpy_env);
+                }
+                Err(e) => {
+                    return Err(e);
+                }
+            }
+        }
+        AnvilKern::AmbosoC => {}
     }
 
     match args.gen_c_header {
