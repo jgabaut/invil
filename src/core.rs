@@ -948,7 +948,6 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
-    let toml_value = stego.parse::<Table>();
     let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
         error!("Failed pop for {{{}}}", stego_dir.display());
@@ -960,6 +959,12 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
     }
+    return parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time);
+
+}
+
+fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
+    let toml_value = stego_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
@@ -1180,7 +1185,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         Err(e) => {
             let elapsed = start_time.elapsed();
             debug!("Done parsing stego.toml. Elapsed: {:.2?}", elapsed);
-            error!("Failed parsing {{{}}}  as TOML. Err: [{}]", stego, e);
+            error!("Failed parsing stego.lock as TOML. Err: {e}");
             return Err("Failed parsing TOML".to_string());
         }
     }
