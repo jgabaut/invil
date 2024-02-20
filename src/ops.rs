@@ -25,6 +25,10 @@ use std::env;
 use std::time::SystemTime;
 use regex::Regex;
 use std::cmp::Ordering;
+/*
+use tar::Archive;
+use flate2::read::GzDecoder;
+*/
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -202,7 +206,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                         }
                         AmbosoMode::GitMode => {
-                            let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let build_path = PathBuf::from(format!("{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -1472,10 +1476,13 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
         }
         AnvilKern::AnvilPy => {
             let mut bindir_path = bin_path.clone();
-            bindir_path.pop();
+            bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
+                               // could be coded in a more explicit way
             let proj_name = &env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name;
-            let srcdist_path = format!("./dist/{}-{}.tar.gz", proj_name, query);
-            let move_command_srcdist = format!("mv {} {}", srcdist_path, bindir_path.display());
+            let srcdist_name = format!("{}-{}.tar.gz", proj_name, query);
+            let mut srcdist_path = PathBuf::from("./dist/");
+            srcdist_path.push(srcdist_name.clone());
+            let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), bindir_path.display());
             let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", proj_name.replace("-","_"), query, bindir_path.display());
             let output_srcdist = Command::new("sh")
                 .arg("-c")
@@ -1486,6 +1493,9 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                 Some(mv_ec) => {
                     if mv_ec == 0 {
                         debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
+                        let mut srcdist_pack_path = PathBuf::from(bindir_path);
+                        srcdist_pack_path.push(srcdist_name);
+                        unpack_srcdist(&srcdist_pack_path);
                     } else {
                         warn!("mv srcdist failed with status: {}", mv_ec.to_string());
                         io::stdout().write_all(&output_srcdist.stdout).unwrap();
@@ -1574,4 +1584,31 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
         }
     }
 
+}
+
+fn unpack_srcdist(_pack_path: &PathBuf) {
+    debug!("TODO: add unpack step");
+    /*
+    let tar_gz = File::open(pack_path);
+    match tar_gz {
+        Ok(tar_gz) => {
+            let tar = GzDecoder::new(tar_gz);
+            let mut archive = Archive::new(tar);
+            let mut outdir = pack_path.clone();
+            outdir.pop();
+            let unpack_res = archive.unpack(outdir.clone());
+            match unpack_res {
+                Ok(_) => {
+                    debug!("Unpacked srcdist {{{}}} to {{{}}}", pack_path.display(), outdir.display());
+                }
+                Err(e) => {
+                    error!("Failed unpacking srcdist from {{{}}}. Err: {e}", pack_path.display());
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed opening srcdist pack at {{{}}}. Err: {e}", pack_path.display());
+        }
+    }
+    */
 }
