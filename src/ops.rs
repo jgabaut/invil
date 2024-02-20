@@ -1473,8 +1473,8 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
         AnvilKern::AnvilPy => {
             let mut bindir_path = bin_path.clone();
             bindir_path.pop();
-            let move_command_srcdist = format!("mv ./dist/{}-{}.tar.gz {}", env.bin.as_ref().unwrap(), query, bindir_path.display());
-            let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", env.bin.as_ref().unwrap().replace("-","_"), query, bindir_path.display());
+            let move_command_srcdist = format!("mv ./dist/{}-{}.tar.gz {}", env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name, query, bindir_path.display());
+            let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", env.anvilpy_env.as_ref().expect("Failed initialisign anvilpy_env").proj_name.replace("-","_"), query, bindir_path.display());
             let output_srcdist = Command::new("sh")
                 .arg("-c")
                 .arg(move_command_srcdist)
