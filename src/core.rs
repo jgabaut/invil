@@ -960,7 +960,6 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
     }
     return parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time);
-
 }
 
 fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
@@ -1185,7 +1184,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
         Err(e) => {
             let elapsed = start_time.elapsed();
             debug!("Done parsing stego.toml. Elapsed: {:.2?}", elapsed);
-            error!("Failed parsing stego.lock as TOML. Err: {e}");
+            error!("Failed parsing {{{}}} as TOML. Err: [{e}]", stego_str);
             return Err("Failed parsing TOML".to_string());
         }
     }

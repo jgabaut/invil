@@ -87,12 +87,16 @@ pub fn parse_pyproject_toml(pyproj_path: &PathBuf) -> Result<AnvilPyEnv,String> 
     let start_time = Instant::now();
     let pyproj = fs::read_to_string(pyproj_path).expect("Could not read {pyproj_path} contents");
     //trace!("Pyproject contents: {{{}}}", pyproj);
-    let toml_value = pyproj.parse::<Table>();
     let mut pyproj_dir = pyproj_path.clone();
     if ! pyproj_dir.pop() {
         error!("Failed pop for {{{}}}", pyproj_dir.display());
         return Err(format!("Unexpected pyproj_dir value: {{{}}}", pyproj_dir.display()));
     }
+    return parse_pyproject_tomlvalue(&pyproj, pyproj_path, start_time);
+}
+
+fn parse_pyproject_tomlvalue(pyproj_str: &str, pyproj_path: &PathBuf, start_time: Instant) -> Result<AnvilPyEnv,String> {
+    let toml_value = pyproj_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
             let mut anvilpy_env: AnvilPyEnv = AnvilPyEnv {
@@ -279,7 +283,7 @@ pub fn parse_pyproject_toml(pyproj_path: &PathBuf) -> Result<AnvilPyEnv,String> 
         Err(e) => {
             let elapsed = start_time.elapsed();
             debug!("Done parsing pyproject.toml. Elapsed: {:.2?}", elapsed);
-            error!("Failed parsing {{{}}}  as TOML. Err: [{}]", pyproj, e);
+            error!("Failed parsing {{{}}}  as TOML. Err: [{}]", pyproj_str, e);
             return Err("Failed parsing TOML".to_string());
         }
     }
