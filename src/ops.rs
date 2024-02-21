@@ -25,21 +25,10 @@ use std::env;
 use std::time::SystemTime;
 use regex::Regex;
 use std::cmp::Ordering;
-use tar::Archive;
-use flate2::read::GzDecoder;
-use std::fs::OpenOptions;
-use std::os::unix::fs::PermissionsExt;
 
 use crate::anvil_py::ANVILPY_UNPACKDIR_NAME;
+use crate::anvil_py::{unpack_srcdist, post_unpack};
 
-// From https://doc.rust-lang.org/rust-by-example/std_misc/fs.html
-// A simple implementation of `% touch path` (ignores existing files)
-fn touch_file(path: &Path) -> io::Result<()> {
-    match OpenOptions::new().create(true).write(true).open(path) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
-    }
-}
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -1541,31 +1530,11 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                                 }
                                 let mut unpack_initpy_path = target_unpack_path.clone();
                                 unpack_initpy_path.push("__init__.py");
-                                match touch_file(&unpack_initpy_path) {
-                                    Ok(_) => {},
+                                match post_unpack(&unpack_initpy_path, &bindir_path, &env) {
+                                    Ok(_) => {}
                                     Err(e) => {
-                                        error!("Failed touch for {{{}}}. Err: {e}", unpack_initpy_path.display());
-                                        return Err("Failed touch for unpack initpy".to_string());
-                                    }
-                                }
-
-                                debug!("TODO: prep shims for all entrypoints");
-
-                                for entry in &env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").scripts {
-                                    let entrypoint_parts: Vec<&str> = entry.entrypoint.splitn(2, ':').collect();
-                                    let module_path = entrypoint_parts[0];
-                                    let entrypoint_funcname = entrypoint_parts[1];
-                                    let shimname = &entry.name;
-                                    debug!("TODO: prep shim {{{}}} -> {{{}}} : {{{}}}", shimname, module_path, entrypoint_funcname);
-                                    let mut shim_path = bindir_path.clone();
-                                    shim_path.push(shimname);
-                                    let shimgen_res = gen_anvilpy_shim(&shim_path, module_path, entrypoint_funcname);
-                                    match shimgen_res {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            error!("Failed generating shim at {{{}}}", shim_path.display());
-                                            return Err(e);
-                                        }
+                                        error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
+                                        return Err("Failed post_unpack()".to_string());
                                     }
                                 }
                             }
@@ -1658,85 +1627,6 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
             return Err("mv command failed".to_string());
-        }
-    }
-
-}
-
-fn unpack_srcdist(pack_path: &PathBuf) -> Result<PathBuf,String> {
-    debug!("TODO: add unpack step");
-    let tar_gz = File::open(pack_path);
-    match tar_gz {
-        Ok(tar_gz) => {
-            let tar = GzDecoder::new(tar_gz);
-            let mut archive = Archive::new(tar);
-            let mut outdir = pack_path.clone();
-            outdir.pop();
-            let unpack_res = archive.unpack(outdir.clone());
-            match unpack_res {
-                Ok(_) => {
-                    debug!("Unpacked srcdist {{{}}} to {{{}}}", pack_path.display(), outdir.display());
-                    return Ok(outdir);
-                }
-                Err(e) => {
-                    error!("Failed unpacking srcdist from {{{}}}. Err: {e}", pack_path.display());
-                    return Err("Failed unpacking srcdist".to_string());
-                }
-            }
-        }
-        Err(e) => {
-            error!("Failed opening srcdist pack at {{{}}}. Err: {e}", pack_path.display());
-            return Err("Failed opening srcdist".to_string());
-        }
-    }
-}
-
-
-fn gen_anvilpy_shim(shim_path: &PathBuf, module_path: &str, entrypoint_func: &str) -> Result<String,String> {
-    trace!("Generating anvilpy shim. Target path: {{{}}} Module path: {{{}}} Function: {{{}}}", shim_path.display(), module_path, entrypoint_func);
-    let output = File::create(shim_path);
-    let shim_string = format!("#!/bin/python3\n\n##\n# Generated by invil v{INVIL_VERSION}\n# Repo at https://github.com/jgabaut/invil\n##\n\nimport sys\nimport re\nfrom {ANVILPY_UNPACKDIR_NAME}.{module_path} import {entrypoint_func}\n\nif __name__ == \'__main__\':\n    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])\n    sys.exit({entrypoint_func}())\n");
-    match output {
-        Ok(mut f) => {
-            let res = write!(f, "{}", shim_string);
-            match res {
-                Ok(_) => {
-                    debug!("Done generating shim file");
-                }
-                Err(e) => {
-                    error!("Failed printing shim file");
-                    return Err(e.to_string());
-                }
-            }
-            if cfg!(target_os = "windows") {
-                todo!("Support setting executable bit for shim on windows");
-                /*
-                 * let output = Command::new("cmd")
-                 *   .args(["/C", "echo hello"])
-                 *   .output()
-                 *   .expect("failed to execute process")
-                 */
-            } else {
-                let metadata = f.metadata();
-                match metadata {
-                    Ok(m) => {
-                        trace!("Setting mode 744 for shim");
-                        let mut permissions = m.permissions();
-                        // Add execute permission for the owner
-                        permissions.set_mode(permissions.mode() | 0o100);
-                        // Set the updated permissions
-                        fs::set_permissions(shim_path, permissions).expect("Failed to set file permissions");
-                    }
-                    Err(e) => {
-                        error!("Failed getting metadata for shim. Err: {e}");
-                        return Err("Failed getting shim metadata".to_string());
-                    }
-                }
-            }
-            return Ok(format!("Generated {{{}}}", shim_path.display()));
-        }
-        Err(_) => {
-            return Err("Failed gen of shim file".to_string());
         }
     }
 
