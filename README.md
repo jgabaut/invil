@@ -29,6 +29,7 @@
 
   At the moment, only C projects are supported.
     - Check [this section](#extended_amboso) for info about the WIP `python` support.
+    - The README still mostly refers only to the ambosoC kern usage.
   Different build modes are provided internally, depending on how full your autotool build support is:
   - Basic mode: a single `gcc` call. This may be expanded in a future version, to at least provide support for passing arguments to the compiler.
   - Make mode: for all tags higher than the version specified as providing make support, `invil` will expect a ready `Makefile` that correctly builds the target binary when `make` is called.
