@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- New WIP anvil_py module to support python projects
+- AmbosoEnv holds AnvilPyEnv
+
+### Changed
+
+- Don't prepend ./ to build_dir in do_build()
+- Refactor stego toml parsing into inner function
+- Experimental: Accept 2.1.0 from stego.lock
+
 ## [0.2.7] - 2024-02-16
 
 ### Changed

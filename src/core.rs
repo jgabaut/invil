@@ -1024,6 +1024,19 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                             }
                             trace!("ANVIL_VERSION: {{{anvil_version}}}");
                             anvil_env.anvil_version = format!("{}", anvil_v_str);
+                        } else if anvil_v_str.starts_with("2.1") {
+                            trace!("Accepting preview version from stego.lock");
+                            match anvil_v_str {
+                                "2.1.0" => {
+                                    info!("Running as 2.1 preview");
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_env.anvil_version = format!("{}", anvil_v_str);
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
