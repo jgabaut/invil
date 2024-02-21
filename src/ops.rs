@@ -25,10 +25,20 @@ use std::env;
 use std::time::SystemTime;
 use regex::Regex;
 use std::cmp::Ordering;
-/*
 use tar::Archive;
 use flate2::read::GzDecoder;
-*/
+use std::fs::OpenOptions;
+
+use crate::anvil_py::ANVILPY_UNPACKDIR_NAME;
+
+// From https://doc.rust-lang.org/rust-by-example/std_misc/fs.html
+// A simple implementation of `% touch path` (ignores existing files)
+fn touch_file(path: &Path) -> io::Result<()> {
+    match OpenOptions::new().create(true).write(true).open(path) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
+}
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -1493,9 +1503,75 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                 Some(mv_ec) => {
                     if mv_ec == 0 {
                         debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
-                        let mut srcdist_pack_path = PathBuf::from(bindir_path);
+                        let mut srcdist_pack_path = PathBuf::from(bindir_path.clone());
                         srcdist_pack_path.push(srcdist_name);
-                        unpack_srcdist(&srcdist_pack_path);
+                        let unpack_res = unpack_srcdist(&srcdist_pack_path);
+                        match unpack_res {
+                            Ok(unpack_path) => {
+                                let proj_dirname = format!("{proj_name}-{query}");
+                                let mut target_unpack_path = unpack_path.clone();
+                                target_unpack_path.push(ANVILPY_UNPACKDIR_NAME);
+                                let mut curr_unpack_path = unpack_path.clone();
+                                curr_unpack_path.push(proj_dirname.clone());
+
+                                let move_unpackdir = format!("mv {} {}", curr_unpack_path.display(), target_unpack_path.display());
+                                let output_unpackmv = Command::new("sh")
+                                    .arg("-c")
+                                    .arg(move_unpackdir)
+                                    .output()
+                                    .expect("failed to execute process");
+                                match output_unpackmv.status.code() {
+                                    Some(mv_ec) => {
+                                        if mv_ec == 0 {
+                                            trace!("Moved {{{}}} to {{{}}}", curr_unpack_path.display(), target_unpack_path.display());
+                                        } else {
+                                            warn!("mv unpack failed with status: {}", mv_ec.to_string());
+                                            io::stdout().write_all(&output_unpackmv.stdout).unwrap();
+                                            io::stderr().write_all(&output_unpackmv.stderr).unwrap();
+                                            return Err("mv unpack failed".to_string());
+                                        }
+                                    }
+                                    None => {
+                                        error!("mv unpack command failed");
+                                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                                        return Err("mv command failed".to_string());
+                                    }
+                                }
+                                let mut unpack_initpy_path = target_unpack_path.clone();
+                                unpack_initpy_path.push("__init__.py");
+                                match touch_file(&unpack_initpy_path) {
+                                    Ok(_) => {},
+                                    Err(e) => {
+                                        error!("Failed touch for {{{}}}. Err: {e}", unpack_initpy_path.display());
+                                        return Err("Failed touch for unpack initpy".to_string());
+                                    }
+                                }
+
+                                debug!("TODO: prep shims for all entrypoints");
+
+                                for entry in &env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").scripts {
+                                    let entrypoint_parts: Vec<&str> = entry.entrypoint.splitn(2, ':').collect();
+                                    let module_path = entrypoint_parts[0];
+                                    let entrypoint_funcname = entrypoint_parts[1];
+                                    let shimname = &entry.name;
+                                    debug!("TODO: prep shim {{{}}} -> {{{}}} : {{{}}}", shimname, module_path, entrypoint_funcname);
+                                    let mut shim_path = bindir_path.clone();
+                                    shim_path.push(shimname);
+                                    let shimgen_res = gen_anvilpy_shim(&shim_path, module_path, entrypoint_funcname);
+                                    match shimgen_res {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            error!("Failed generating shim at {{{}}}", shim_path.display());
+                                            return Err(e);
+                                        }
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
                     } else {
                         warn!("mv srcdist failed with status: {}", mv_ec.to_string());
                         io::stdout().write_all(&output_srcdist.stdout).unwrap();
@@ -1586,9 +1662,8 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
 
 }
 
-fn unpack_srcdist(_pack_path: &PathBuf) {
+fn unpack_srcdist(pack_path: &PathBuf) -> Result<PathBuf,String> {
     debug!("TODO: add unpack step");
-    /*
     let tar_gz = File::open(pack_path);
     match tar_gz {
         Ok(tar_gz) => {
@@ -1600,15 +1675,43 @@ fn unpack_srcdist(_pack_path: &PathBuf) {
             match unpack_res {
                 Ok(_) => {
                     debug!("Unpacked srcdist {{{}}} to {{{}}}", pack_path.display(), outdir.display());
+                    return Ok(outdir);
                 }
                 Err(e) => {
                     error!("Failed unpacking srcdist from {{{}}}. Err: {e}", pack_path.display());
+                    return Err("Failed unpacking srcdist".to_string());
                 }
             }
         }
         Err(e) => {
             error!("Failed opening srcdist pack at {{{}}}. Err: {e}", pack_path.display());
+            return Err("Failed opening srcdist".to_string());
         }
     }
-    */
+}
+
+
+fn gen_anvilpy_shim(shim_path: &PathBuf, module_path: &str, entrypoint_func: &str) -> Result<String,String> {
+    trace!("Generating anvilpy shim. Target path: {{{}}} Module path: {{{}}} Function: {{{}}}", shim_path.display(), module_path, entrypoint_func);
+    let output = File::create(shim_path);
+    let shim_string = format!("#!/bin/python3\n\n##\n# Generated by invil v{INVIL_VERSION}\n# Repo at https://github.com/jgabaut/invil\n##\n\nimport sys\nimport re\nfrom {ANVILPY_UNPACKDIR_NAME}.{module_path} import {entrypoint_func}\n\nif __name__ == \'__main__\':\n    sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])\n    sys.exit({entrypoint_func}())\n");
+    match output {
+        Ok(mut f) => {
+            let res = write!(f, "{}", shim_string);
+            match res {
+                Ok(_) => {
+                    debug!("Done generating shim file");
+                    return Ok(format!("Generated {{{}}}", shim_path.display()));
+                }
+                Err(e) => {
+                    error!("Failed printing shim file");
+                    return Err(e.to_string());
+                }
+            }
+        }
+        Err(_) => {
+            return Err("Failed gen of shim file".to_string());
+        }
+    }
+
 }

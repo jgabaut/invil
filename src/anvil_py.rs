@@ -16,6 +16,7 @@ pub const ANVILPY_PROJECT_URLS_KEYNAME: &str = "urls";
 pub const ANVILPY_PROJECT_ENTRYPOINTS_KEYNAME: &str = "scripts";
 pub const ANVILPY_BUILD_REQS_KEYNAME: &str = "requires";
 pub const ANVILPY_BUILD_BACKEND_KEYNAME: &str = "build-backend";
+pub const ANVILPY_UNPACKDIR_NAME: &str = "unpack";
 
 #[derive(Debug)]
 pub struct Author {
