@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
 use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
+use crate::anvil_py::parse_pyproject_toml;
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
@@ -30,6 +31,7 @@ use crate::utils::{
 };
 use regex::Regex;
 use std::fmt;
+use crate::anvil_py::AnvilPyEnv;
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -50,6 +52,8 @@ pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
 pub const MIN_AMBOSO_V_KERN: &str = "2.0.2";
 pub const MIN_AMBOSO_V_LEGACYPARSE: &str = "1.8.0";
+pub const MIN_AMBOSO_V_PYKERN: &str = "2.1.0";
+pub const MIN_AMBOSO_V_SKIPRETRYSTEGO: &str = "2.0.4";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 pub const RULELINE_MARK_CHAR: char = '\t';
 pub const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
@@ -237,9 +241,10 @@ pub enum AmbosoLintMode {
     NajloQuiet,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AnvilKern {
     AmbosoC,
+    AnvilPy,
 }
 
 #[derive(Debug)]
@@ -334,6 +339,9 @@ pub struct AmbosoEnv {
 
     /// Anvil kern
     pub anvil_kern: AnvilKern,
+
+    /// Optional AnvilPyEnv, only used when anvil_kern is AnvilPy
+    pub anvilpy_env: Option<AnvilPyEnv>,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -517,15 +525,22 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
             }
 
-            //By default, run do_query()
-            let query_res = do_query(&env,&args);
-            match query_res {
-                Ok(s) => {
-                    trace!("{}", s);
+            match env.anvil_kern {
+                AnvilKern::AmbosoC => {
+                    //By default, run do_query()
+                    let query_res = do_query(&env,&args);
+                    match query_res {
+                        Ok(s) => {
+                            trace!("{}", s);
+                        }
+                        Err(e) => {
+                            error!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                            exit(1);
+                        }
+                    }
                 }
-                Err(e) => {
-                    error!("do_query() failed in handle_amboso_env(). Err: {}", e);
-                    exit(1);
+                AnvilKern::AnvilPy => {
+                    trace!("Skipping do_query() since anvil_kern is anvilPy");
                 }
             }
         }
@@ -630,7 +645,7 @@ fn parse_version_parts(version: &str) -> (Vec<u64>, String, String) {
     (version_core, pre_release, build)
 }
 
-fn semver_compare(v1: &str, v2: &str) -> Ordering {
+pub fn semver_compare(v1: &str, v2: &str) -> Ordering {
     let (version_core1, pre_release1, build1) = parse_version_parts(v1);
     let (version_core2, pre_release2, build2) = parse_version_parts(v2);
 
@@ -904,9 +919,17 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                         }
                         Err(e) => {
                             warn!("Failed reading stego.lock at {{{}}}. Err: {e}.", stego_path.display());
-                            warn!("Will retry to find it at {{{}}}.", dir.display());
-                            stego_path = dir.clone();
-                            stego_path.push("stego.lock");
+                            match semver_compare(&args.anvil_version.clone().expect("Failed initialising anvil_version"), MIN_AMBOSO_V_SKIPRETRYSTEGO) {
+                                Ordering::Less => {
+                                    warn!("Taken legacy path");
+                                    warn!("Will retry to find it at {{{}}}.", dir.display());
+                                    stego_path = dir.clone();
+                                    stego_path.push("stego.lock");
+                                }
+                                Ordering::Equal | Ordering::Greater => {
+                                    return Err(e);
+                                }
+                            }
                         }
                     }
                 }
@@ -925,7 +948,6 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
-    let toml_value = stego.parse::<Table>();
     let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
         error!("Failed pop for {{{}}}", stego_dir.display());
@@ -937,6 +959,11 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
     }
+    return parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time);
+}
+
+fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
+    let toml_value = stego_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
@@ -968,6 +995,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
                 enable_extensions: true,
                 anvil_kern: AnvilKern::AmbosoC,
+                anvilpy_env: None,
             };
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
@@ -996,6 +1024,19 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
                             }
                             trace!("ANVIL_VERSION: {{{anvil_version}}}");
                             anvil_env.anvil_version = format!("{}", anvil_v_str);
+                        } else if anvil_v_str.starts_with("2.1") {
+                            trace!("Accepting preview version from stego.lock");
+                            match anvil_v_str {
+                                "2.1.0" => {
+                                    info!("Running as 2.1 preview");
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_env.anvil_version = format!("{}", anvil_v_str);
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
@@ -1015,6 +1056,20 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
                             match anvil_kern.as_str().expect("toml conversion failed") {
                                 "amboso-C" => {
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                "anvilPy" => {
+                                    match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                                        Ordering::Less => {
+                                            error!("Unsupported AnvilKern value: {{{anvil_kern}}}");
+                                            warn!("Try running as >={MIN_AMBOSO_V_PYKERN}");
+                                            warn!("Current anvil_version: {{{}}}", anvil_env.anvil_version);
+                                            return Err("Unsupported anvil_kern".to_string());
+                                        },
+                                        Ordering::Equal | Ordering::Greater => {
+                                            warn!("The AnvilPy kern is experimental. Be careful.");
+                                            anvil_env.anvil_kern = AnvilKern::AnvilPy;
+                                        }
+                                    }
                                 }
                                 _ => {
                                     error!("Invalid AnvilKern value: {{{anvil_kern}}}");
@@ -1142,7 +1197,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         Err(e) => {
             let elapsed = start_time.elapsed();
             debug!("Done parsing stego.toml. Elapsed: {:.2?}", elapsed);
-            error!("Failed parsing {{{}}}  as TOML. Err: [{}]", stego, e);
+            error!("Failed parsing {{{}}} as TOML. Err: [{e}]", stego_str);
             return Err("Failed parsing TOML".to_string());
         }
     }
@@ -1475,6 +1530,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
         enable_extensions: true,
         anvil_kern: AnvilKern::AmbosoC,
+        anvilpy_env: None,
     };
 
     let mut override_stego_anvil_version = false;
@@ -1497,7 +1553,6 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         }
                         "2.0.4" => {
                             info!("Running as {}", x.as_str());
-                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
                         _ => {
                             error!("Invalid anvil_version: {{{}}}", x);
@@ -1625,6 +1680,41 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             error!("Missing amboso dir argument. Quitting.");
             return Err("Missing amboso_dir arg".to_string());
         }
+    }
+
+    match anvil_env.anvil_kern {
+        AnvilKern::AnvilPy => {
+            let mut skip_pyparse = false;
+            match args.strict {
+                true => {
+                    match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                        Ordering::Less => {
+                            warn!("Strict behaviour for v{}, skipping reading pyproject.toml", anvil_env.anvil_version);
+                            skip_pyparse = true;
+                        }
+                        Ordering::Equal | Ordering::Greater => {}
+                    }
+                }
+                false => {}
+            }
+            if ! skip_pyparse {
+                debug!("Reading pyproject-toml at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
+                let mut pyproj_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
+                pyproj_path.push("pyproject.toml");
+                let anvilpy_env = parse_pyproject_toml(&pyproj_path);
+                match anvilpy_env {
+                    Ok(anvilpy_env) => {
+                        debug!("Done parse_pyproject_toml()");
+                        debug!("{:?}", anvilpy_env);
+                        anvil_env.anvilpy_env = Some(anvilpy_env);
+                    }
+                    Err(e) => {
+                        return Err(e);
+                    }
+                }
+            }
+        }
+        AnvilKern::AmbosoC => {}
     }
 
     match args.gen_c_header {
@@ -1872,6 +1962,9 @@ impl fmt::Display for AnvilKern {
             AnvilKern::AmbosoC => {
                 write!(f, "amboso-C")
             }
+            AnvilKern::AnvilPy => {
+                write!(f, "anvilPy")
+            }
         }
     }
 }
@@ -2109,6 +2202,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
             enable_extensions: true,
             anvil_kern: AnvilKern::AmbosoC,
+            anvilpy_env: None,
         };
 
         for line in BufReader::new(file).lines() {

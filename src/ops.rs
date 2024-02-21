@@ -11,8 +11,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection, semver_compare, MIN_AMBOSO_V_PYKERN};
 use crate::utils::try_parse_stego;
+
 use std::process::{Command, exit};
 use std::io::{self, Write, BufRead};
 use std::path::{Path, PathBuf};
@@ -23,6 +24,11 @@ use git2::Repository;
 use std::env;
 use std::time::SystemTime;
 use regex::Regex;
+use std::cmp::Ordering;
+
+use crate::anvil_py::ANVILPY_UNPACKDIR_NAME;
+use crate::anvil_py::{unpack_srcdist, post_unpack};
+
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -200,7 +206,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                         }
                         AmbosoMode::GitMode => {
-                            let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let build_path = PathBuf::from(format!("{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -238,109 +244,15 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                             Some(gsinit_ec) => {
                                                 if gsinit_ec == 0 {
                                                     debug!("Submodule init succeded with status: {}", gsinit_ec.to_string());
-                                                    let output;
-                                                    if args.no_rebuild {
-                                                        debug!("Running \'make\'");
-                                                        output = Command::new("sh")
-                                                            .arg("-c")
-                                                            .arg(format!("{} make", cflg_str))
-                                                            .output()
-                                                            .expect("failed to execute process");
-                                                    }
-                                                    else {
-                                                        debug!("Running \'make rebuild\'");
-                                                        output = Command::new("sh")
-                                                            .arg("-c")
-                                                            .arg(format!("{} make rebuild", cflg_str))
-                                                            .output()
-                                                            .expect("failed to execute process");
-                                                    }
-                                                    match output.status.code() {
-                                                        Some(make_ec) => {
-                                                            if make_ec == 0 {
-                                                               debug!("make succeded with status: {}", make_ec.to_string());
-                                                                let output = Command::new("sh")
-                                                                    .arg("-c")
-                                                                    .arg(format!("mv {} {}", env.bin.as_ref().unwrap(), bin_path.display()))
-                                                                    .output()
-                                                                    .expect("failed to execute process");
-                                                                match output.status.code() {
-                                                                    Some(mv_ec) => {
-                                                                        if mv_ec == 0 {
-                                                                            debug!("mv succeded with status: {}", mv_ec.to_string());
-                                                                            let output = Command::new("sh")
-                                                                                .arg("-c")
-                                                                                .arg(format!("git switch -"))
-                                                                                .output()
-                                                                                .expect("failed to execute process");
-                                                                            match output.status.code() {
-                                                                                Some(gswitch_ec) => {
-                                                                                    if gswitch_ec == 0 {
-                                                                                       debug!("git switch succeded with status: {}", gswitch_ec.to_string());
-                                                                                        let output = Command::new("sh")
-                                                                                            .arg("-c")
-                                                                                            .arg(format!("git submodule update --init --recursive"))
-                                                                                            .output()
-                                                                                            .expect("failed to execute process");
-                                                                                        match output.status.code() {
-                                                                                            Some(gsinit_end_ec) => {
-                                                                                                if gsinit_end_ec == 0 {
-                                                                                                    debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
-                                                                                                    debug!("Done build for {}", query);
-                                                                                                } else {
-                                                                                                    warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
-                                                                                                    io::stdout().write_all(&output.stdout).unwrap();
-                                                                                                    io::stderr().write_all(&output.stderr).unwrap();
-                                                                                                    return Err("git submodule init failed".to_string());
-                                                                                                }
-                                                                                            }
-                                                                                            None => {
-                                                                                                error!("git submodule init command failed");
-                                                                                                io::stdout().write_all(&output.stdout).unwrap();
-                                                                                                io::stderr().write_all(&output.stderr).unwrap();
-                                                                                                return Err("git submodule init command failed".to_string());
-                                                                                            }
-                                                                                        }
-                                                                                    } else {
-                                                                                        warn!("git switch failed with status: {}", gswitch_ec.to_string());
-                                                                                        io::stdout().write_all(&output.stdout).unwrap();
-                                                                                        io::stderr().write_all(&output.stderr).unwrap();
-                                                                                        return Err("git switch failed".to_string());
-                                                                                    }
-                                                                                }
-                                                                                None => {
-                                                                                    error!("git switch command failed");
-                                                                                    io::stdout().write_all(&output.stdout).unwrap();
-                                                                                    io::stderr().write_all(&output.stderr).unwrap();
-                                                                                    return Err("git switch command failed".to_string());
-                                                                                }
-                                                                            }
-                                                                        } else {
-                                                                            warn!("mv failed with status: {}", mv_ec.to_string());
-                                                                            io::stdout().write_all(&output.stdout).unwrap();
-                                                                            io::stderr().write_all(&output.stderr).unwrap();
-                                                                            return Err("mv failed".to_string());
-                                                                        }
-                                                                    }
-                                                                    None => {
-                                                                        error!("mv command failed");
-                                                                        io::stdout().write_all(&output.stdout).unwrap();
-                                                                        io::stderr().write_all(&output.stderr).unwrap();
-                                                                        return Err("mv command failed".to_string());
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                warn!("make failed with status: {}", make_ec.to_string());
-                                                                io::stdout().write_all(&output.stdout).unwrap();
-                                                                io::stderr().write_all(&output.stderr).unwrap();
-                                                                return Err("make failed".to_string());
-                                                            }
+                                                    trace!("Build step");
+                                                    trace!("cflg_str: {{{cflg_str}}}");
+                                                    trace!("bin_path: {{{}}}", bin_path.display());
+                                                    match build_step(args, env, cflg_str, query, bin_path) {
+                                                        Ok(s) => {
+                                                            trace!("{s}");
                                                         }
-                                                        None => {
-                                                            error!("make command failed");
-                                                            io::stdout().write_all(&output.stdout).unwrap();
-                                                            io::stderr().write_all(&output.stderr).unwrap();
-                                                            return Err("make command failed".to_string());
+                                                        Err(e) => {
+                                                            return Err(format!("Build failed for {{{query}}}. Err: {e}"));
                                                         }
                                                     }
                                                 } else {
@@ -1083,6 +995,7 @@ const char *get_INVIL__OS__(void)
 }
 
 fn try_lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bool, report_warns: bool) -> Result<String,String> {
+    warn!("Makefile parsing is experimental.");
     let path = file_path.as_ref();
     let res = lex_makefile(path, dbg_print, skip_recap, report_warns);
     match res {
@@ -1480,4 +1393,241 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     }
 
     Ok(tot_warns)
+}
+
+fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf) -> Result<String,String> {
+    let output;
+    let build_step_command;
+    match env.anvil_kern {
+        AnvilKern::AmbosoC => {
+            build_step_command = "make";
+        }
+        AnvilKern::AnvilPy => {
+            let mut use_python_build = true;
+            match args.strict {
+                true => {
+                    match semver_compare(&env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                        Ordering::Less => {
+                            warn!("Strict behaviour for v{}, still using make", env.anvil_version);
+                            use_python_build = false;
+                        }
+                        Ordering::Equal | Ordering::Greater => {}
+                    }
+                }
+                false => {}
+            }
+            if use_python_build {
+                build_step_command = "python -m build"; // Using -o bin_path would allow skipping the
+                                                        // mv command
+            } else {
+                build_step_command = "make";
+            }
+        }
+    }
+
+    if args.no_rebuild || env.anvil_kern == AnvilKern::AnvilPy {
+        debug!("Running \'{build_step_command}\'");
+        output = Command::new("sh")
+            .arg("-c")
+            .arg(format!("{} {}", cflg_str, build_step_command))
+            .output()
+            .expect("failed to execute process");
+    }
+    else {
+        debug!("Running \'make rebuild\'");
+        output = Command::new("sh")
+            .arg("-c")
+            .arg(format!("{} make rebuild", cflg_str))
+            .output()
+            .expect("failed to execute process");
+    }
+    match output.status.code() {
+        Some(make_ec) => {
+            if make_ec == 0 {
+               debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
+               return postbuild_step(env, query, bin_path);
+            } else {
+                warn!("{{{}}} failed with status: {}", build_step_command, make_ec.to_string());
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                return Err(format!("{{{build_step_command}}} failed"));
+            }
+        }
+        None => {
+            error!("{{{}}} command failed", build_step_command);
+            io::stdout().write_all(&output.stdout).unwrap();
+            io::stderr().write_all(&output.stderr).unwrap();
+            return Err(format!("{{{build_step_command}}} command failed"));
+        }
+    }
+}
+
+fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<String,String> {
+
+    let move_command_anvilc = format!("mv {} {}", env.bin.as_ref().unwrap(), bin_path.display());
+    let output;
+    match env.anvil_kern {
+        AnvilKern::AmbosoC => {
+            output = Command::new("sh")
+                .arg("-c")
+                .arg(move_command_anvilc)
+                .output()
+                .expect("failed to execute process");
+        }
+        AnvilKern::AnvilPy => {
+            let mut bindir_path = bin_path.clone();
+            bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
+                               // could be coded in a more explicit way
+            let proj_name = &env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name;
+            let srcdist_name = format!("{}-{}.tar.gz", proj_name, query);
+            let mut srcdist_path = PathBuf::from("./dist/");
+            srcdist_path.push(srcdist_name.clone());
+            let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), bindir_path.display());
+            let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", proj_name.replace("-","_"), query, bindir_path.display());
+            let output_srcdist = Command::new("sh")
+                .arg("-c")
+                .arg(move_command_srcdist)
+                .output()
+                .expect("failed to execute process");
+            match output_srcdist.status.code() {
+                Some(mv_ec) => {
+                    if mv_ec == 0 {
+                        debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
+                        let mut srcdist_pack_path = PathBuf::from(bindir_path.clone());
+                        srcdist_pack_path.push(srcdist_name);
+                        let unpack_res = unpack_srcdist(&srcdist_pack_path);
+                        match unpack_res {
+                            Ok(unpack_path) => {
+                                let proj_dirname = format!("{proj_name}-{query}");
+                                let mut target_unpack_path = unpack_path.clone();
+                                target_unpack_path.push(ANVILPY_UNPACKDIR_NAME);
+                                let mut curr_unpack_path = unpack_path.clone();
+                                curr_unpack_path.push(proj_dirname.clone());
+
+                                let move_unpackdir = format!("mv {} {}", curr_unpack_path.display(), target_unpack_path.display());
+                                let output_unpackmv = Command::new("sh")
+                                    .arg("-c")
+                                    .arg(move_unpackdir)
+                                    .output()
+                                    .expect("failed to execute process");
+                                match output_unpackmv.status.code() {
+                                    Some(mv_ec) => {
+                                        if mv_ec == 0 {
+                                            trace!("Moved {{{}}} to {{{}}}", curr_unpack_path.display(), target_unpack_path.display());
+                                        } else {
+                                            warn!("mv unpack failed with status: {}", mv_ec.to_string());
+                                            io::stdout().write_all(&output_unpackmv.stdout).unwrap();
+                                            io::stderr().write_all(&output_unpackmv.stderr).unwrap();
+                                            return Err("mv unpack failed".to_string());
+                                        }
+                                    }
+                                    None => {
+                                        error!("mv unpack command failed");
+                                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                                        return Err("mv command failed".to_string());
+                                    }
+                                }
+                                let mut unpack_initpy_path = target_unpack_path.clone();
+                                unpack_initpy_path.push("__init__.py");
+                                match post_unpack(&unpack_initpy_path, &bindir_path, &env) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
+                                        return Err("Failed post_unpack()".to_string());
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                    } else {
+                        warn!("mv srcdist failed with status: {}", mv_ec.to_string());
+                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                        return Err("mv failed".to_string());
+                    }
+                }
+                None => {
+                    error!("mv srcdist command failed");
+                    io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                    io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                    return Err("mv command failed".to_string());
+                }
+            }
+            output = Command::new("sh")
+                .arg("-c")
+                .arg(move_command_whldist)
+                .output()
+                .expect("failed to execute process");
+        }
+    }
+    match output.status.code() {
+        Some(mv_ec) => {
+            if mv_ec == 0 {
+                debug!("mv succeded with status: {}", mv_ec.to_string());
+                let output = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("git switch -"))
+                    .output()
+                    .expect("failed to execute process");
+                match output.status.code() {
+                    Some(gswitch_ec) => {
+                        if gswitch_ec == 0 {
+                           debug!("git switch succeded with status: {}", gswitch_ec.to_string());
+                            let output = Command::new("sh")
+                                .arg("-c")
+                                .arg(format!("git submodule update --init --recursive"))
+                                .output()
+                                .expect("failed to execute process");
+                            match output.status.code() {
+                                Some(gsinit_end_ec) => {
+                                    if gsinit_end_ec == 0 {
+                                        debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
+                                        debug!("Done build for {}", query);
+                                        return Ok(format!("Done build step for {{{query}}}"));
+                                    } else {
+                                        warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
+                                        io::stdout().write_all(&output.stdout).unwrap();
+                                        io::stderr().write_all(&output.stderr).unwrap();
+                                        return Err("git submodule init failed".to_string());
+                                    }
+                                }
+                                None => {
+                                    error!("git submodule init command failed");
+                                    io::stdout().write_all(&output.stdout).unwrap();
+                                    io::stderr().write_all(&output.stderr).unwrap();
+                                    return Err("git submodule init command failed".to_string());
+                                }
+                            }
+                        } else {
+                            warn!("git switch failed with status: {}", gswitch_ec.to_string());
+                            io::stdout().write_all(&output.stdout).unwrap();
+                            io::stderr().write_all(&output.stderr).unwrap();
+                            return Err("git switch failed".to_string());
+                        }
+                    }
+                    None => {
+                        error!("git switch command failed");
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        return Err("git switch command failed".to_string());
+                    }
+                }
+            } else {
+                warn!("mv failed with status: {}", mv_ec.to_string());
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                return Err("mv failed".to_string());
+            }
+        }
+        None => {
+            error!("mv command failed");
+            io::stdout().write_all(&output.stdout).unwrap();
+            io::stderr().write_all(&output.stderr).unwrap();
+            return Err("mv command failed".to_string());
+        }
+    }
+
 }
