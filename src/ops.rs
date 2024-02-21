@@ -28,6 +28,7 @@ use std::cmp::Ordering;
 use tar::Archive;
 use flate2::read::GzDecoder;
 use std::fs::OpenOptions;
+use std::os::unix::fs::PermissionsExt;
 
 use crate::anvil_py::ANVILPY_UNPACKDIR_NAME;
 
@@ -1701,13 +1702,38 @@ fn gen_anvilpy_shim(shim_path: &PathBuf, module_path: &str, entrypoint_func: &st
             match res {
                 Ok(_) => {
                     debug!("Done generating shim file");
-                    return Ok(format!("Generated {{{}}}", shim_path.display()));
                 }
                 Err(e) => {
                     error!("Failed printing shim file");
                     return Err(e.to_string());
                 }
             }
+            if cfg!(target_os = "windows") {
+                todo!("Support setting executable bit for shim on windows");
+                /*
+                 * let output = Command::new("cmd")
+                 *   .args(["/C", "echo hello"])
+                 *   .output()
+                 *   .expect("failed to execute process")
+                 */
+            } else {
+                let metadata = f.metadata();
+                match metadata {
+                    Ok(m) => {
+                        trace!("Setting mode 744 for shim");
+                        let mut permissions = m.permissions();
+                        // Add execute permission for the owner
+                        permissions.set_mode(permissions.mode() | 0o100);
+                        // Set the updated permissions
+                        fs::set_permissions(shim_path, permissions).expect("Failed to set file permissions");
+                    }
+                    Err(e) => {
+                        error!("Failed getting metadata for shim. Err: {e}");
+                        return Err("Failed getting shim metadata".to_string());
+                    }
+                }
+            }
+            return Ok(format!("Generated {{{}}}", shim_path.display()));
         }
         Err(_) => {
             return Err("Failed gen of shim file".to_string());
