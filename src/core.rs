@@ -46,7 +46,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.4";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.5";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -54,6 +54,7 @@ pub const MIN_AMBOSO_V_KERN: &str = "2.0.2";
 pub const MIN_AMBOSO_V_LEGACYPARSE: &str = "1.8.0";
 pub const MIN_AMBOSO_V_PYKERN: &str = "2.1.0";
 pub const MIN_AMBOSO_V_SKIPRETRYSTEGO: &str = "2.0.4";
+pub const MIN_AMBOSO_V_DENY_ANVILPY: &str = "2.0.5";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 pub const RULELINE_MARK_CHAR: char = '\t';
 pub const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
@@ -1013,8 +1014,8 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                     info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" => {
-                                    info!("Running as 2.0.4");
+                                "2.0.4" | "2.0.5" => {
+                                    info!("Running as {{{}}}", anvil_v_str);
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
                                 _ => {
@@ -1066,6 +1067,20 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                             return Err("Unsupported anvil_kern".to_string());
                                         },
                                         Ordering::Equal | Ordering::Greater => {
+                                            match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_DENY_ANVILPY) {
+                                                Ordering::Less => {
+                                                    if ! anvil_env.enable_extensions {
+                                                        error!("Strict behaviour, refusing anvilPy kern.");
+                                                        return Err("Unsupported anvil_kern".to_string());
+                                                    }
+                                                }
+                                                Ordering::Equal | Ordering::Greater => {
+                                                    if ! anvil_env.enable_extensions {
+                                                        error!("Strict behaviour, refusing anvilPy kern.");
+                                                        return Err("Unsupported anvil_kern".to_string());
+                                                    }
+                                                }
+                                            }
                                             warn!("The AnvilPy kern is experimental. Be careful.");
                                             anvil_env.anvil_kern = AnvilKern::AnvilPy;
                                         }
@@ -1357,7 +1372,7 @@ errortestsdir = \"errors\"\n
                     let makefileam_path = format!("{}/Makefile.am", target.display());
                     trace!("Generating Makefile.am - Target path: {{{}}}", makefileam_path);
                     let output = File::create(makefileam_path);
-                    let makefileam_string = format!("AUTOMAKE_OPTIONS = foreign\nCFLAGS = @CFLAGS@\nSHELL := /bin/bash\n.ONESHELL:\nMACHINE := $$(uname -m)\nPACK_NAME = $(TARGET)-$(VERSION)-$(OS)-$(MACHINE)\nhello_world_SOURCES = src/main.c\nLDADD = $(HW_LDFLAGS)\nAM_LDFLAGS = -O2\nAM_CFLAGS = $(HW_CFLAGS) -O2 -Werror -Wpedantic -Wall\nif DEBUG_BUILD\nAM_LDFLAGS += -ggdb -O0\nAM_CFLAGS += \"\"\nelse\nAM_LDFLAGS += -s\nendif\n%.o: %.c\n	$(CCOMP) -c $(CFLAGS) $(AM_CFLAGS) $< -o $@\n$(TARGET): $(hello_world_SOURCES:.c=.o)\n	@echo -e \"    AM_CFLAGS: [ $(AM_CFLAGS) ]\"\n	@echo -e \"    LDADD: [ $(LDADD) ]\"\n	$(CCOMP) $(CFLAGS) $(AM_CFLAGS) $(hello_world_SOURCES:.c=.o) -o $@ $(LDADD) $(AM_LDFLAGS)\nclean:\n	@echo -en \"Cleaning build artifacts:  \"\n	-rm $(TARGET)\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\ncleanob:\n	@echo -en \"Cleaning object build artifacts:  \"\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\nanviltest:\n	@echo -en \"Running anvil tests.\"\n	./anvil -tX\n	@echo -e \"Done.\"\nall: $(TARGET)\nrebuild: clean all\n.DEFAULT_GOAL := all\n");
+                    let makefileam_string = format!("AUTOMAKE_OPTIONS = foreign\nCFLAGS = @CFLAGS@\nSHELL := /bin/bash\n.ONESHELL:\nMACHINE := $$(uname -m)\nPACK_NAME = $(TARGET)-$(VERSION)-$(OS)-$(MACHINE)\nhello_world_SOURCES = src/main.c\nLDADD = $(HW_LDFLAGS)\nAM_LDFLAGS = -O2\nAM_CFLAGS = $(HW_CFLAGS) -O2 -Werror -Wpedantic -Wall\nif DEBUG_BUILD\nAM_LDFLAGS += -ggdb -O0\nAM_CFLAGS += \nelse\nAM_LDFLAGS += -s\nendif\n%.o: %.c\n	$(CCOMP) -c $(CFLAGS) $(AM_CFLAGS) $< -o $@\n$(TARGET): $(hello_world_SOURCES:.c=.o)\n	@echo -e \"    AM_CFLAGS: [ $(AM_CFLAGS) ]\"\n	@echo -e \"    LDADD: [ $(LDADD) ]\"\n	$(CCOMP) $(CFLAGS) $(AM_CFLAGS) $(hello_world_SOURCES:.c=.o) -o $@ $(LDADD) $(AM_LDFLAGS)\nclean:\n	@echo -en \"Cleaning build artifacts:  \"\n	-rm $(TARGET)\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\ncleanob:\n	@echo -en \"Cleaning object build artifacts:  \"\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\nanviltest:\n	@echo -en \"Running anvil tests.\"\n	./anvil -tX\n	@echo -e \"Done.\"\nall: $(TARGET)\nrebuild: clean all\n.DEFAULT_GOAL := all\n");
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", makefileam_string);
@@ -1551,7 +1566,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             info!("Running as {}", x.as_str());
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
-                        "2.0.4" => {
+                        "2.0.4" | "2.0.5" => {
                             info!("Running as {}", x.as_str());
                         }
                         _ => {

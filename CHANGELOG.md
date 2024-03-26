@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.9] - 2024-03-26
+
+### Changed
+
+- Fixed generated Makefile.am
+- Updated expected amboso version to 2.0.5
+- Handle strict behaviour to refuse anvilPy
+
 ## [0.2.8] - 2024-02-21
 
 ### Added
