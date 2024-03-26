@@ -16,7 +16,7 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.4`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.5`.
   Check the [next section](#supported_amboso) for more support info.
   Check [this section](#extended_amboso) for info about extensions to `amboso 2.0.4`.
 
@@ -138,6 +138,8 @@
       version = "2.1.0"
       kern = "anvilPy"
       ```
+  - [x] Refuse the experimental kern when running with `--strict`
+    - The original implementation is not ready to support this extension.
 
 ## See how it behaves <a name = "try_anvil"></a>
 
