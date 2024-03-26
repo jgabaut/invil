@@ -1014,8 +1014,8 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                     info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" => {
-                                    info!("Running as 2.0.4");
+                                "2.0.4" | "2.0.5" => {
+                                    info!("Running as {{{}}}", anvil_v_str);
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
                                 _ => {
@@ -1566,7 +1566,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             info!("Running as {}", x.as_str());
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
-                        "2.0.4" => {
+                        "2.0.4" | "2.0.5" => {
                             info!("Running as {}", x.as_str());
                         }
                         _ => {
