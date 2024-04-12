@@ -26,8 +26,8 @@ use std::time::SystemTime;
 use regex::Regex;
 use std::cmp::Ordering;
 
-use crate::anvil_py::ANVILPY_UNPACKDIR_NAME;
-use crate::anvil_py::{unpack_srcdist, post_unpack};
+#[cfg(feature = "anvilPy")]
+use crate::anvil_py::{ANVILPY_UNPACKDIR_NAME,unpack_srcdist, post_unpack};
 
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
@@ -1474,6 +1474,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                 .output()
                 .expect("failed to execute process");
         }
+        #[cfg(feature = "anvilPy")]
         AnvilKern::AnvilPy => {
             let mut bindir_path = bin_path.clone();
             bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
@@ -1562,7 +1563,19 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                 .output()
                 .expect("failed to execute process");
         }
+        #[cfg(not(feature = "anvilPy"))]
+        _ => {
+            if let AnvilKern::AnvilPy = env.anvil_kern {
+                // Handle AnvilPy case when the feature is not enabled
+                error!("AnvilPy kern feature is not enabled");
+                return Err("AnvilPy kern feauture is not enabled".to_string());
+            } else {
+                error!("Unexpected anvil kern");
+                return Err("Unexpected anvil kern".to_string());
+            }
+        }
     }
+
     match output.status.code() {
         Some(mv_ec) => {
             if mv_ec == 0 {
