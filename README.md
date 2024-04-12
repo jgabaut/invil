@@ -128,6 +128,9 @@
 
 ## Experimental 2.1 version
 
+  These features are experimental and subject to change.
+  To enable them, add `--features="anvilPy"` to your build/install command.
+
   - [x] Use "anvilPy" kern to support python projects
     - Expects a suitable `pyproject.toml` is present alongside `stego.lock`
     - Experimental support for almost all flags
