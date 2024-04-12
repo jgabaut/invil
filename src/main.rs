@@ -15,6 +15,7 @@
 mod core;
 mod ops;
 mod utils;
+#[cfg(feature = "anvilPy")]
 mod anvil_py;
 
 #[macro_use] extern crate log;

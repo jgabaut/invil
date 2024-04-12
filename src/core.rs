@@ -17,7 +17,10 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
 use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
-use crate::anvil_py::parse_pyproject_toml;
+
+#[cfg(feature = "anvilPy")]
+use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
+
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
@@ -31,7 +34,6 @@ use crate::utils::{
 };
 use regex::Regex;
 use std::fmt;
-use crate::anvil_py::AnvilPyEnv;
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -342,6 +344,7 @@ pub struct AmbosoEnv {
     pub anvil_kern: AnvilKern,
 
     /// Optional AnvilPyEnv, only used when anvil_kern is AnvilPy
+    #[cfg(feature = "anvilPy")]
     pub anvilpy_env: Option<AnvilPyEnv>,
 }
 
@@ -996,6 +999,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
                 enable_extensions: true,
                 anvil_kern: AnvilKern::AmbosoC,
+                #[cfg(feature = "anvilPy")]
                 anvilpy_env: None,
             };
             //trace!("Toml value: {{{}}}", y);
@@ -1545,6 +1549,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
         enable_extensions: true,
         anvil_kern: AnvilKern::AmbosoC,
+        #[cfg(feature = "anvilPy")]
         anvilpy_env: None,
     };
 
@@ -1698,6 +1703,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     }
 
     match anvil_env.anvil_kern {
+        #[cfg(feature = "anvilPy")]
         AnvilKern::AnvilPy => {
             let mut skip_pyparse = false;
             match args.strict {
@@ -1730,6 +1736,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             }
         }
         AnvilKern::AmbosoC => {}
+        #[cfg(not(feature = "anvilPy"))]
+        _ => {
+            if let AnvilKern::AnvilPy = anvil_env.anvil_kern {
+                // Handle AnvilPy case when the feature is not enabled
+                error!("AnvilPy kern feature is not enabled");
+                return Err("AnvilPy kern feauture is not enabled".to_string());
+            } else {
+                error!("Unexpected anvil kern");
+                return Err("Unexpected anvil kern".to_string());
+            }
+        }
     }
 
     match args.gen_c_header {
@@ -2217,6 +2234,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
             enable_extensions: true,
             anvil_kern: AnvilKern::AmbosoC,
+            #[cfg(feature = "anvilPy")]
             anvilpy_env: None,
         };
 
