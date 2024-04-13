@@ -108,7 +108,7 @@
   - [x] When in `make` build mode, call `make rebuild` by default
     - [x] `--no-rebuild` to disable make rebuild and run just `make`
   - [x] `--logged` to output full log to file
-    - Outputs to `./invil.log`. Not backwards compatible with repos not ignoring the file explicitly.
+    - Outputs to `./anvil.log`. Not backwards compatible with repos not ignoring the file explicitly.
   - [x] `-G` flag also includes:
     - a string for build OS (from `env::consts::OS`)
     - HEAD commit message
@@ -127,6 +127,9 @@
 ## Extended amboso features <a name = "extended_amboso"></a>
 
 ## Experimental 2.1 version
+
+  These features are experimental and subject to change.
+  To enable them, add `--features="anvilPy"` to your build/install command.
 
   - [x] Use "anvilPy" kern to support python projects
     - Expects a suitable `pyproject.toml` is present alongside `stego.lock`

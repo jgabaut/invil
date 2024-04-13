@@ -17,7 +17,10 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
 use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
-use crate::anvil_py::parse_pyproject_toml;
+
+#[cfg(feature = "anvilPy")]
+use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
+
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
@@ -31,7 +34,6 @@ use crate::utils::{
 };
 use regex::Regex;
 use std::fmt;
-use crate::anvil_py::AnvilPyEnv;
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -342,6 +344,7 @@ pub struct AmbosoEnv {
     pub anvil_kern: AnvilKern,
 
     /// Optional AnvilPyEnv, only used when anvil_kern is AnvilPy
+    #[cfg(feature = "anvilPy")]
     pub anvilpy_env: Option<AnvilPyEnv>,
 }
 
@@ -996,6 +999,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
                 enable_extensions: true,
                 anvil_kern: AnvilKern::AmbosoC,
+                #[cfg(feature = "anvilPy")]
                 anvilpy_env: None,
             };
             //trace!("Toml value: {{{}}}", y);
@@ -1225,7 +1229,31 @@ pub fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
             let init_res = Repository::init_opts(target.clone(),RepositoryInitOptions::new().no_reinit(true));
             match init_res {
                 Ok(repo) => {
-                    info!("Created git repo at {{{}}}", repo.workdir().expect("Repo should not be bare").display());
+                    let repo_workdir = repo.workdir().expect("Repo should not be bare");
+                    info!("Created git repo at {{{}}}", repo_workdir.display());
+
+                    let dir_basename_osstr;
+                    match repo_workdir.file_name() {
+                        Some(d) => {
+                            dir_basename_osstr = d;
+                        }
+                        None => {
+                            error!("Failed to get base name for {{{}}}", repo_workdir.display());
+                            return ExitCode::FAILURE;
+                        }
+                    }
+
+                    let dir_basename;
+                    match dir_basename_osstr.to_str() {
+                        Some(s) => {
+                            dir_basename = s;
+                        }
+                        None => {
+                            error!("Failed converting {{{}}} to string. May contain invalid Unicode.", repo_workdir.display());
+                            return ExitCode::FAILURE;
+                        }
+                    }
+                    let caps_dir_basename = dir_basename.to_uppercase();
                     let mut src = target.clone();
                     src.push("src");
                     let mut bin = target.clone();
@@ -1298,7 +1326,7 @@ pub fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
                     let output = File::create(stego_path.clone());
                     let stego_string = format!("[build]\n
 source = \"main.c\"\n
-bin = \"hello_world\"\n
+bin = \"{}\"\n
 makevers = \"0.1.0\"\n
 automakevers = \"0.1.0\"\n
 tests = \"tests\"\n
@@ -1306,7 +1334,7 @@ tests = \"tests\"\n
 testsdir = \"ok\"\n
 errortestsdir = \"errors\"\n
 [versions]\n
-\"0.1.0\" = \"hello_world\"\n");
+\"0.1.0\" = \"{}\"\n", dir_basename, dir_basename);
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", stego_string);
@@ -1315,13 +1343,13 @@ errortestsdir = \"errors\"\n
                                     debug!("Done generating stego.lock file");
                                 }
                                 Err(e) => {
-                                    error!("Failed writing stego.lock file at {{{stego_path}}}. Err: {e}");
+                                    error!("Failed writing stego.lock file at {{{}}}. Err: {e}", stego_path);
                                     return ExitCode::FAILURE;
                                 }
                             }
                         }
                         Err(e) => {
-                            error!("Failed opening stego.lock file at {{{stego_path}}}. Err: {e}");
+                            error!("Failed opening stego.lock file at {{{}}}. Err: {e}", stego_path);
                             return ExitCode::FAILURE;
                         }
                     }
@@ -1350,7 +1378,7 @@ errortestsdir = \"errors\"\n
                     let gitignore_path = format!("{}/.gitignore", target.display());
                     trace!("Generating .gitignore Target path: {{{}}}", gitignore_path);
                     let output = File::create(gitignore_path);
-                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\nhello_world\n# also explicitly ignore our windows executable for good measure\nhello_world.exe\n# also explicitly ignore our debug executable for good measure\nhello_world_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore anvil log file\nanvil.log\n#We want to ignore default anvil build dir\nbin\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n");
+                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\n{}\n# also explicitly ignore our windows executable for good measure\n{}.exe\n# also explicitly ignore our debug executable for good measure\n{}_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore anvil log file\nanvil.log\n#We want to ignore default anvil build dir\nbin\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n", dir_basename, dir_basename, dir_basename);
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", gitignore_string);
@@ -1372,7 +1400,7 @@ errortestsdir = \"errors\"\n
                     let makefileam_path = format!("{}/Makefile.am", target.display());
                     trace!("Generating Makefile.am - Target path: {{{}}}", makefileam_path);
                     let output = File::create(makefileam_path);
-                    let makefileam_string = format!("AUTOMAKE_OPTIONS = foreign\nCFLAGS = @CFLAGS@\nSHELL := /bin/bash\n.ONESHELL:\nMACHINE := $$(uname -m)\nPACK_NAME = $(TARGET)-$(VERSION)-$(OS)-$(MACHINE)\nhello_world_SOURCES = src/main.c\nLDADD = $(HW_LDFLAGS)\nAM_LDFLAGS = -O2\nAM_CFLAGS = $(HW_CFLAGS) -O2 -Werror -Wpedantic -Wall\nif DEBUG_BUILD\nAM_LDFLAGS += -ggdb -O0\nAM_CFLAGS += \nelse\nAM_LDFLAGS += -s\nendif\n%.o: %.c\n	$(CCOMP) -c $(CFLAGS) $(AM_CFLAGS) $< -o $@\n$(TARGET): $(hello_world_SOURCES:.c=.o)\n	@echo -e \"    AM_CFLAGS: [ $(AM_CFLAGS) ]\"\n	@echo -e \"    LDADD: [ $(LDADD) ]\"\n	$(CCOMP) $(CFLAGS) $(AM_CFLAGS) $(hello_world_SOURCES:.c=.o) -o $@ $(LDADD) $(AM_LDFLAGS)\nclean:\n	@echo -en \"Cleaning build artifacts:  \"\n	-rm $(TARGET)\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\ncleanob:\n	@echo -en \"Cleaning object build artifacts:  \"\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\nanviltest:\n	@echo -en \"Running anvil tests.\"\n	./anvil -tX\n	@echo -e \"Done.\"\nall: $(TARGET)\nrebuild: clean all\n.DEFAULT_GOAL := all\n");
+                    let makefileam_string = format!("AUTOMAKE_OPTIONS = foreign\nCFLAGS = @CFLAGS@\nSHELL := /bin/bash\n.ONESHELL:\nMACHINE := $$(uname -m)\nPACK_NAME = $(TARGET)-$(VERSION)-$(OS)-$(MACHINE)\n{}_SOURCES = src/main.c\nLDADD = $({caps_dir_basename}_LDFLAGS)\nAM_LDFLAGS = -O2\nAM_CFLAGS = $({caps_dir_basename}_CFLAGS) -O2 -Werror -Wpedantic -Wall\nif DEBUG_BUILD\nAM_LDFLAGS += -ggdb -O0\nAM_CFLAGS += \nelse\nAM_LDFLAGS += -s\nendif\n%.o: %.c\n	$(CCOMP) -c $(CFLAGS) $(AM_CFLAGS) $< -o $@\n$(TARGET): $({}_SOURCES:.c=.o)\n	@echo -e \"    AM_CFLAGS: [ $(AM_CFLAGS) ]\"\n	@echo -e \"    LDADD: [ $(LDADD) ]\"\n	$(CCOMP) $(CFLAGS) $(AM_CFLAGS) $({}_SOURCES:.c=.o) -o $@ $(LDADD) $(AM_LDFLAGS)\nclean:\n	@echo -en \"Cleaning build artifacts:  \"\n	-rm $(TARGET)\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\ncleanob:\n	@echo -en \"Cleaning object build artifacts:  \"\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\nanviltest:\n	@echo -en \"Running anvil tests.\"\n	./anvil -tX\n	@echo -e \"Done.\"\nall: $(TARGET)\nrebuild: clean all\n.DEFAULT_GOAL := all\n", dir_basename, dir_basename, dir_basename);
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", makefileam_string);
@@ -1394,7 +1422,7 @@ errortestsdir = \"errors\"\n
                     let configureac_path = format!("{}/configure.ac", target.display());
                     trace!("Generating configure.ac - Target path: {{{}}}", configureac_path);
                     let output = File::create(configureac_path);
-                    let configureac_string = format!("# Generated by invil v{INVIL_VERSION}\nAC_INIT([hello_world], [0.1.0], [email@example.com])\nAM_INIT_AUTOMAKE([foreign -Wall])\nAC_CANONICAL_HOST\nbuild_linux=no\nbuild_windows=no\nbuild_mac=no\necho \"Host os:  $host_os\"\n\nAC_ARG_ENABLE([debug],  [AS_HELP_STRING([--enable-debug], [Enable debug build])],  [enable_debug=$enableval],  [enable_debug=no])\nAM_CONDITIONAL([DEBUG_BUILD], [test \"$enable_debug\" = \"yes\"])\ncase \"${{host_os}}\" in\n\tmingw*)\n\t\techo \"Building for mingw32: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_windows=yes\n\t\tAC_SUBST([HW_CFLAGS], [\"-I/usr/x86_64-w64-mingw32/include -static -fstack-protector\"])\n\t\tAC_SUBST([HW_LDFLAGS], [\"-L/usr/x86_64-w64-mingw32/lib\"])\n\t\tAC_SUBST([CCOMP], [\"/usr/bin/x86_64-w64-mingw32-gcc\"])\n\t\tAC_SUBST([OS], [\"w64-mingw32\"])\n\t\tAC_SUBST([TARGET], [\"hello_world.exe\"])\n\t;;\n\tdarwin*)\n\t\tbuild_mac=yes\n\t\techo \"Building for macos: [$host_cpu-$host_vendor-$host_os]\"\n\t\tAC_SUBST([HW_CFLAGS], [\"-I/opt/homebrew/opt/ncurses/include\"])\n\t\tAC_SUBST([HW_LDFLAGS], [\"-L/opt/homebrew/opt/ncurses/lib\"])\n\t\tAC_SUBST([OS], [\"darwin\"])\n\t\tAC_SUBST([TARGET], [\"hello_world\"])\n\t;;\n\tlinux*)\n\t\techo \"Building for Linux: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_linux=yes\n\t\tAC_SUBST([HW_CFLAGS], [\"\"])\n\t\tAC_SUBST([HW_LDFLAGS], [\"\"])\n\t\tAC_SUBST([OS], [\"Linux\"])\n\t\tAC_SUBST([TARGET], [\"hello_world\"])\n\t;;\nesac\n\nAM_CONDITIONAL([DARWIN_BUILD], [test \"$build_mac\" = \"yes\"])\nAM_CONDITIONAL([WINDOWS_BUILD], [test \"$build_windows\" = \"yes\"])\nAM_CONDITIONAL([LINUX_BUILD], [test \"$build_linux\" = \"yes\"])\n\nAC_ARG_VAR([VERSION], [Version number])\nif test -z \"$VERSION\"; then\n  VERSION=\"0.1.0\"\nfi\nAC_DEFINE_UNQUOTED([VERSION], [\"$VERSION\"], [Version number])\nAC_CHECK_PROGS([CCOMP], [gcc clang])\nAC_CHECK_HEADERS([stdio.h])\nAC_CHECK_FUNCS([malloc calloc])\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n");
+                    let configureac_string = format!("# Generated by invil v{INVIL_VERSION}\nAC_INIT([{}], [0.1.0], [email@example.com])\nAM_INIT_AUTOMAKE([foreign -Wall])\nAC_CANONICAL_HOST\nbuild_linux=no\nbuild_windows=no\nbuild_mac=no\necho \"Host os:  $host_os\"\n\nAC_ARG_ENABLE([debug],  [AS_HELP_STRING([--enable-debug], [Enable debug build])],  [enable_debug=$enableval],  [enable_debug=no])\nAM_CONDITIONAL([DEBUG_BUILD], [test \"$enable_debug\" = \"yes\"])\ncase \"${{host_os}}\" in\n\tmingw*)\n\t\techo \"Building for mingw32: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_windows=yes\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"-I/usr/x86_64-w64-mingw32/include -static -fstack-protector\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"-L/usr/x86_64-w64-mingw32/lib\"])\n\t\tAC_SUBST([CCOMP], [\"/usr/bin/x86_64-w64-mingw32-gcc\"])\n\t\tAC_SUBST([OS], [\"w64-mingw32\"])\n\t\tAC_SUBST([TARGET], [\"{}.exe\"])\n\t;;\n\tdarwin*)\n\t\tbuild_mac=yes\n\t\techo \"Building for macos: [$host_cpu-$host_vendor-$host_os]\"\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"-I/opt/homebrew/opt/ncurses/include\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"-L/opt/homebrew/opt/ncurses/lib\"])\n\t\tAC_SUBST([OS], [\"darwin\"])\n\t\tAC_SUBST([TARGET], [\"{}\"])\n\t;;\n\tlinux*)\n\t\techo \"Building for Linux: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_linux=yes\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"\"])\n\t\tAC_SUBST([OS], [\"Linux\"])\n\t\tAC_SUBST([TARGET], [\"{}\"])\n\t;;\nesac\n\nAM_CONDITIONAL([DARWIN_BUILD], [test \"$build_mac\" = \"yes\"])\nAM_CONDITIONAL([WINDOWS_BUILD], [test \"$build_windows\" = \"yes\"])\nAM_CONDITIONAL([LINUX_BUILD], [test \"$build_linux\" = \"yes\"])\n\nAC_ARG_VAR([VERSION], [Version number])\nif test -z \"$VERSION\"; then\n  VERSION=\"0.1.0\"\nfi\nAC_DEFINE_UNQUOTED([VERSION], [\"$VERSION\"], [Version number])\nAC_CHECK_PROGS([CCOMP], [gcc clang])\nAC_CHECK_HEADERS([stdio.h])\nAC_CHECK_FUNCS([malloc calloc])\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n", dir_basename, dir_basename, dir_basename, dir_basename);
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", configureac_string);
@@ -1545,6 +1573,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
         enable_extensions: true,
         anvil_kern: AnvilKern::AmbosoC,
+        #[cfg(feature = "anvilPy")]
         anvilpy_env: None,
     };
 
@@ -1698,6 +1727,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     }
 
     match anvil_env.anvil_kern {
+        #[cfg(feature = "anvilPy")]
         AnvilKern::AnvilPy => {
             let mut skip_pyparse = false;
             match args.strict {
@@ -1730,6 +1760,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             }
         }
         AnvilKern::AmbosoC => {}
+        #[cfg(not(feature = "anvilPy"))]
+        _ => {
+            if let AnvilKern::AnvilPy = anvil_env.anvil_kern {
+                // Handle AnvilPy case when the feature is not enabled
+                error!("AnvilPy kern feature is not enabled");
+                return Err("AnvilPy kern feauture is not enabled".to_string());
+            } else {
+                error!("Unexpected anvil kern");
+                return Err("Unexpected anvil kern".to_string());
+            }
+        }
     }
 
     match args.gen_c_header {
@@ -2217,6 +2258,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
             enable_extensions: true,
             anvil_kern: AnvilKern::AmbosoC,
+            #[cfg(feature = "anvilPy")]
             anvilpy_env: None,
         };
 

@@ -15,6 +15,7 @@
 mod core;
 mod ops;
 mod utils;
+#[cfg(feature = "anvilPy")]
 mod anvil_py;
 
 #[macro_use] extern crate log;
@@ -52,6 +53,11 @@ fn main() -> ExitCode {
     if args.version {
         if args.verbose > 3 {
             println!("invil, v{} (Compat: v{})",INVIL_VERSION, args.anvil_version.expect("Failed initialising anvil_version"));
+            if cfg!(feature = "anvilPy") {
+                println!("Experimental anvilPy support is enabled.");
+            } else {
+                println!("Experimental anvilPy support is NOT enabled.");
+            }
         } else {
             println!("{}",INVIL_VERSION);
         }
