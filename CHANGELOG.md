@@ -1,11 +1,11 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.10] - 2024-04-13
 
 ### Changed
 
 - Moved anvilPy code behind a feature
-- Updated init subcommand to use the passed directory's basename for the target exe
+- Updated init subcommand to use the passed directory basename for the target
 
 ## [0.2.9] - 2024-03-26
 
