@@ -5,6 +5,7 @@
 ### Changed
 
 - Moved anvilPy code behind a feature
+- Updated init subcommand to use the passed directory's basename for the target exe
 
 ## [0.2.9] - 2024-03-26
 
