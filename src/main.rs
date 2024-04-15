@@ -152,7 +152,7 @@ fn main() -> ExitCode {
 
     match args.command {
         Some(Commands::Init { init_dir }) => {
-            return handle_init_subcommand(init_dir);
+            return handle_init_subcommand(init_dir, args.strict);
         }
         Some(Commands::Version) => {
             println!("{INVIL_VERSION}\n");
