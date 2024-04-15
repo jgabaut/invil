@@ -1222,7 +1222,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
     }
 }
 
-pub fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
+pub fn handle_init_subcommand(init_dir: Option<PathBuf>, strict: bool) -> ExitCode {
     match init_dir {
         Some(target) => {
             debug!("Passed dir to init: {}", target.display());
@@ -1232,28 +1232,36 @@ pub fn handle_init_subcommand(init_dir: Option<PathBuf>) -> ExitCode {
                     let repo_workdir = repo.workdir().expect("Repo should not be bare");
                     info!("Created git repo at {{{}}}", repo_workdir.display());
 
-                    let dir_basename_osstr;
-                    match repo_workdir.file_name() {
-                        Some(d) => {
-                            dir_basename_osstr = d;
+                    let dir_basename;
+                    let caps_dir_basename;
+                    if strict {
+                        debug!("Doing string init, using \"hello_world\" as target bin name");
+                        dir_basename = "hello_world";
+                        caps_dir_basename = "HW_".to_string();
+                    } else {
+                        let dir_basename_osstr;
+                        match repo_workdir.file_name() {
+                            Some(d) => {
+                                dir_basename_osstr = d;
+                            }
+                            None => {
+                                error!("Failed to get base name for {{{}}}", repo_workdir.display());
+                                return ExitCode::FAILURE;
+                            }
                         }
-                        None => {
-                            error!("Failed to get base name for {{{}}}", repo_workdir.display());
-                            return ExitCode::FAILURE;
+
+                        match dir_basename_osstr.to_str() {
+                            Some(s) => {
+                                dir_basename = s;
+                            }
+                            None => {
+                                error!("Failed converting {{{}}} to string. May contain invalid Unicode.", repo_workdir.display());
+                                return ExitCode::FAILURE;
+                            }
                         }
+                        caps_dir_basename = dir_basename.to_uppercase();
                     }
 
-                    let dir_basename;
-                    match dir_basename_osstr.to_str() {
-                        Some(s) => {
-                            dir_basename = s;
-                        }
-                        None => {
-                            error!("Failed converting {{{}}} to string. May contain invalid Unicode.", repo_workdir.display());
-                            return ExitCode::FAILURE;
-                        }
-                    }
-                    let caps_dir_basename = dir_basename.to_uppercase();
                     let mut src = target.clone();
                     src.push("src");
                     let mut bin = target.clone();

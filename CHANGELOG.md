@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Handle --strict with init subcommand
+
 ## [0.2.10] - 2024-04-13
 
 ### Changed
