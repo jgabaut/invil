@@ -5,6 +5,7 @@
 ### Changed
 
 - Handle --strict with init subcommand
+- Bump expected amboso version to 2.0.6
 
 ## [0.2.10] - 2024-04-13
 
