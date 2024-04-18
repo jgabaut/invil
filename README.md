@@ -16,16 +16,16 @@
 
   This is a Rust port of [amboso](https://github.com/jgabaut/amboso), a basic build tool wrapping make and supporting git tags.
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.5`.
-  Check the [next section](#supported_amboso) for more support info.
-  Check [this section](#extended_amboso) for info about extensions to `amboso 2.0.4`.
-
   Invil can be used to:
   - Automate building a repo-curated list of git tagged versions (or also basic tagged versions with a full directory copy).
     - Ideally, the build command should be as short as `invil build`.
   - Run tests for a repo-curated directory with output comparison.
   - Generate new projects supporting the build tool using `invil init <DIR>`
   - Generate a basic header+impl containing project info, such as time of current commit
+
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.6`.
+  Check the [next section](#supported_amboso) for more support info.
+  Check [this section](#extended_amboso) for info about extensions to `amboso 2.0.4`.
 
   At the moment, only C projects are supported.
     - Check [this section](#extended_amboso) for info about the WIP `python` support.
