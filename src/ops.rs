@@ -790,16 +790,30 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
                         if matching == stderr_record.as_bytes().len() && matching == output.stderr.len() {
                             info!("Stderr matched!");
                         } else {
-                            warn!("Stderr did not match!");
-                            warn!("Expected: {{\"\n{}\"}}", stderr_record);
-                            match std::str::from_utf8(&output.stderr) {
-                                Ok(v) => {
-                                    info!("Found: {{\"\n{}\"}}", v);
-                                    return Err("Stderr mismatch".to_string());
+                            if record {
+                                info!("Recording stderr");
+                                let write_res = fs::write(stderr_record_path,output.stderr);
+                                match write_res {
+                                    Ok(_) => {
+                                        debug!("Recorded stderr");
+                                    }
+                                    Err(e) => {
+                                        error!("Failed recording stderr. Err: {e}");
+                                        return Err("Failed recording stderr".to_string());
+                                    }
                                 }
-                                Err(e) => {
-                                    error!("Failed parsing output.stderr. Err: {e}");
-                                    return Err("Failed parsing output.stderr".to_string());
+                            } else {
+                                warn!("Stderr did not match!");
+                                warn!("Expected: {{\"\n{}\"}}", stderr_record);
+                                match std::str::from_utf8(&output.stderr) {
+                                    Ok(v) => {
+                                        info!("Found: {{\"\n{}\"}}", v);
+                                        return Err("Stderr mismatch".to_string());
+                                    }
+                                    Err(e) => {
+                                        error!("Failed parsing output.stderr. Err: {e}");
+                                        return Err("Failed parsing output.stderr".to_string());
+                                    }
                                 }
                             }
                         }
