@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.13] - 2024-04-27
+
+### Fixed
+
+- Test mode actually records test when -b is passed
+
 ## [0.2.12] - 2024-04-19
 
 ### Fixed

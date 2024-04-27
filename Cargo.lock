@@ -253,7 +253,7 @@ dependencies = [
 
 [[package]]
 name = "invil"
-version = "0.2.13-dev"
+version = "0.2.13"
 dependencies = [
  "clap",
  "flate2",
