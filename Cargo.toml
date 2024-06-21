@@ -24,7 +24,7 @@ anvilPy = ["dep:flate2", "dep:tar", "dep:url"]
 
 [dependencies]
 clap = { version = "4.5.7", features = ["derive"] }
-flate2 = { version = "1.0.28", optional = true }
+flate2 = { version = "1.0.30", optional = true }
 git2 = "0.18.3"
 is_executable = "1.0.1"
 log = "0.4.21"
