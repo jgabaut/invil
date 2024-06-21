@@ -35,8 +35,8 @@
   - Make mode: for all tags higher than the version specified as providing make support, `invil` will expect a ready `Makefile` that correctly builds the target binary when `make` is called.
   - Automake mode: for all tags higher than the version specified as providing automake support, `invil` will expect a `Makefile.am` and a `configure.ac`, so that a `Makefile` with the same assumptions as Make mode can be generated.
 
-  For more information on the `stego.lock` file, see the [amboso info](https://github.com/jgabaut/amboso#stego) about it. Better documentation should come.
-
+  For more information on the `stego.lock` file, see the [amboso info](https://github.com/jgabaut/amboso#stego) about it.
+  For more information on the `anvil` tool, see the [amboso wiki](https://github.com/jgabaut/amboso/wiki). Work in progress.
 
 ## Supported amboso features <a name = "supported_amboso"></a>
 
