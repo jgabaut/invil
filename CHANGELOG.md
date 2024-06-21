@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.14] - Unreleased
+
+### Changed
+
+- Ignore untracked files for git check, to match amboso behaviour
+- Bump dependencies
+- Use dep: syntax to hide implicit features
+
 ## [0.2.13] - 2024-04-27
 
 ### Fixed

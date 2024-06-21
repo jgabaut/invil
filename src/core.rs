@@ -693,11 +693,17 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
                 Ok(s) => {
                     for entry in s.iter() {
                         match entry.status() {
-                            Status::WT_MODIFIED | Status::WT_NEW | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
+                            Status::WT_MODIFIED | Status::INDEX_MODIFIED | Status::INDEX_NEW => {
                                 // There are uncommitted changes
                                 info!("Uncommitted changes:");
                                 info!("  {}", entry.path().unwrap());
                                 return Ok(false);
+                            }
+                            Status::WT_NEW => {
+                                // Untracked files are ignored, after 0.2.14,
+                                // to behave like amboso.
+                                debug!("Untracked entry found:");
+                                debug!("  {}", entry.path().unwrap());
                             }
                             _ => (),
                         }
