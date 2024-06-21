@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.14] - Unreleased
+
+### Changed
+
+- Bump dependencies
+
 ## [0.2.13] - 2024-04-27
 
 ### Fixed
