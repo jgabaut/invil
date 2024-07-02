@@ -119,7 +119,6 @@
 
   - [x] Turn off extensions with `-e, --strict`
   - [x] Ignore missing repo in current work dir
-  - [x] Try checking ./stego.lock when amboso_dir is not found
   - [x] `-a` to set compatibility level
   - [x] `-k` to set project type
   - [x] `-O` to set stego.lock dir (defaults to working directory)

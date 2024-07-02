@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.15] - Unreleased
+
+### Changed
+
+- Removed mention of an extension from README, since it was dropped in a previous patch
+- Bump deps
+
 ## [0.2.14] - 2024-06-21
 
 ### Changed
