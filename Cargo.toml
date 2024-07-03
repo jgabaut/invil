@@ -15,6 +15,7 @@ exclude = [
     "bin/",
     "stego.lock",
     "kazoj",
+    "bench",
 ]
 
 [features]
