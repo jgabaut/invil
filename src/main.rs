@@ -46,10 +46,6 @@ fn main() -> ExitCode {
 
     let log_level;
 
-    if args.warranty {
-        print_warranty_info();
-    }
-
     if args.version {
         if args.verbose > 3 {
             println!("invil, v{} (Compat: v{})",INVIL_VERSION, args.anvil_version.expect("Failed initialising anvil_version"));
@@ -148,6 +144,10 @@ fn main() -> ExitCode {
     let invil_splash: String = format!("{}, version {}\nCopyright (C) 2023-2024  jgabaut\n\n  This program comes with ABSOLUTELY NO WARRANTY; for details type `{} -W`.\n  This is free software, and you are welcome to redistribute it\n  under certain conditions; see file `LICENSE` for details.\n\n  Full source is available at https://github.com/jgabaut/invil\n", INVIL_NAME, INVIL_VERSION, prog_name().expect("Could not determine program name"));
     if ! args.quiet {
         println!("{}", invil_splash);
+    }
+
+    if args.warranty {
+        print_warranty_info();
     }
 
     match args.command {
