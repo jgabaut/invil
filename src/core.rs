@@ -48,7 +48,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.6";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.7";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -58,6 +58,7 @@ pub const MIN_AMBOSO_V_PYKERN: &str = "2.1.0";
 pub const MIN_AMBOSO_V_SKIPRETRYSTEGO: &str = "2.0.4";
 pub const MIN_AMBOSO_V_DENY_ANVILPY: &str = "2.0.5";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
+pub const ANVIL_DEFAULT_CONF_PATH: &str = ".anvil/anvil.toml";
 pub const RULELINE_MARK_CHAR: char = '\t';
 pub const RULE_REGEX: &str = "^([[:graph:]^:]+:){1,1}([[:space:]]*[[:graph:]]*)*$";
 pub const RULEWARN_REGEX: &str = "^ +";
@@ -346,6 +347,14 @@ pub struct AmbosoEnv {
     /// Optional AnvilPyEnv, only used when anvil_kern is AnvilPy
     #[cfg(feature = "anvilPy")]
     pub anvilpy_env: Option<AnvilPyEnv>,
+}
+
+pub struct AmbosoConf {
+    /// Anvil kern
+    pub anvil_kern: AnvilKern,
+
+    /// Anvil version we run as
+    pub anvil_version: String,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -954,6 +963,124 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
     }
 }
 
+pub fn parse_invil_toml(invil_path: &PathBuf) -> Result<AmbosoConf, String> {
+    let start_time = Instant::now();
+    debug!("Checking global config file at {}", invil_path.display());
+    let invil = fs::read_to_string(invil_path).expect("Could not read anvil_conf.toml contents");
+    return parse_invil_tomlvalue(&invil, start_time);
+}
+
+fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoConf, String> {
+    let toml_value = invil_str.parse::<Table>();
+    match toml_value {
+        Ok(y) => {
+            let mut anvil_conf: AmbosoConf = AmbosoConf {
+                anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
+                anvil_kern: AnvilKern::AmbosoC,
+            };
+            if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
+                if let Some(anvil_version) = anvil_table.get(ANVIL_VERSION_KEYNAME) {
+                    let anvil_v_str = anvil_version.as_str().expect("toml conversion failed");
+                    if is_semver(anvil_v_str) {
+                        if anvil_v_str.starts_with("2.0") {
+                            match anvil_v_str {
+                                "2.0.0" => {
+                                    info!("Running as 2.0, turning off extensions");
+                                    anvil_conf.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                "2.0.1" | "2.0.2" | "2.0.3" => {
+                                    info!("Running as <2.0.4");
+                                    anvil_conf.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" => {
+                                    info!("Running as {{{}}}", anvil_v_str);
+                                    anvil_conf.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_conf.anvil_version = format!("{}", anvil_v_str);
+                        } else if anvil_v_str.starts_with("2.1") {
+                            trace!("Accepting preview version from stego.lock");
+                            match anvil_v_str {
+                                "2.1.0" => {
+                                    info!("Running as 2.1 preview");
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
+                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                            anvil_conf.anvil_version = format!("{}", anvil_v_str);
+                        } else {
+                            error!("Invalid anvil_version: {{{anvil_version}}}");
+                            return Err("Invalid anvil_version".to_string());
+                        }
+                    } else {
+                        error!("Invalid anvil_version: {{{}}}", anvil_v_str);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                } else {
+                    debug!("Missing ANVIL_VERSION definition.");
+                }
+
+                match semver_compare(&anvil_conf.anvil_version, MIN_AMBOSO_V_KERN) {
+                    Ordering::Less => {},
+                    Ordering::Equal | Ordering::Greater => {
+                        if let Some(anvil_kern) = anvil_table.get(ANVIL_KERN_KEYNAME) {
+                            match anvil_kern.as_str().expect("toml conversion failed") {
+                                "amboso-C" => {
+                                    anvil_conf.anvil_kern = AnvilKern::AmbosoC;
+                                }
+                                "anvilPy" => {
+                                    match semver_compare(&anvil_conf.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                                        Ordering::Less => {
+                                            error!("Unsupported AnvilKern value: {{{anvil_kern}}}");
+                                            warn!("Try running as >={MIN_AMBOSO_V_PYKERN}");
+                                            warn!("Current anvil_version: {{{}}}", anvil_conf.anvil_version);
+                                            return Err("Unsupported anvil_kern".to_string());
+                                        },
+                                        Ordering::Equal | Ordering::Greater => {
+                                            match semver_compare(&anvil_conf.anvil_version, MIN_AMBOSO_V_DENY_ANVILPY) {
+                                                Ordering::Less => {
+                                                    return Err("Unsupported anvil_kern".to_string());
+                                                }
+                                                Ordering::Equal | Ordering::Greater => {
+                                                    warn!("The AnvilPy kern is experimental. Be careful.");
+                                                    anvil_conf.anvil_kern = AnvilKern::AnvilPy;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    error!("Invalid AnvilKern value: {{{anvil_kern}}}");
+                                    return Err("Invalid anvil_kern".to_string());
+                                }
+                            }
+                        } else {
+                            debug!("Missing ANVIL_KERN definition.");
+                        }
+                    }
+                }
+            } else {
+                debug!("Missing ANVIL section.");
+            }
+            return Ok(anvil_conf);
+        }
+        Err(e) => {
+            let elapsed = start_time.elapsed();
+            debug!("Done parsing anvil.toml. Elapsed: {:.2?}", elapsed);
+            error!("Failed parsing {{{}}} as TOML. Err: [{e}]", invil_str);
+            return Err("Failed parsing TOML".to_string());
+        }
+    }
+}
+
 pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
@@ -1024,7 +1151,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                     info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" | "2.0.5" | "2.0.6" => {
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
@@ -1609,7 +1736,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             info!("Running as {}", x.as_str());
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
-                        "2.0.4" | "2.0.5" | "2.0.6" => {
+                        "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" => {
                             info!("Running as {}", x.as_str());
                         }
                         _ => {
@@ -1714,6 +1841,38 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         }
     }
 
+    //Get AmbosoConf
+    //
+    if !args.strict {
+        let user_home_dir = dirs::home_dir();
+        match user_home_dir {
+            Some(_) => {},
+            None => {
+                error!("Could not retrieve user's home directory");
+                return Err("Could not find $HOME".to_string());
+            }
+        }
+        let mut invil_conf_path = PathBuf::from(user_home_dir.expect("Failed getting user's home directory"));
+        invil_conf_path.push(ANVIL_DEFAULT_CONF_PATH);
+        let res = parse_invil_toml(&invil_conf_path);
+        match res {
+            Ok(c) => {
+                match args.anvil_version {
+                    Some(_) => {},
+                    None => { args.anvil_version = Some(c.anvil_version);},
+                }
+                match args.anvil_kern {
+                    Some(_) => {},
+                    None => { args.anvil_kern = Some(c.anvil_kern.to_string()); },
+                }
+            }
+            Err(e) => {
+                error!("Failed parsing anvil config file.");
+                return Err(e.to_string());
+            }
+        }
+    }
+
     //Check amboso_dir arg
     match args.amboso_dir {
         Some(ref x) => {
@@ -1725,6 +1884,12 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     debug!("Check pass: amboso_dir");
                     if override_stego_anvil_version {
                         a.anvil_version = anvil_env.anvil_version;
+                    }
+                    match a.stego_dir {
+                        Some(ref p) => {
+                            debug!("{}", format!("stego_dir: {}", p.display()));
+                        }
+                        None => {},
                     }
                     anvil_env = a;
                 }
