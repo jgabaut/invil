@@ -895,9 +895,9 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                         }
                     }
                 }
-                Err(e) => {
-                    error!("Failed getting {target_tag}");
-                    return Err(e.to_string());
+                Err(_) => {
+                    error!("{}", format!("Failed getting {target_tag}"));
+                    return Err(format!("Failed getting tag {{{target_tag}}}"));
                 }
             }
         }
