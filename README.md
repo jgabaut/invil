@@ -122,6 +122,9 @@
   - [x] `-a` to set compatibility level
   - [x] `-k` to set project type
   - [x] `-O` to set stego.lock dir (defaults to working directory)
+  - [x] Retrocompatible `stego.lock` parsing, up to `1.7.x`
+  - [x] Init subcommand uses passed directory's basename for flags
+  - [x] Read global config file from `$HOME/.anvil/anvil.toml`
 
 ## Extended amboso features <a name = "extended_amboso"></a>
 

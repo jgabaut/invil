@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "invil"
-version = "0.2.17-dev"
+version = "0.2.17"
 dependencies = [
  "clap",
  "dirs",
