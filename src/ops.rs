@@ -857,41 +857,47 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
     }
     match repo {
         Ok(r) => {
-            let head = r.head();
-            match head {
-                Ok(head) => {
-                    let commit = head.peel_to_commit();
-                    match commit {
-                       Ok(commit) => {
-                           if let Some(msg) = commit.message() {
-                               info!("Commit message: {{{}}}", msg);
-                               commit_message = msg.escape_default().to_string();
-                           }
-                           id = commit.id().to_string();
-                           info!("Commit id: {{{}}}", id);
-                           let author = commit.author();
-                           let name = author.name();
-                           match name {
-                              Some(name) => {
-                                   head_author_name = name.to_string();
-                                   info!("Commit author: {{{}}}", head_author_name);
+            let lookup_name = format!("refs/tags/{}", target_tag);
+            let reference = r.find_reference(&lookup_name);
+            match reference {
+                Ok(refr) => {
+                    if !refr.is_tag() {
+                        error!("{target_tag} is not a reference");
+                        return Err("ERROR".to_string());
+                    } else {
+                        let commit = refr.peel_to_commit();
+                        match commit {
+                            Ok(commit) => {
+                               if let Some(msg) = commit.message() {
+                                   info!("Commit message: {{{}}}", msg);
+                                   commit_message = msg.escape_default().to_string();
                                }
-                               None => {
-                                   warn!("Commit author is empty: {}", head_author_name);
-                               }
+                               id = commit.id().to_string();
+                               info!("Commit id: {{{}}}", id);
+                               let author = commit.author();
+                               let name = author.name();
+                               match name {
+                                  Some(name) => {
+                                       head_author_name = name.to_string();
+                                       info!("Commit author: {{{}}}", head_author_name);
+                                   }
+                                   None => {
+                                       warn!("Commit author is empty: {}", head_author_name);
+                                   }
+                                }
+                                commit_time = commit.time().seconds();
+                                info!("Commit time: {{{}}}", commit_time);
+                                   }
+                            Err(e) => {
+                                       error!("Failed peel to head commit for {{{}}}. Err: {e}", target_path.display());
+                                       return Err("Failed peel to head commit for repo".to_string());
                             }
-                            commit_time = commit.time().seconds();
-                            info!("Commit time: {{{}}}", commit_time);
-                               }
-                               Err(e) => {
-                                   error!("Failed peel to head commit for {{{}}}. Err: {e}", target_path.display());
-                                   return Err("Failed peel to head commit for repo".to_string());
-                               }
-                            }
+                        }
+                    }
                 }
-                Err(e) => {
-                    error!("Failed getting head for {{{}}}. Err: {e}", target_path.display());
-                    return Err("Failed getting head for repo".to_string());
+                Err(_) => {
+                    error!("{}", format!("Failed getting {target_tag}"));
+                    return Err(format!("Failed getting tag {{{target_tag}}}"));
                 }
             }
         }

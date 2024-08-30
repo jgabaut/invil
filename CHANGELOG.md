@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.17] - 2024-08-29
+
+### Added
+
+- Read global config file from $HOME/.anvil/anvil.toml
+
+### Changed
+
+- Fix C header generation not using passed tag's info
+- Bump expected amboso version to 2.0.7
+
+## [0.2.16] - 2024-08-10
+
+### Changed
+
+- Print warranty info after version splash
+- Bump deps
+
 ## [0.2.15] - 2024-07-03
 
 ### Changed
