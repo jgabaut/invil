@@ -1085,10 +1085,13 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
-    let mut stego_dir = stego_path.clone().canonicalize().expect("Could not canonicalize {stego_path} contents");
+    let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
         error!("Failed pop for {{{}}}", stego_dir.display());
         return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
+    }
+    if stego_dir.to_str().expect("Could not stringify {stego_path}") == "" {
+        stego_dir = PathBuf::from(".");
     }
     if stego_dir.exists() {
         trace!("Setting ANVIL_STEGODIR to {{{}}}", stego_dir.display());
@@ -2256,10 +2259,13 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
-    let mut stego_dir = stego_path.clone().canonicalize().expect("Could not canonicalize {stego_path} contents");
+    let mut stego_dir = stego_path.clone();
     if ! stego_dir.pop() {
         error!("Failed pop for {{{}}}", stego_dir.display());
         return Err("Unexpected stego_dir value: {{{stego_dir.display()}}}".to_string());
+    }
+    if stego_dir.to_str().expect("Could not stringify {stego_path}") == "" {
+        stego_dir = PathBuf::from(".");
     }
     if stego_dir.exists() {
         info!("ANVIL_BINDIR = {{{}}}", stego_dir.display());
