@@ -2256,7 +2256,7 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
-    let mut stego_dir = stego_path.clone();
+    let mut stego_dir = stego_path.clone().canonicalize().expect("Could not canonicalize {stego_path} contents");
     if ! stego_dir.pop() {
         error!("Failed pop for {{{}}}", stego_dir.display());
         return Err("Unexpected stego_dir value: {{{stego_dir.display()}}}".to_string());
