@@ -204,7 +204,7 @@ fn main() -> ExitCode {
                             debug!("{s}");
                         }
                         _ => {
-                            info!("{s}");
+                            debug!("{s}");
                         }
                     }
                     return ExitCode::SUCCESS;
