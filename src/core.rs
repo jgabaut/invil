@@ -1085,7 +1085,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
-    let mut stego_dir = stego_path.clone();
+    let mut stego_dir = stego_path.clone().canonicalize().expect("Could not canonicalize {stego_path} contents");
     if ! stego_dir.pop() {
         error!("Failed pop for {{{}}}", stego_dir.display());
         return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
