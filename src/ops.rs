@@ -1035,7 +1035,7 @@ fn try_lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
 }
 
 pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> Result<String,String> {
-    info!("Linter for file: {{{}}}", stego_path.display());
+    debug!("Linter for file: {{{}}}", stego_path.display());
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
         match lint_mode {
@@ -1064,8 +1064,21 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
             AmbosoLintMode::FullCheck => {
                 let res = parse_stego_toml(stego_path, &PathBuf::from(""));
                 match res {
-                    Ok(_) => {
+                    Ok(r) => {
                         info!("Lint successful for {{{}}}.", stego_path.display());
+                        println!("ANVIL_AUTOMAKE_VERS: {{{}}}", r.mintag_automake.unwrap_or("".to_string()));
+                        println!("ANVIL_MAKE_VERS: {{{}}}", r.mintag_make.unwrap_or("".to_string()));
+                        println!("ANVIL_BIN: {{{}}}", r.bin.unwrap_or("".to_string()));
+                        println!("ANVIL_SOURCE: {{{}}}", r.source.unwrap_or("".to_string()));
+                        println!("ANVIL_TESTDIR: {{{}}}", r.tests_dir.unwrap_or(PathBuf::from("")).display());
+                        println!("ANVIL_BONE_DIR: {{{}}}", r.bonetests_dir.unwrap_or(PathBuf::from("")).display());
+                        println!("ANVIL_KULPO_DIR: {{{}}}", r.kulpotests_dir.unwrap_or(PathBuf::from("")).display());
+                        for bv in r.basemode_versions_table {
+                            println!("ANVIL_BASE_VERSION: {{{}}}", bv.0);
+                        }
+                        for v in r.gitmode_versions_table {
+                            println!("ANVIL_GIT_VERSION: {{{}}}", v.0);
+                        }
                         return Ok("Full linter check success".to_string());
                     }
                     Err(e) => {
@@ -1078,7 +1091,7 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
                 let res = lex_stego_toml(stego_path);
                 match res {
                     Ok(_) => {
-                        info!("Lex successful for {{{}}}.", stego_path.display());
+                        debug!("Lex successful for {{{}}}.", stego_path.display());
                         return Ok("Linter lex check success".to_string());
                     }
                     Err(e) => {
