@@ -2267,7 +2267,28 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
                 if let Some(table) = y.get(t.0).and_then(|v| v.as_table()) {
                     for key in table.keys() {
                         if let Some(val) = table.get(key) {
-                            println!("Variable: {}_{}, Value: {}", t.0, key, val);
+                            if val.is_str() {
+                                println!("Variable: {}_{}, Value: {}", t.0, key, val);
+                            } else if val.is_array() {
+                                println!("Array: {}_{}, Name: {}", t.0, key, key);
+                                for (i, inner_v) in val.as_array().expect("Failed parsing array").iter().enumerate() {
+                                    if inner_v.is_str() {
+                                        println!("Arrvalue: {}_{}[{}], Value: {}", t.0, key, i, inner_v);
+                                    }
+                                }
+                            } else if val.is_table() {
+                                println!("Struct: {}_{}, Name: {}", t.0, key, key);
+                                let tab = val.as_table().expect("Failed parsing table");
+                                for inner_k in tab.keys() {
+                                    if let Some(inner_v) = tab.get(inner_k) {
+                                        if inner_v.is_str() {
+                                            println!("Structvalue: {}_{}_{}, Value: {}", t.0, key, inner_k, inner_v);
+                                        }
+                                    } else {
+                                        error!("Could not parse inner key {inner_k} for table {key}")
+                                    }
+                                }
+                            }
                         } else {
                             error!("Could not parse {key}");
                         }
