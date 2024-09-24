@@ -966,8 +966,16 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
 pub fn parse_invil_toml(invil_path: &PathBuf) -> Result<AmbosoConf, String> {
     let start_time = Instant::now();
     debug!("Checking global config file at {}", invil_path.display());
-    let invil = fs::read_to_string(invil_path).expect("Could not read anvil_conf.toml contents");
-    return parse_invil_tomlvalue(&invil, start_time);
+    let invil = fs::read_to_string(invil_path);
+    match invil {
+        Ok(i) => {
+            return parse_invil_tomlvalue(&i, start_time);
+        },
+        Err(e) => {
+            error!("Could not read anvil_conf.toml contents");
+            return Err(e.to_string());
+        },
+    }
 }
 
 fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoConf, String> {
@@ -1857,22 +1865,26 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         }
         let mut invil_conf_path = PathBuf::from(user_home_dir.expect("Failed getting user's home directory"));
         invil_conf_path.push(ANVIL_DEFAULT_CONF_PATH);
-        let res = parse_invil_toml(&invil_conf_path);
-        match res {
-            Ok(c) => {
-                match args.anvil_version {
-                    Some(_) => {},
-                    None => { args.anvil_version = Some(c.anvil_version);},
+        if invil_conf_path.exists() {
+            let res = parse_invil_toml(&invil_conf_path);
+            match res {
+                Ok(c) => {
+                    match args.anvil_version {
+                        Some(_) => {},
+                        None => { args.anvil_version = Some(c.anvil_version);},
+                    }
+                    match args.anvil_kern {
+                        Some(_) => {},
+                        None => { args.anvil_kern = Some(c.anvil_kern.to_string()); },
+                    }
                 }
-                match args.anvil_kern {
-                    Some(_) => {},
-                    None => { args.anvil_kern = Some(c.anvil_kern.to_string()); },
+                Err(e) => {
+                    error!("Failed parsing anvil config file.");
+                    return Err(e.to_string());
                 }
             }
-            Err(e) => {
-                error!("Failed parsing anvil config file.");
-                return Err(e.to_string());
-            }
+        } else {
+            debug!("Could not read global conf from {{{}}}", invil_conf_path.display());
         }
     }
 
