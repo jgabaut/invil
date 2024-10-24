@@ -2271,6 +2271,7 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
+    let allow_nonstr_values = false;
     match toml_value {
         Ok(y) => {
             trace!("Toml value: {{{}}}", y);
@@ -2281,25 +2282,29 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
                         if let Some(val) = table.get(key) {
                             if val.is_str() {
                                 println!("Variable: {}_{}, Value: {}", t.0, key, val);
-                            } else if val.is_array() {
-                                println!("Array: {}_{}, Name: {}", t.0, key, key);
-                                for (i, inner_v) in val.as_array().expect("Failed parsing array").iter().enumerate() {
-                                    if inner_v.is_str() {
-                                        println!("Arrvalue: {}_{}[{}], Value: {}", t.0, key, i, inner_v);
-                                    }
-                                }
-                            } else if val.is_table() {
-                                println!("Struct: {}_{}, Name: {}", t.0, key, key);
-                                let tab = val.as_table().expect("Failed parsing table");
-                                for inner_k in tab.keys() {
-                                    if let Some(inner_v) = tab.get(inner_k) {
+                            } else if allow_nonstr_values {
+                                if val.is_array() {
+                                    println!("Array: {}_{}, Name: {}", t.0, key, key);
+                                    for (i, inner_v) in val.as_array().expect("Failed parsing array").iter().enumerate() {
                                         if inner_v.is_str() {
-                                            println!("Structvalue: {}_{}_{}, Value: {}", t.0, key, inner_k, inner_v);
+                                            println!("Arrvalue: {}_{}[{}], Value: {}", t.0, key, i, inner_v);
                                         }
-                                    } else {
-                                        error!("Could not parse inner key {inner_k} for table {key}")
+                                    }
+                                } else if val.is_table() {
+                                    println!("Struct: {}_{}, Name: {}", t.0, key, key);
+                                    let tab = val.as_table().expect("Failed parsing table");
+                                    for inner_k in tab.keys() {
+                                        if let Some(inner_v) = tab.get(inner_k) {
+                                            if inner_v.is_str() {
+                                                println!("Structvalue: {}_{}_{}, Value: {}", t.0, key, inner_k, inner_v);
+                                            }
+                                        } else {
+                                            error!("Could not parse inner key {inner_k} for table {key}")
+                                        }
                                     }
                                 }
+                            } else {
+                                debug!("Value was not a string and was skipped: {val}");
                             }
                         } else {
                             error!("Could not parse {key}");
