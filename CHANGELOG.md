@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.18] - 2024-10-24
+
+### Changed
+
+- Fix: avoid error on relative paths with no `./` for `-x`, `-Lx`
+- Fix: don't try parsing global conf when file doesn't exist
+- Bump `EXPECTED_AMBOSO_API_LEVEL` to `2.0.8`
+
 ## [0.2.17] - 2024-08-29
 
 ### Added

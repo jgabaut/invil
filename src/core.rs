@@ -48,7 +48,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.7";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.8";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -966,8 +966,16 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
 pub fn parse_invil_toml(invil_path: &PathBuf) -> Result<AmbosoConf, String> {
     let start_time = Instant::now();
     debug!("Checking global config file at {}", invil_path.display());
-    let invil = fs::read_to_string(invil_path).expect("Could not read anvil_conf.toml contents");
-    return parse_invil_tomlvalue(&invil, start_time);
+    let invil = fs::read_to_string(invil_path);
+    match invil {
+        Ok(i) => {
+            return parse_invil_tomlvalue(&i, start_time);
+        },
+        Err(e) => {
+            error!("Could not read anvil_conf.toml contents");
+            return Err(e.to_string());
+        },
+    }
 }
 
 fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoConf, String> {
@@ -992,7 +1000,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                     info!("Running as <2.0.4");
                                     anvil_conf.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" => {
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                     anvil_conf.anvil_kern = AnvilKern::AmbosoC;
                                 }
@@ -1090,6 +1098,9 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         error!("Failed pop for {{{}}}", stego_dir.display());
         return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
     }
+    if stego_dir.to_str().expect("Could not stringify {stego_path}") == "" {
+        stego_dir = PathBuf::from(".");
+    }
     if stego_dir.exists() {
         trace!("Setting ANVIL_STEGODIR to {{{}}}", stego_dir.display());
     } else {
@@ -1151,7 +1162,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                     info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" => {
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
@@ -1736,7 +1747,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             info!("Running as {}", x.as_str());
                             args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                         }
-                        "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" => {
+                        "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" => {
                             info!("Running as {}", x.as_str());
                         }
                         _ => {
@@ -1854,22 +1865,26 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         }
         let mut invil_conf_path = PathBuf::from(user_home_dir.expect("Failed getting user's home directory"));
         invil_conf_path.push(ANVIL_DEFAULT_CONF_PATH);
-        let res = parse_invil_toml(&invil_conf_path);
-        match res {
-            Ok(c) => {
-                match args.anvil_version {
-                    Some(_) => {},
-                    None => { args.anvil_version = Some(c.anvil_version);},
+        if invil_conf_path.exists() {
+            let res = parse_invil_toml(&invil_conf_path);
+            match res {
+                Ok(c) => {
+                    match args.anvil_version {
+                        Some(_) => {},
+                        None => { args.anvil_version = Some(c.anvil_version);},
+                    }
+                    match args.anvil_kern {
+                        Some(_) => {},
+                        None => { args.anvil_kern = Some(c.anvil_kern.to_string()); },
+                    }
                 }
-                match args.anvil_kern {
-                    Some(_) => {},
-                    None => { args.anvil_kern = Some(c.anvil_kern.to_string()); },
+                Err(e) => {
+                    error!("Failed parsing anvil config file.");
+                    return Err(e.to_string());
                 }
             }
-            Err(e) => {
-                error!("Failed parsing anvil config file.");
-                return Err(e.to_string());
-            }
+        } else {
+            debug!("Could not read global conf from {{{}}}", invil_conf_path.display());
         }
     }
 
@@ -2256,112 +2271,49 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
-    let mut stego_dir = stego_path.clone();
-    if ! stego_dir.pop() {
-        error!("Failed pop for {{{}}}", stego_dir.display());
-        return Err("Unexpected stego_dir value: {{{stego_dir.display()}}}".to_string());
-    }
-    if stego_dir.exists() {
-        info!("ANVIL_BINDIR = {{{}}}", stego_dir.display());
-    } else {
-        error!("Failed reading ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
-        return Err("Could not get stego_dir from {{{stego_path.display()}}}".to_string());
-    }
+    let allow_nonstr_values = false;
     match toml_value {
         Ok(y) => {
             trace!("Toml value: {{{}}}", y);
-            if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
-                if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
-                    info!("ANVIL_SOURCE: {{{source_name}}}");
-                } else {
-                    error!("Missing ANVIL_SOURCE definition.");
-                    return Err("Missing ANVIL_SOURCE".to_string());
-                }
-                if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
-                    info!("ANVIL_BIN: {{{binary_name}}}");
-                } else {
-                    error!("Missing ANVIL_BIN definition.");
-                    return Err("Missing ANVIL_BIN".to_string());
-                }
-                if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
-                    info!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
-                } else {
-                    error!("Missing ANVIL_MAKE_VERS definition.");
-                    return Err("Missing ANVIL_MAKE".to_string());
-                }
-                if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
-                    info!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
-                } else {
-                    error!("Missing ANVIL_AUTOMAKE_VERS definition.");
-                    return Err("Missing ANVIL_AUTOMAKE_VERS".to_string());
-                }
-                if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
-                    info!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
-                } else {
-                    error!("Missing ANVIL_TESTDIR definition.");
-                    return Err("Missing ANVIL_TESTDIR".to_string());
-                }
-            } else {
-                error!("Missing ANVIL_BUILD section.");
-                return Err("Missing ANVIL_BUILD".to_string());
-            }
-            if let Some(tests_table) = y.get("tests").and_then(|v| v.as_table()) {
-                if let Some(anvil_bonetests_dir) = tests_table.get(ANVIL_BONEDIR_KEYNAME) {
-                    info!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
-                } else {
-                    error!("Missing ANVIL_BONEDIR definition.");
-                    return Err("Missing ANVIL_BONEDIR".to_string());
-                }
-                if let Some(anvil_kulpotests_dir) = tests_table.get(ANVIL_KULPODIR_KEYNAME) {
-                    info!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
-                } else {
-                    error!("Missing ANVIL_KULPODIR definition.");
-                    return Err("Missing ANVIL_KULPODIR".to_string());
-                }
-            } else {
-                warn!("Missing ANVIL_TESTS section.");
-            }
-            if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
-                let mut basemode_versions_table = BTreeMap::new();
-                let mut gitmode_versions_table = BTreeMap::new();
-                let versions_table: BTreeMap<SemVerKey,String> = versions_tab.iter().map(|(key, value)| (SemVerKey(key.to_string()), value.as_str().unwrap().to_string()))
-                    .collect();
-                if versions_table.len() == 0 {
-                    warn!("versions_table is empty.");
-                } else {
-                    for (key, value) in versions_table.iter() {
-                        if key.to_string().starts_with('B') {
-                            let trimmed_key = key.to_string().trim_start_matches('B').to_string();
-                            if ! is_semver(&trimmed_key) {
-                                error!("Invalid semver key: {{{}}}", trimmed_key);
-                                return Err("Invalid semver key".to_string());
-                            }
-                            let ins_res = basemode_versions_table.insert(SemVerKey(trimmed_key.clone()), value.clone());
-                            match ins_res {
-                                None => {},
-                                Some(old) => {
-                                    error!("lex_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", trimmed_key, old, value);
-                                    return Err("Basemode version conflict".to_string());
+            for t in y.iter() {
+                println!("Scope: {}", t.0);
+                if let Some(table) = y.get(t.0).and_then(|v| v.as_table()) {
+                    for key in table.keys() {
+                        if let Some(val) = table.get(key) {
+                            if val.is_str() {
+                                println!("Variable: {}_{}, Value: {}", t.0, key, val);
+                            } else if allow_nonstr_values {
+                                if val.is_array() {
+                                    println!("Array: {}_{}, Name: {}", t.0, key, key);
+                                    for (i, inner_v) in val.as_array().expect("Failed parsing array").iter().enumerate() {
+                                        if inner_v.is_str() {
+                                            println!("Arrvalue: {}_{}[{}], Value: {}", t.0, key, i, inner_v);
+                                        }
+                                    }
+                                } else if val.is_table() {
+                                    println!("Struct: {}_{}, Name: {}", t.0, key, key);
+                                    let tab = val.as_table().expect("Failed parsing table");
+                                    for inner_k in tab.keys() {
+                                        if let Some(inner_v) = tab.get(inner_k) {
+                                            if inner_v.is_str() {
+                                                println!("Structvalue: {}_{}_{}, Value: {}", t.0, key, inner_k, inner_v);
+                                            }
+                                        } else {
+                                            error!("Could not parse inner key {inner_k} for table {key}")
+                                        }
+                                    }
                                 }
+                            } else {
+                                debug!("Value was not a string and was skipped: {val}");
                             }
                         } else {
-                            if ! is_semver(&key.to_string()) {
-                                error!("Invalid semver key: {{{}}}", key);
-                                return Err("Invalid semver key".to_string());
-                            }
-                            let ins_res = gitmode_versions_table.insert(SemVerKey(key.to_string()), value.clone());
-                            match ins_res {
-                                None => {},
-                                Some(old) => {
-                                    error!("lex_stego_toml(): A value was already present for key {{{}}} and was replaced. {{{} => {}}}", key, old, value);
-                                    return Err("Gitmode version conflict".to_string());
-                                }
-                            }
+                            error!("Could not parse {key}");
                         }
                     }
+                } else {
+                    error!("Could not parse {}", t.0);
                 }
-            } else {
-                warn!("Missing ANVIL_VERSIONS section.");
+                println!("----------------------------");
             }
             let elapsed = start_time.elapsed();
             debug!("Done lexing stego.toml. Elapsed: {:.2?}", elapsed);
