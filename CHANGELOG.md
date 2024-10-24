@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.19] - Unreleased
+
+### Changed
+
+- Fix: avoid error on wrong tag for -G, mimicking amboso
+
 ## [0.2.18] - 2024-10-24
 
 ### Changed
