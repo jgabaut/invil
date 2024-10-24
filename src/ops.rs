@@ -841,10 +841,10 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
 pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &String) -> Result<String,String> {
     let repo = Repository::discover(target_path);
     let mut head_author_name = "".to_string();
-    let id;
-    let commit_time;
+    let mut id = "".to_string();
     let mut commit_message = "".to_string();
     let gen_time = SystemTime::now();
+    let mut commit_time = "".to_string();
     let gen_timestamp = gen_time.duration_since(SystemTime::UNIX_EPOCH);
     let mut fgen_time = "".to_string();
     match gen_timestamp {
@@ -885,7 +885,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                                        warn!("Commit author is empty: {}", head_author_name);
                                    }
                                 }
-                                commit_time = commit.time().seconds();
+                                commit_time = commit.time().seconds().to_string();
                                 info!("Commit time: {{{}}}", commit_time);
                                    }
                             Err(e) => {
@@ -896,8 +896,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                     }
                 }
                 Err(_) => {
-                    error!("{}", format!("Failed getting {target_tag}"));
-                    return Err(format!("Failed getting tag {{{target_tag}}}"));
+                    warn!("{}", format!("Failed getting tag {target_tag}"));
                 }
             }
         }
