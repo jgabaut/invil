@@ -28,7 +28,7 @@ clap = { version = "4.5.18", features = ["derive"] }
 dirs = "5.0.1"
 flate2 = { version = "1.0.33", optional = true }
 git2 = "0.19.0"
-is_executable = "1.0.3"
+is_executable = "1.0.4"
 log = "0.4.22"
 regex = "1.10.6"
 simplelog = "0.12.2"
