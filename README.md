@@ -23,7 +23,7 @@
   - Generate new projects supporting the build tool using `invil init <DIR>`
   - Generate a basic header+impl containing project info, such as time of current commit
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.8`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.0.9`.
   Check the [next section](#supported_amboso) for more support info.
   Check [this section](#extended_amboso) for info about extensions to `amboso 2.0.4`.
 
@@ -100,6 +100,7 @@
   - [x] No color: `-P`
   - [x] Force build: `-F`
   - [x] Turn off extensions: `-e` (Only relative to 2.0.0)
+  - [x] Pass CFLAGS to single file build mode: `-Z`
   - [x] Run make when no arguments are provided
 
 
@@ -123,8 +124,9 @@
   - [x] `-k` to set project type
   - [x] `-O` to set stego.lock dir (defaults to working directory)
   - [x] Retrocompatible `stego.lock` parsing, up to `1.7.x`
-  - [x] Init subcommand uses passed directory's basename for flags
+  - [x] Init subcommand uses passed directory's basename for generated flags
   - [x] Read global config file from `$HOME/.anvil/anvil.toml`
+  - [x] `-Z` to pass CFLAGS to single file build mode
 
 ## Extended amboso features <a name = "extended_amboso"></a>
 

@@ -2,9 +2,15 @@
 
 ## [0.2.19] - Unreleased
 
+### Added
+
+- Add -Z to pass CFLAGS to single file build mode
+
 ### Changed
 
 - Fix: avoid error on wrong tag for -G, mimicking amboso
+- Avoid reading CFLAGS from env
+- Bump expected amboso version to 2.0.9
 
 ## [0.2.18] - 2024-10-24
 
@@ -12,7 +18,7 @@
 
 - Fix: avoid error on relative paths with no `./` for `-x`, `-Lx`
 - Fix: don't try parsing global conf when file doesn't exist
-- Bump `EXPECTED_AMBOSO_API_LEVEL` to `2.0.8`
+- Bump expected amboso version to 2.0.8
 
 ## [0.2.17] - 2024-08-29
 
