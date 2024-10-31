@@ -167,11 +167,21 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
                             let cflg_str;
-                            if env.cflags_arg.len() > 0 {
+                            if env.cflags_arg.len() > 0 { //We have the arg from --config/-Z
                                 debug!("Using passed CFLAGS {{{}}}", env.cflags_arg);
                                 cflg_str = env.cflags_arg.clone();
-                            } else {
-                                cflg_str = "".to_string()
+                            } else { //Backcomp reading env CFLAGS
+                                let cflags = "CFLAGS";
+                                match env::var(cflags) {
+                                    Ok(val) => {
+                                        debug!("Using {{{}: {}}}", cflags, val);
+                                        cflg_str = format!("{}",val);
+                                    },
+                                    Err(e) => {
+                                        error!("Failed reading {{{}: {}}}", cflags, e);
+                                        cflg_str = "".to_string()
+                                    }
+                                }
                             }
                             let cc = "CC";
                             let cc_str;
