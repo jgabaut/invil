@@ -898,6 +898,10 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                     }
                 }
                 Err(_) => {
+                    if target_tag.len() == 0 {
+                        error!("Invalid empty tag request");
+                        return Err("Invalid empty tag request".to_string());
+                    }
                     warn!("{}", format!("Failed getting tag {target_tag}, retrying using HEAD"));
                     let head = r.head();
                     match head {
