@@ -216,6 +216,10 @@ pub struct Args {
     #[arg(short = 'C', long, value_name = "CONFIG_ARG")]
     pub config: Option<String>,
 
+    /// Pass CFLAGS argument
+    #[arg(short = 'Z', long, value_name = "CFLAGS_ARG", allow_hyphen_values = true)]
+    pub cflags: Option<String>,
+
     /// Disable extensions to amboso 2.0
     #[arg(short = 'e', long, default_value = "false")]
     pub strict: bool,
@@ -307,6 +311,9 @@ pub struct AmbosoEnv {
 
     /// String used for configure command argument
     pub configure_arg: String,
+
+    /// String used for CFLAGS
+    pub cflags_arg: String,
 
     /// Allow test mode run
     pub support_testmode: bool,
@@ -1140,6 +1147,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                 do_purge : false,
                 start_time: start_time,
                 configure_arg: "".to_string(),
+                cflags_arg: "".to_string(),
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
                 enable_extensions: true,
                 anvil_kern: AnvilKern::AmbosoC,
@@ -1722,6 +1730,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_purge : false,
         start_time: start_time,
         configure_arg: "".to_string(),
+        cflags_arg: "".to_string(),
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
         enable_extensions: true,
         anvil_kern: AnvilKern::AmbosoC,
@@ -2144,6 +2153,14 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     };
     trace!("{}", makemode_support_text);
 
+    match args.cflags {
+        Some(ref x) => {
+            trace!("Passed CFLAGS: {{{}}}", x);
+            anvil_env.cflags_arg = x.to_string();
+        },
+        None => {}
+    }
+
     debug!("TODO: check if supported tags can be associated with a directory");
 
     if args.git {
@@ -2386,6 +2403,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             do_purge : false,
             start_time: start_time,
             configure_arg: "".to_string(),
+            cflags_arg: "".to_string(),
             anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
             enable_extensions: true,
             anvil_kern: AnvilKern::AmbosoC,
