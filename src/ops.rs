@@ -843,10 +843,10 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
 pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &String) -> Result<String,String> {
     let repo = Repository::discover(target_path);
     let mut head_author_name = "".to_string();
-    let mut id = "".to_string();
+    let id;
     let mut commit_message = "".to_string();
     let gen_time = SystemTime::now();
-    let mut commit_time = "".to_string();
+    let commit_time;
     let gen_timestamp = gen_time.duration_since(SystemTime::UNIX_EPOCH);
     let mut fgen_time = "".to_string();
     match gen_timestamp {
@@ -865,7 +865,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                 Ok(refr) => {
                     if !refr.is_tag() {
                         error!("{target_tag} is not a reference");
-                        return Err("ERROR".to_string());
+                        return Err(format!("Requested tag is not a reference: {target_tag}").to_string());
                     } else {
                         let commit = refr.peel_to_commit();
                         match commit {
@@ -898,7 +898,44 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                     }
                 }
                 Err(_) => {
-                    warn!("{}", format!("Failed getting tag {target_tag}"));
+                    warn!("{}", format!("Failed getting tag {target_tag}, retrying using HEAD"));
+                    let head = r.head();
+                    match head {
+                        Ok(head) => {
+                            let commit = head.peel_to_commit();
+                            match commit {
+                                Ok(commit) => {
+                                    if let Some(msg) = commit.message() {
+                                        info!("Commit message: {{{}}}", msg);
+                                        commit_message = msg.escape_default().to_string();
+                                    }
+                                    id = commit.id().to_string();
+                                    info!("Commit id: {{{}}}", id);
+                                    let author = commit.author();
+                                    let name = author.name();
+                                    match name {
+                                        Some(name) => {
+                                            head_author_name = name.to_string();
+                                            info!("Commit author: {{{}}}", head_author_name);
+                                        }
+                                        None => {
+                                            warn!("Commit author is empty: {}", head_author_name);
+                                        }
+                                    }
+                                    commit_time = commit.time().seconds().to_string();
+                                    info!("Commit time: {{{}}}", commit_time);
+                                }
+                                Err(e) => {
+                                    error!("Failed peel to head commit for {{{}}}. Err: {e}", target_path.display());
+                                    return Err("Failed peel to head commit for repo".to_string());
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            error!("Failed getting head for {{{}}}. Err: {e}", target_path.display());
+                            return Err("Failed getting head for repo".to_string());
+                        }
+                    }
                 }
             }
         }
