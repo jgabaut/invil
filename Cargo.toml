@@ -26,12 +26,12 @@ anvilPy = ["dep:flate2", "dep:tar", "dep:url"]
 [dependencies]
 clap = { version = "4.5.20", features = ["derive"] }
 dirs = "5.0.1"
-flate2 = { version = "1.0.33", optional = true }
+flate2 = { version = "1.0.34", optional = true }
 git2 = "0.19.0"
-is_executable = "1.0.3"
+is_executable = "1.0.4"
 log = "0.4.22"
-regex = "1.10.6"
+regex = "1.11.1"
 simplelog = "0.12.2"
-tar = { version = "0.4.41", optional = true }
+tar = { version = "0.4.42", optional = true }
 toml = "0.8.19"
 url = { version = "2.5.2", optional = true }

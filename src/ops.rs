@@ -166,17 +166,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
-                            let cflg = "CFLAGS";
                             let cflg_str;
-                            match env::var(cflg) {
-                                Ok(val) => {
-                                    debug!("Using {{{}: {}}}", cflg, val);
-                                    cflg_str = format!("CFLAGS={}", &val);
-                                },
-                                Err(e) => {
-                                    debug!("Failed reading {{{}: {}}}", cflg, e);
-                                    cflg_str = "".to_string();
-                                }
+                            if env.cflags_arg.len() > 0 {
+                                debug!("Using passed CFLAGS {{{}}}", env.cflags_arg);
+                                cflg_str = env.cflags_arg.clone();
+                            } else {
+                                cflg_str = "".to_string()
                             }
                             let cc = "CC";
                             let cc_str;
@@ -198,9 +193,11 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     .output()
                                     .expect("failed to execute process")
                             } else {
+                                let single_mode_cmd = format!("{} {} {} -o {} -lm", cc_str, cflg_str, source_path.display(), bin_path.display());
+                                trace!("Using single file mode: {{{}}}", single_mode_cmd);
                                 Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("{} {} {} -o {} -lm", cflg_str, cc_str, source_path.display(), bin_path.display()))
+                                    .arg(single_mode_cmd)
                                     .output()
                                     .expect("failed to execute process")
                             }
@@ -211,17 +208,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
-                            let cflg = "CFLAGS";
                             let cflg_str;
-                            match env::var(cflg) {
-                                Ok(val) => {
-                                    debug!("Using {{{}: {}}}", cflg, val);
-                                    cflg_str = format!("CFLAGS={}", &val);
-                                },
-                                Err(e) => {
-                                    debug!("Failed reading {{{}: {}}}", cflg, e);
-                                    cflg_str = "".to_string();
-                                }
+                            if env.cflags_arg.len() > 0 {
+                                debug!("Using passed CFLAGS{{{}}}", env.cflags_arg);
+                                cflg_str = env.cflags_arg.clone();
+                            } else {
+                                cflg_str = "".to_string()
                             }
                             trace!("Git mode, checking out {}",query);
 
