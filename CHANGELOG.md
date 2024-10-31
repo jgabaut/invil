@@ -5,11 +5,11 @@
 ### Added
 
 - Add -Z to pass CFLAGS to single file build mode
+  - Avoids reading CFLAGS from env
 
 ### Changed
 
 - Fix: avoid error on wrong tag for -G, mimicking amboso
-- Avoid reading CFLAGS from env
 - Try reading AMBOSO_CONFIG_ARG_ISFILE to use -C with flags directly
   - Setting it to 0 enables the new, backwards incompatible behaviour
 - Bump expected amboso version to 2.0.9
