@@ -10,6 +10,8 @@
 
 - Fix: avoid error on wrong tag for -G, mimicking amboso
 - Avoid reading CFLAGS from env
+- Try reading AMBOSO_CONFIG_ARG_ISFILE to use -C with flags directly
+  - Setting it to 0 enables the new, backwards incompatible behaviour
 - Bump expected amboso version to 2.0.9
 
 ## [0.2.18] - 2024-10-24

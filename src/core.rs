@@ -213,7 +213,7 @@ pub struct Args {
     pub no_rebuild: bool,
 
     /// Pass configuration argument
-    #[arg(short = 'C', long, value_name = "CONFIG_ARG")]
+    #[arg(short = 'C', long, value_name = "CONFIG_ARG", allow_hyphen_values = true)]
     pub config: Option<String>,
 
     /// Pass CFLAGS argument
@@ -1817,23 +1817,6 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         }
     }
 
-    match args.config {
-        Some (ref x) => {
-            let config_read_res = fs::read_to_string(x);
-            match config_read_res {
-                Ok(config_str) => {
-                    trace!("Read config file: {{{}}}", config_str);
-                    anvil_env.configure_arg = config_str;
-                }
-                Err(e) => {
-                    error!("Failed reading config file from {{{}}}. Err: {e}", x);
-                    return Err("Failed reading config file".to_string());
-                }
-            }
-        }
-        None => {}
-    }
-
     //Default mode is git
     if ! args.base && ! args.test && ! args.testmacro {
         args.git = true;
@@ -2158,6 +2141,50 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             trace!("Passed CFLAGS: {{{}}}", x);
             anvil_env.cflags_arg = x.to_string();
         },
+        None => {}
+    }
+
+    match args.config {
+        Some (ref x) => {
+            let mut backcomp_wanted = true;
+            let amboso_config_flag_arg_isfile = "AMBOSO_CONFIG_FLAG_ARG_ISFILE";
+            match env::var(amboso_config_flag_arg_isfile) {
+                Ok(val) => {
+                    let int_val = val.parse::<i32>();
+                    match int_val {
+                        Ok(v) => {
+                            if v == 0 {
+                                backcomp_wanted = false;
+                            }
+                        }
+                        Err(e) => {
+                            debug!("Failed reading {{{}: {}}}", amboso_config_flag_arg_isfile, e);
+                            debug!("Backcomp requested for config flag");
+                        }
+                    }
+                },
+                Err(e) => {
+                    debug!("Failed reading {{{}: {}}}", amboso_config_flag_arg_isfile, e);
+                    debug!("Backcomp requested for config flag");
+                }
+            }
+            if backcomp_wanted {
+                let config_read_res = fs::read_to_string(x);
+                match config_read_res {
+                    Ok(config_str) => {
+                        trace!("Read config file: {{{}}}", config_str);
+                        anvil_env.configure_arg = config_str;
+                    }
+                    Err(e) => {
+                        error!("Failed reading config file from {{{}}}. Err: {e}", x);
+                        return Err("Failed reading config file".to_string());
+                    }
+                }
+            } else {
+                trace!("Using config arg: {{{}}}", x);
+                anvil_env.configure_arg = x.to_string();
+            }
+        }
         None => {}
     }
 
