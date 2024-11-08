@@ -1554,12 +1554,13 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
             let mut bindir_path = bin_path.clone();
             bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
                                // could be coded in a more explicit way
-            let proj_name = &env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name;
-            let srcdist_name = format!("{}-{}.tar.gz", proj_name, query);
+            let curr_proj_name = env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name.clone().replace("-","_");
+            let srcdist_name = format!("{}-{}.tar.gz", curr_proj_name, query);
             let mut srcdist_path = PathBuf::from("./dist/");
             srcdist_path.push(srcdist_name.clone());
             let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), bindir_path.display());
-            let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", proj_name.replace("-","_"), query, bindir_path.display());
+            let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", curr_proj_name, query, bindir_path.display());
+            info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
             let output_srcdist = Command::new("sh")
                 .arg("-c")
                 .arg(move_command_srcdist)
@@ -1574,7 +1575,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                         let unpack_res = unpack_srcdist(&srcdist_pack_path);
                         match unpack_res {
                             Ok(unpack_path) => {
-                                let proj_dirname = format!("{proj_name}-{query}");
+                                let proj_dirname = format!("{curr_proj_name}-{query}");
                                 let mut target_unpack_path = unpack_path.clone();
                                 target_unpack_path.push(ANVILPY_UNPACKDIR_NAME);
                                 let mut curr_unpack_path = unpack_path.clone();
