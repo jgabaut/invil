@@ -6,6 +6,7 @@
 
 - Add -Z to pass CFLAGS to single file build mode
   - Avoids reading CFLAGS from env
+- Basic optional support for AnvilCustom kern
 
 ### Changed
 

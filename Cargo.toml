@@ -21,6 +21,7 @@ exclude = [
 [features]
 
 anvilPy = ["dep:flate2", "dep:tar", "dep:url"]
+anvilCustom = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

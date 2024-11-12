@@ -1498,23 +1498,60 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 build_step_command = "make";
             }
         }
+        AnvilKern::Custom => {
+            #[cfg(feature = "anvilCustom")] {
+                match &env.anvilcustom_env {
+                    Some(cust_env) => {
+                        build_step_command = &cust_env.custom_builder;
+                    }
+                    None => {
+                        error!("Missing anvilcustom_env");
+                        return Err("Missing anvilcustom_env".to_string());
+                    }
+                }
+            }
+            #[cfg(not(feature = "anvilCustom"))] {
+                // Handle AnvilCustom case when the feature is not enabled
+                error!("AnvilCustom kern feature is not enabled");
+                return Err("AnvilCustom kern feauture is not enabled".to_string());
+            }
+        }
     }
 
-    if args.no_rebuild || env.anvil_kern == AnvilKern::AnvilPy {
-        debug!("Running \'{build_step_command}\'");
-        output = Command::new("sh")
-            .arg("-c")
-            .arg(format!("{} {}", cflg_str, build_step_command))
-            .output()
-            .expect("failed to execute process");
-    }
-    else {
-        debug!("Running \'make rebuild\'");
-        output = Command::new("sh")
-            .arg("-c")
-            .arg(format!("{} make rebuild", cflg_str))
-            .output()
-            .expect("failed to execute process");
+    match env.anvil_kern {
+        AnvilKern::AmbosoC => {
+            if args.no_rebuild {
+                debug!("Running \'{build_step_command}\'");
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("{} {}", cflg_str, build_step_command))
+                    .output()
+                    .expect("failed to execute process");
+            } else {
+                debug!("Running \'make rebuild\'");
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("{} make rebuild", cflg_str))
+                    .output()
+                    .expect("failed to execute process");
+            }
+        }
+        AnvilKern::AnvilPy => {
+            debug!("Running \'{build_step_command}\'");
+            output = Command::new("sh")
+                .arg("-c")
+                .arg(format!("{} {}", cflg_str, build_step_command))
+                .output()
+                .expect("failed to execute process");
+        }
+        AnvilKern::Custom => {
+            debug!("Runnin \'{build_step_command}\'");
+            output = Command::new("sh")
+                .arg("-c")
+                .arg(format!("{}", build_step_command))
+                .output()
+                .expect("failed to execute process");
+        }
     }
     match output.status.code() {
         Some(make_ec) => {
@@ -1537,186 +1574,212 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
     }
 }
 
+fn git_switch_and_submodule_init_re(query: &str) -> Result<String,String> {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("git switch -"))
+        .output()
+        .expect("failed to execute process");
+    match output.status.code() {
+        Some(gswitch_ec) => {
+            if gswitch_ec == 0 {
+               debug!("git switch succeded with status: {}", gswitch_ec.to_string());
+                let output = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("git submodule update --init --recursive"))
+                    .output()
+                    .expect("failed to execute process");
+                match output.status.code() {
+                    Some(gsinit_end_ec) => {
+                        if gsinit_end_ec == 0 {
+                            debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
+                            debug!("Done build for {}", query);
+                            return Ok(format!("Done build step for {{{query}}}"));
+                        } else {
+                            warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
+                            io::stdout().write_all(&output.stdout).unwrap();
+                            io::stderr().write_all(&output.stderr).unwrap();
+                            return Err("git submodule init failed".to_string());
+                        }
+                    }
+                    None => {
+                        error!("git submodule init command failed");
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        return Err("git submodule init command failed".to_string());
+                    }
+                }
+            } else {
+                warn!("git switch failed with status: {}", gswitch_ec.to_string());
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                return Err("git switch failed".to_string());
+            }
+        }
+        None => {
+            error!("git switch command failed");
+            io::stdout().write_all(&output.stdout).unwrap();
+            io::stderr().write_all(&output.stderr).unwrap();
+            return Err("git switch command failed".to_string());
+        }
+    }
+}
+
 fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<String,String> {
 
-    let move_command_anvilc = format!("mv {} {}", env.bin.as_ref().unwrap(), bin_path.display());
     let output;
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
+            let move_command_anvilc = format!("mv {} {}", env.bin.as_ref().unwrap(), bin_path.display());
             output = Command::new("sh")
                 .arg("-c")
                 .arg(move_command_anvilc)
                 .output()
                 .expect("failed to execute process");
         }
-        #[cfg(feature = "anvilPy")]
         AnvilKern::AnvilPy => {
-            let mut bindir_path = bin_path.clone();
-            bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
-                               // could be coded in a more explicit way
-            let curr_proj_name = env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name.clone().replace("-","_");
-            let srcdist_name = format!("{}-{}.tar.gz", curr_proj_name, query);
-            let mut srcdist_path = PathBuf::from("./dist/");
-            srcdist_path.push(srcdist_name.clone());
-            let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), bindir_path.display());
-            let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", curr_proj_name, query, bindir_path.display());
-            info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
-            let output_srcdist = Command::new("sh")
-                .arg("-c")
-                .arg(move_command_srcdist)
-                .output()
-                .expect("failed to execute process");
-            match output_srcdist.status.code() {
-                Some(mv_ec) => {
-                    if mv_ec == 0 {
-                        debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
-                        let mut srcdist_pack_path = PathBuf::from(bindir_path.clone());
-                        srcdist_pack_path.push(srcdist_name);
-                        let unpack_res = unpack_srcdist(&srcdist_pack_path);
-                        match unpack_res {
-                            Ok(unpack_path) => {
-                                let proj_dirname = format!("{curr_proj_name}-{query}");
-                                let mut target_unpack_path = unpack_path.clone();
-                                target_unpack_path.push(ANVILPY_UNPACKDIR_NAME);
-                                let mut curr_unpack_path = unpack_path.clone();
-                                curr_unpack_path.push(proj_dirname.clone());
+            #[cfg(feature = "anvilPy")] {
+                let mut bindir_path = bin_path.clone();
+                bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
+                                   // could be coded in a more explicit way
+                let curr_proj_name = env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name.clone().replace("-","_");
+                let srcdist_name = format!("{}-{}.tar.gz", curr_proj_name, query);
+                let mut srcdist_path = PathBuf::from("./dist/");
+                srcdist_path.push(srcdist_name.clone());
+                let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), bindir_path.display());
+                let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", curr_proj_name, query, bindir_path.display());
+                info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
+                let output_srcdist = Command::new("sh")
+                    .arg("-c")
+                    .arg(move_command_srcdist)
+                    .output()
+                    .expect("failed to execute process");
+                match output_srcdist.status.code() {
+                    Some(mv_ec) => {
+                        if mv_ec == 0 {
+                            debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
+                            let mut srcdist_pack_path = PathBuf::from(bindir_path.clone());
+                            srcdist_pack_path.push(srcdist_name);
+                            let unpack_res = unpack_srcdist(&srcdist_pack_path);
+                            match unpack_res {
+                                Ok(unpack_path) => {
+                                    let proj_dirname = format!("{curr_proj_name}-{query}");
+                                    let mut target_unpack_path = unpack_path.clone();
+                                    target_unpack_path.push(ANVILPY_UNPACKDIR_NAME);
+                                    let mut curr_unpack_path = unpack_path.clone();
+                                    curr_unpack_path.push(proj_dirname.clone());
 
-                                let move_unpackdir = format!("mv {} {}", curr_unpack_path.display(), target_unpack_path.display());
-                                let output_unpackmv = Command::new("sh")
-                                    .arg("-c")
-                                    .arg(move_unpackdir)
-                                    .output()
-                                    .expect("failed to execute process");
-                                match output_unpackmv.status.code() {
-                                    Some(mv_ec) => {
-                                        if mv_ec == 0 {
-                                            trace!("Moved {{{}}} to {{{}}}", curr_unpack_path.display(), target_unpack_path.display());
-                                        } else {
-                                            warn!("mv unpack failed with status: {}", mv_ec.to_string());
-                                            io::stdout().write_all(&output_unpackmv.stdout).unwrap();
-                                            io::stderr().write_all(&output_unpackmv.stderr).unwrap();
-                                            return Err("mv unpack failed".to_string());
+                                    let move_unpackdir = format!("mv {} {}", curr_unpack_path.display(), target_unpack_path.display());
+                                    let output_unpackmv = Command::new("sh")
+                                        .arg("-c")
+                                        .arg(move_unpackdir)
+                                        .output()
+                                        .expect("failed to execute process");
+                                    match output_unpackmv.status.code() {
+                                        Some(mv_ec) => {
+                                            if mv_ec == 0 {
+                                                trace!("Moved {{{}}} to {{{}}}", curr_unpack_path.display(), target_unpack_path.display());
+                                            } else {
+                                                warn!("mv unpack failed with status: {}", mv_ec.to_string());
+                                                io::stdout().write_all(&output_unpackmv.stdout).unwrap();
+                                                io::stderr().write_all(&output_unpackmv.stderr).unwrap();
+                                                return Err("mv unpack failed".to_string());
+                                            }
+                                        }
+                                        None => {
+                                            error!("mv unpack command failed");
+                                            io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                                            io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                                            return Err("mv command failed".to_string());
                                         }
                                     }
-                                    None => {
-                                        error!("mv unpack command failed");
-                                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
-                                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
-                                        return Err("mv command failed".to_string());
+                                    let mut unpack_initpy_path = target_unpack_path.clone();
+                                    unpack_initpy_path.push("__init__.py");
+                                    match post_unpack(&unpack_initpy_path, &bindir_path, &env) {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
+                                            return Err("Failed post_unpack()".to_string());
+                                        }
                                     }
                                 }
-                                let mut unpack_initpy_path = target_unpack_path.clone();
-                                unpack_initpy_path.push("__init__.py");
-                                match post_unpack(&unpack_initpy_path, &bindir_path, &env) {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
-                                        return Err("Failed post_unpack()".to_string());
-                                    }
+                                Err(e) => {
+                                    return Err(e);
                                 }
                             }
+                        } else {
+                            warn!("mv srcdist failed with status: {}", mv_ec.to_string());
+                            io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                            io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                            return Err("mv failed".to_string());
+                        }
+                    }
+                    None => {
+                        error!("mv srcdist command failed");
+                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                        return Err("mv command failed".to_string());
+                    }
+                }
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(move_command_whldist)
+                    .output()
+                    .expect("failed to execute process");
+            }
+            #[cfg(not(feature = "anvilPy"))] {
+                // Handle AnvilPy case when the feature is not enabled
+                error!("AnvilPy kern feature is not enabled");
+                return Err("AnvilPy kern feauture is not enabled".to_string());
+            }
+        }
+        AnvilKern::Custom => {
+            #[cfg(feature = "anvilCustom")] {
+                trace!("TODO: postbuild checks for custom kern");
+                return Ok("TODO: postbuild for custom kern".to_string());
+            }
+            #[cfg(not(feature = "anvilCustom"))] {
+                // Handle AnvilCustom case when the feature is not enabled
+                error!("AnvilCustom kern feature is not enabled");
+                return Err("AnvilCustom kern feauture is not enabled".to_string());
+            }
+        }
+    }
+
+    match env.anvil_kern {
+        AnvilKern::AmbosoC | AnvilKern::AnvilPy => {
+            match output.status.code() {
+                Some(mv_ec) => {
+                    if mv_ec == 0 {
+                        debug!("mv succeded with status: {}", mv_ec.to_string());
+                        let gswinit_res = git_switch_and_submodule_init_re(query);
+                        match gswinit_res {
+                            Ok(m) => {
+                                trace!("Done git cleaning");
+                                return Ok(m);
+                            }
                             Err(e) => {
+                                error!("git cleaning failed");
                                 return Err(e);
                             }
                         }
                     } else {
-                        warn!("mv srcdist failed with status: {}", mv_ec.to_string());
-                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
-                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                        warn!("mv failed with status: {}", mv_ec.to_string());
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
                         return Err("mv failed".to_string());
                     }
                 }
                 None => {
-                    error!("mv srcdist command failed");
-                    io::stdout().write_all(&output_srcdist.stdout).unwrap();
-                    io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                    error!("mv command failed");
+                    io::stdout().write_all(&output.stdout).unwrap();
+                    io::stderr().write_all(&output.stderr).unwrap();
                     return Err("mv command failed".to_string());
                 }
             }
-            output = Command::new("sh")
-                .arg("-c")
-                .arg(move_command_whldist)
-                .output()
-                .expect("failed to execute process");
         }
-        #[cfg(not(feature = "anvilPy"))]
-        _ => {
-            if let AnvilKern::AnvilPy = env.anvil_kern {
-                // Handle AnvilPy case when the feature is not enabled
-                error!("AnvilPy kern feature is not enabled");
-                return Err("AnvilPy kern feauture is not enabled".to_string());
-            } else {
-                error!("Unexpected anvil kern");
-                return Err("Unexpected anvil kern".to_string());
-            }
+        AnvilKern::Custom => {
+            return Ok("Done postbuild for custom kern".to_string());
         }
     }
-
-    match output.status.code() {
-        Some(mv_ec) => {
-            if mv_ec == 0 {
-                debug!("mv succeded with status: {}", mv_ec.to_string());
-                let output = Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("git switch -"))
-                    .output()
-                    .expect("failed to execute process");
-                match output.status.code() {
-                    Some(gswitch_ec) => {
-                        if gswitch_ec == 0 {
-                           debug!("git switch succeded with status: {}", gswitch_ec.to_string());
-                            let output = Command::new("sh")
-                                .arg("-c")
-                                .arg(format!("git submodule update --init --recursive"))
-                                .output()
-                                .expect("failed to execute process");
-                            match output.status.code() {
-                                Some(gsinit_end_ec) => {
-                                    if gsinit_end_ec == 0 {
-                                        debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
-                                        debug!("Done build for {}", query);
-                                        return Ok(format!("Done build step for {{{query}}}"));
-                                    } else {
-                                        warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
-                                        io::stdout().write_all(&output.stdout).unwrap();
-                                        io::stderr().write_all(&output.stderr).unwrap();
-                                        return Err("git submodule init failed".to_string());
-                                    }
-                                }
-                                None => {
-                                    error!("git submodule init command failed");
-                                    io::stdout().write_all(&output.stdout).unwrap();
-                                    io::stderr().write_all(&output.stderr).unwrap();
-                                    return Err("git submodule init command failed".to_string());
-                                }
-                            }
-                        } else {
-                            warn!("git switch failed with status: {}", gswitch_ec.to_string());
-                            io::stdout().write_all(&output.stdout).unwrap();
-                            io::stderr().write_all(&output.stderr).unwrap();
-                            return Err("git switch failed".to_string());
-                        }
-                    }
-                    None => {
-                        error!("git switch command failed");
-                        io::stdout().write_all(&output.stdout).unwrap();
-                        io::stderr().write_all(&output.stderr).unwrap();
-                        return Err("git switch command failed".to_string());
-                    }
-                }
-            } else {
-                warn!("mv failed with status: {}", mv_ec.to_string());
-                io::stdout().write_all(&output.stdout).unwrap();
-                io::stderr().write_all(&output.stderr).unwrap();
-                return Err("mv failed".to_string());
-            }
-        }
-        None => {
-            error!("mv command failed");
-            io::stdout().write_all(&output.stdout).unwrap();
-            io::stderr().write_all(&output.stderr).unwrap();
-            return Err("mv command failed".to_string());
-        }
-    }
-
 }

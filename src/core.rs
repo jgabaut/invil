@@ -21,6 +21,9 @@ use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
 #[cfg(feature = "anvilPy")]
 use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
 
+#[cfg(feature = "anvilCustom")]
+use crate::anvil_custom::{parse_anvilcustom_toml, AnvilCustomEnv};
+
 use crate::exit;
 use std::cmp::Ordering;
 use std::fs::{self, File};
@@ -57,6 +60,8 @@ pub const MIN_AMBOSO_V_LEGACYPARSE: &str = "1.8.0";
 pub const MIN_AMBOSO_V_PYKERN: &str = "2.1.0";
 pub const MIN_AMBOSO_V_SKIPRETRYSTEGO: &str = "2.0.4";
 pub const MIN_AMBOSO_V_DENY_ANVILPY: &str = "2.0.5";
+pub const MIN_AMBOSO_V_CUSTKERN: &str = "2.1.0";
+pub const MIN_AMBOSO_V_DENY_ANVILCUST: &str = "2.0.9";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 pub const ANVIL_DEFAULT_CONF_PATH: &str = ".anvil/anvil.toml";
 pub const RULELINE_MARK_CHAR: char = '\t';
@@ -253,6 +258,7 @@ pub enum AmbosoLintMode {
 pub enum AnvilKern {
     AmbosoC,
     AnvilPy,
+    Custom,
 }
 
 #[derive(Debug)]
@@ -354,6 +360,10 @@ pub struct AmbosoEnv {
     /// Optional AnvilPyEnv, only used when anvil_kern is AnvilPy
     #[cfg(feature = "anvilPy")]
     pub anvilpy_env: Option<AnvilPyEnv>,
+
+    /// Optional AnvilCustomEnv, only used when anvil_kern is Custom
+    #[cfg(feature = "anvilCustom")]
+    pub anvilcustom_env: Option<AnvilCustomEnv>,
 }
 
 pub struct AmbosoConf {
@@ -561,6 +571,9 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
                 AnvilKern::AnvilPy => {
                     trace!("Skipping do_query() since anvil_kern is anvilPy");
+                }
+                AnvilKern::Custom => {
+                    trace!("Skipping do_query() since anvil_kern is custom");
                 }
             }
         }
@@ -1072,6 +1085,27 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                         }
                                     }
                                 }
+                                "custom" => {
+                                    match semver_compare(&anvil_conf.anvil_version, MIN_AMBOSO_V_CUSTKERN) {
+                                        Ordering::Less => {
+                                            error!("Unsupported AnvilKern value: {{{anvil_kern}}}");
+                                            warn!("Try running as >={MIN_AMBOSO_V_CUSTKERN}");
+                                            warn!("Current anvil_version: {{{}}}", anvil_conf.anvil_version);
+                                            return Err("Unsupported anvil_kern".to_string());
+                                        },
+                                        Ordering::Equal | Ordering::Greater => {
+                                            match semver_compare(&anvil_conf.anvil_version, MIN_AMBOSO_V_DENY_ANVILCUST) {
+                                                Ordering::Less => {
+                                                    return Err("Unsupported anvil_kern".to_string());
+                                                }
+                                                Ordering::Equal | Ordering::Greater => {
+                                                    warn!("The AnvilCustom kern is experimental. Be careful.");
+                                                    anvil_conf.anvil_kern = AnvilKern::Custom;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 _ => {
                                     error!("Invalid AnvilKern value: {{{anvil_kern}}}");
                                     return Err("Invalid anvil_kern".to_string());
@@ -1153,6 +1187,8 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                 anvil_kern: AnvilKern::AmbosoC,
                 #[cfg(feature = "anvilPy")]
                 anvilpy_env: None,
+                #[cfg(feature = "anvilCustom")]
+                anvilcustom_env: None,
             };
             //trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
@@ -1239,6 +1275,34 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                             }
                                             warn!("The AnvilPy kern is experimental. Be careful.");
                                             anvil_env.anvil_kern = AnvilKern::AnvilPy;
+                                        }
+                                    }
+                                }
+                                "custom" => {
+                                    match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_CUSTKERN) {
+                                        Ordering::Less => {
+                                            error!("Unsupported AnvilKern value: {{{anvil_kern}}}");
+                                            warn!("Try running as >={MIN_AMBOSO_V_CUSTKERN}");
+                                            warn!("Current anvil_version: {{{}}}", anvil_env.anvil_version);
+                                            return Err("Unsupported anvil_kern".to_string());
+                                        },
+                                        Ordering::Equal | Ordering::Greater => {
+                                            match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_DENY_ANVILCUST) {
+                                                Ordering::Less => {
+                                                    if ! anvil_env.enable_extensions {
+                                                        error!("Strict behaviour, refusing anvilCustom kern.");
+                                                        return Err("Unsupported anvil_kern".to_string());
+                                                    }
+                                                }
+                                                Ordering::Equal | Ordering::Greater => {
+                                                    if ! anvil_env.enable_extensions {
+                                                        error!("Strict behaviour, refusing anvilCustom kern.");
+                                                        return Err("Unsupported anvil_kern".to_string());
+                                                    }
+                                                }
+                                            }
+                                            warn!("The AnvilCustom kern is experimental. Be careful.");
+                                            anvil_env.anvil_kern = AnvilKern::Custom;
                                         }
                                     }
                                 }
@@ -1736,6 +1800,8 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         anvil_kern: AnvilKern::AmbosoC,
         #[cfg(feature = "anvilPy")]
         anvilpy_env: None,
+        #[cfg(feature = "anvilCustom")]
+        anvilcustom_env: None,
     };
 
     let mut override_stego_anvil_version = false;
@@ -1913,48 +1979,81 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     }
 
     match anvil_env.anvil_kern {
-        #[cfg(feature = "anvilPy")]
-        AnvilKern::AnvilPy => {
-            let mut skip_pyparse = false;
-            match args.strict {
-                true => {
-                    match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_PYKERN) {
-                        Ordering::Less => {
-                            warn!("Strict behaviour for v{}, skipping reading pyproject.toml", anvil_env.anvil_version);
-                            skip_pyparse = true;
-                        }
-                        Ordering::Equal | Ordering::Greater => {}
-                    }
-                }
-                false => {}
-            }
-            if ! skip_pyparse {
-                debug!("Reading pyproject-toml at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
-                let mut pyproj_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
-                pyproj_path.push("pyproject.toml");
-                let anvilpy_env = parse_pyproject_toml(&pyproj_path);
-                match anvilpy_env {
-                    Ok(anvilpy_env) => {
-                        debug!("Done parse_pyproject_toml()");
-                        debug!("{:?}", anvilpy_env);
-                        anvil_env.anvilpy_env = Some(anvilpy_env);
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                }
-            }
-        }
         AnvilKern::AmbosoC => {}
-        #[cfg(not(feature = "anvilPy"))]
-        _ => {
-            if let AnvilKern::AnvilPy = anvil_env.anvil_kern {
+        AnvilKern::AnvilPy => {
+            #[cfg(feature = "anvilPy")] {
+                let mut skip_pyparse = false;
+                match args.strict {
+                    true => {
+                        match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                            Ordering::Less => {
+                                warn!("Strict behaviour for v{}, skipping reading pyproject.toml", anvil_env.anvil_version);
+                                skip_pyparse = true;
+                            }
+                            Ordering::Equal | Ordering::Greater => {}
+                        }
+                    }
+                    false => {}
+                }
+                if ! skip_pyparse {
+                    debug!("Reading pyproject-toml at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
+                    let mut pyproj_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
+                    pyproj_path.push("pyproject.toml");
+                    let anvilpy_env = parse_pyproject_toml(&pyproj_path);
+                    match anvilpy_env {
+                        Ok(anvilpy_env) => {
+                            debug!("Done parse_pyproject_toml()");
+                            debug!("{:?}", anvilpy_env);
+                            anvil_env.anvilpy_env = Some(anvilpy_env);
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+            #[cfg(not(feature = "anvilPy"))] {
                 // Handle AnvilPy case when the feature is not enabled
                 error!("AnvilPy kern feature is not enabled");
                 return Err("AnvilPy kern feauture is not enabled".to_string());
-            } else {
-                error!("Unexpected anvil kern");
-                return Err("Unexpected anvil kern".to_string());
+            }
+        }
+        AnvilKern::Custom => {
+            #[cfg(feature = "anvilCustom")] {
+                let mut skip_custparse = false;
+                match args.strict {
+                    true => {
+                        match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_CUSTKERN) {
+                            Ordering::Less => {
+                                warn!("Strict behaviour for v{}, skipping reading custom builder from stego.lock", anvil_env.anvil_version);
+                                skip_custparse = true;
+                            }
+                            Ordering::Equal | Ordering::Greater => {}
+                        }
+                    }
+                    false => {}
+                }
+                if ! skip_custparse {
+                    debug!("Reading anvil_custombuilder at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
+                    let mut stego_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
+                    stego_path.push("stego.lock");
+                    let anvilcustom_env = parse_anvilcustom_toml(&stego_path);
+                    match anvilcustom_env {
+                        Ok(anvilcustom_env) => {
+                            debug!("Done parse_anvilcustom_toml()");
+                            debug!("{:?}", anvilcustom_env);
+                            anvil_env.anvilcustom_env = Some(anvilcustom_env);
+                        }
+                        Err(e) => {
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+            #[cfg(not(feature = "anvilCustom"))] {
+                // Handle AnvilCustom case when the feature is not enabled
+                error!("AnvilCustom kern feature is not enabled");
+                return Err("AnvilCustom kern feauture is not enabled".to_string());
             }
         }
     }
@@ -2259,6 +2358,9 @@ impl fmt::Display for AnvilKern {
             AnvilKern::AnvilPy => {
                 write!(f, "anvilPy")
             }
+            AnvilKern::Custom => {
+                write!(f, "custom")
+            }
         }
     }
 }
@@ -2436,6 +2538,8 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             anvil_kern: AnvilKern::AmbosoC,
             #[cfg(feature = "anvilPy")]
             anvilpy_env: None,
+            #[cfg(feature = "anvilCustom")]
+            anvilcustom_env: None,
         };
 
         for line in BufReader::new(file).lines() {
