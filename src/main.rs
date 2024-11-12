@@ -56,6 +56,11 @@ fn main() -> ExitCode {
             } else {
                 println!("Experimental anvilPy support is NOT enabled.");
             }
+            if cfg!(feature = "anvilCustom") {
+                println!("Experimental anvilCustom support is enabled.");
+            } else {
+                println!("Experimental anvilCustom support is NOT enabled.");
+            }
         } else {
             println!("{}",INVIL_VERSION);
         }
