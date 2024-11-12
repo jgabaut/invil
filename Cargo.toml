@@ -33,6 +33,6 @@ is_executable = "1.0.4"
 log = "0.4.22"
 regex = "1.11.1"
 simplelog = "0.12.2"
-tar = { version = "0.4.42", optional = true }
+tar = { version = "0.4.43", optional = true }
 toml = "0.8.19"
 url = { version = "2.5.2", optional = true }
