@@ -93,61 +93,67 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     trace!("No file found for {{{}}}", queried_path.display());
                 }
 
-                let use_make = query >= &env.mintag_make.clone().unwrap();
+                let mut use_make = false;
+                match env.anvil_kern {
+                    AnvilKern::AmbosoC => {
+                        use_make = query >= &env.mintag_make.clone().unwrap();
 
-                if use_make && !env.support_makemode {
-                    error!("Can't build {{{}}}, as makemode is not supported by the project", query);
-                    return Err("Missing makemode support".to_string());
-                }
-
-                let use_automake = query >= &env.mintag_automake.clone().unwrap();
-
-                if use_automake && !env.support_automakemode {
-                    error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
-                    return Err("Missing automakemode support".to_string());
-                } else if use_automake {
-                    match env.run_mode.as_ref().unwrap() {
-                        AmbosoMode::GitMode => {
-                            if cfg!(target_os = "windows") {
-                                todo!("Support windows automake prep?");
-                                /*
-                                 * let output = Command::new("cmd")
-                                 *   .args(["/C", "echo hello"])
-                                 *   .output()
-                                 *   .expect("failed to execute process")
-                                 */
-                            } else {
-                                debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure \"{}\"\'", env.configure_arg);
-                                let output = Command::new("sh")
-                                    .arg("-c")
-                                    .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
-                                    .output()
-                                    .expect("failed to execute process");
-
-                                match output.status.code() {
-                                    Some(autotools_prep_ec) => {
-                                        if autotools_prep_ec == 0 {
-                                            debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
-                                        } else {
-                                            error!("Automake failed with status: {}", autotools_prep_ec.to_string());
-                                            io::stdout().write_all(&output.stdout).unwrap();
-                                            io::stderr().write_all(&output.stderr).unwrap();
-                                            return Err("Automake prep failed".to_string());
-                                        }
-                                    }
-                                    None => {
-                                        error!("Automake prep command failed");
-                                        io::stdout().write_all(&output.stdout).unwrap();
-                                        io::stderr().write_all(&output.stderr).unwrap();
-                                        return Err("Automake prep command failed".to_string());
-                                    }
-                                }
-                            };
+                        if use_make && !env.support_makemode {
+                            error!("Can't build {{{}}}, as makemode is not supported by the project", query);
+                            return Err("Missing makemode support".to_string());
                         }
-                        _ => {
-                            todo!("automake prep for {:?}", env.run_mode.as_ref().unwrap());
+
+                        let use_automake = query >= &env.mintag_automake.clone().unwrap();
+
+                        if use_automake && !env.support_automakemode {
+                            error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
+                            return Err("Missing automakemode support".to_string());
+                        } else if use_automake {
+                            match env.run_mode.as_ref().unwrap() {
+                                AmbosoMode::GitMode => {
+                                    if cfg!(target_os = "windows") {
+                                        todo!("Support windows automake prep?");
+                                        /*
+                                         * let output = Command::new("cmd")
+                                         *   .args(["/C", "echo hello"])
+                                         *   .output()
+                                         *   .expect("failed to execute process")
+                                         */
+                                    } else {
+                                        debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure \"{}\"\'", env.configure_arg);
+                                        let output = Command::new("sh")
+                                            .arg("-c")
+                                            .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
+                                            .output()
+                                            .expect("failed to execute process");
+
+                                        match output.status.code() {
+                                            Some(autotools_prep_ec) => {
+                                                if autotools_prep_ec == 0 {
+                                                    debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
+                                                } else {
+                                                    error!("Automake failed with status: {}", autotools_prep_ec.to_string());
+                                                    io::stdout().write_all(&output.stdout).unwrap();
+                                                    io::stderr().write_all(&output.stderr).unwrap();
+                                                    return Err("Automake prep failed".to_string());
+                                                }
+                                            }
+                                            None => {
+                                                error!("Automake prep command failed");
+                                                io::stdout().write_all(&output.stdout).unwrap();
+                                                io::stderr().write_all(&output.stderr).unwrap();
+                                                return Err("Automake prep command failed".to_string());
+                                            }
+                                        }
+                                    };
+                                }
+                                _ => {
+                                    todo!("automake prep for {:?}", env.run_mode.as_ref().unwrap());
+                                }
+                            }
                         }
                     }
+                    _ => {}
                 }
 
                 let output = if cfg!(target_os = "windows") {
@@ -195,37 +201,64 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     cc_str = "gcc".to_string();
                                 }
                             }
-                            if use_make {
-                                trace!("Using make mode");
-                                let current_dir = env::current_dir().expect("failed getting current directory");
-                                let cd_output = env::set_current_dir(&build_path);
-                                if cd_output.is_ok() {
-                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
-                                        Ok(s) => {
-                                            trace!("{s}");
-                                            let cdback_output = env::set_current_dir(&current_dir);
-                                            if cdback_output.is_ok() {
-                                                return Ok(s);
-                                            } else {
-                                                return Err(format!("cdback to {{{}}} failed", current_dir.display()));
+                            match env.anvil_kern {
+                                AnvilKern::AmbosoC => {
+                                    if use_make {
+                                        trace!("Using make mode");
+                                        let current_dir = env::current_dir().expect("failed getting current directory");
+                                        let cd_output = env::set_current_dir(&build_path);
+                                        if cd_output.is_ok() {
+                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
+                                                Ok(s) => {
+                                                    trace!("{s}");
+                                                    let cdback_output = env::set_current_dir(&current_dir);
+                                                    if cdback_output.is_ok() {
+                                                        return Ok(s);
+                                                    } else {
+                                                        return Err(format!("cdback to {{{}}} failed", current_dir.display()));
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    return Err(format!("Build failed for {{{query}}}. Err: {e}"));
+                                                }
+                                            }
+                                        } else {
+                                            error!("cd to build_path {} failed", build_path.display());
+                                            return Err("Failed cd to build_path".to_string());
+                                        }
+                                    } else {
+                                        let single_mode_cmd = format!("{} {} {} -o {} -lm", cc_str, cflg_str, source_path.display(), bin_path.display());
+                                        trace!("Using single file mode: {{{}}}", single_mode_cmd);
+                                        Command::new("sh")
+                                            .arg("-c")
+                                            .arg(single_mode_cmd)
+                                            .output()
+                                            .expect("failed to execute process")
+                                    }
+                                }
+                                AnvilKern::AnvilPy | AnvilKern::Custom => {
+                                    let current_dir = env::current_dir().expect("failed getting current directory");
+                                    let cd_output = env::set_current_dir(&build_path);
+                                    if cd_output.is_ok() {
+                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
+                                            Ok(s) => {
+                                                trace!("{s}");
+                                                let cdback_output = env::set_current_dir(&current_dir);
+                                                if cdback_output.is_ok() {
+                                                    return Ok(s);
+                                                } else {
+                                                    return Err(format!("cdback to {{{}}} failed", current_dir.display()));
+                                                }
+                                            }
+                                            Err(e) => {
+                                                return Err(format!("Build failed for {{{query}}}. Err: {e}"));
                                             }
                                         }
-                                        Err(e) => {
-                                            return Err(format!("Build failed for {{{query}}}. Err: {e}"));
-                                        }
+                                    } else {
+                                        error!("cd to build_path {} failed", build_path.display());
+                                        return Err("Failed cd to build_path".to_string());
                                     }
-                                } else {
-                                    error!("cd to build_path {} failed", build_path.display());
-                                    return Err("Failed cd to build_path".to_string());
                                 }
-                            } else {
-                                let single_mode_cmd = format!("{} {} {} -o {} -lm", cc_str, cflg_str, source_path.display(), bin_path.display());
-                                trace!("Using single file mode: {{{}}}", single_mode_cmd);
-                                Command::new("sh")
-                                    .arg("-c")
-                                    .arg(single_mode_cmd)
-                                    .output()
-                                    .expect("failed to execute process")
                             }
                         }
                         AmbosoMode::GitMode => {

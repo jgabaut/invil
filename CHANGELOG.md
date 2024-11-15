@@ -13,6 +13,8 @@
 - Fix: avoid error on wrong tag for -G, mimicking amboso
 - BaseMode cd is now done through env::set_current_dir()
 - Refactored BaseMode do_build() to also use build_step() for queries above anvil_env.makevers
+- Fix: anvilPy does not try to call gcc when query >= makevers
+- Fix: anvilPy does not try to do autotools prep when query >= automakevers
 - Try reading AMBOSO_CONFIG_ARG_ISFILE to use -C with flags directly
   - Setting it to 0 enables the new, backwards incompatible behaviour
 - Bump expected amboso version to 2.0.9
