@@ -11,7 +11,7 @@
 ### Changed
 
 - Fix: avoid error on wrong tag for -G, mimicking amboso
-- Fix: improved BaseMode handling by properly doing cd
+- BaseMode cd is now done through env::set_current_dir()
 - Refactored BaseMode do_build() to also use build_step() for queries above anvil_env.makevers
 - Try reading AMBOSO_CONFIG_ARG_ISFILE to use -C with flags directly
   - Setting it to 0 enables the new, backwards incompatible behaviour
