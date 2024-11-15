@@ -1796,6 +1796,11 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
         }
         AnvilKern::Custom => {
             #[cfg(feature = "anvilCustom")] {
+                let mut found_bin = true;
+                if !bin_path.exists() {
+                    error!("Can't find {{{}}} after running custom command", bin_path.display());
+                    found_bin = false;
+                }
                 trace!("TODO: postbuild checks for custom kern");
                 match env.run_mode.as_ref().unwrap() {
                     AmbosoMode::GitMode => {
@@ -1803,7 +1808,11 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                         match gswinit_res {
                             Ok(m) => {
                                 trace!("Done git cleaning");
-                                return Ok(m);
+                                if found_bin {
+                                    return Ok(m);
+                                } else {
+                                    return Err("Can't find binary after custom command".to_string());
+                                }
                             }
                             Err(e) => {
                                 error!("git cleaning failed");
