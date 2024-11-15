@@ -200,7 +200,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 let current_dir = env::current_dir().expect("failed getting current directory");
                                 let cd_output = env::set_current_dir(&build_path);
                                 if cd_output.is_ok() {
-                                    match build_step(args, env, cflg_str, query, bin_path) {
+                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
                                         Ok(s) => {
                                             trace!("{s}");
                                             let cdback_output = env::set_current_dir(&current_dir);
@@ -265,7 +265,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                     trace!("Build step");
                                                     trace!("cflg_str: {{{cflg_str}}}");
                                                     trace!("bin_path: {{{}}}", bin_path.display());
-                                                    match build_step(args, env, cflg_str, query, bin_path) {
+                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
                                                         Ok(s) => {
                                                             trace!("{s}");
                                                         }
@@ -1486,7 +1486,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     Ok(tot_warns)
 }
 
-fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf) -> Result<String,String> {
+fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String) -> Result<String,String> {
     let output;
     let build_step_command;
     match env.anvil_kern {
@@ -1561,8 +1561,13 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 .expect("failed to execute process");
         }
         AnvilKern::Custom => {
-            // "custom_builder" "target_d/bin_name" "q_tag" "stego_dir"
-            let custom_call = format!("{} {} {} {}", build_step_command, bin_path.display(), query, env.stego_dir.clone().expect("failed initialising stego_dir").display());
+            // "custom_builder" "target_d" "bin_name" "q_tag" "stego_dir"
+            let custom_call = format!("{} {} {} {} {}", build_step_command,
+                build_path.display(),
+                bin,
+                query,
+                env.stego_dir.clone().expect("failed initialising stego_dir").display()
+            );
             debug!("Running \'{custom_call}\'");
             output = Command::new("sh")
                 .arg("-c")
@@ -1577,7 +1582,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
                match env.run_mode.as_ref().unwrap() {
                    AmbosoMode::GitMode => {
-                       return postbuild_step(env, query, bin_path);
+                       return postbuild_step(env, query, bin_path, build_path, bin);
                    }
                    _ => {
                        trace!("Avoiding postbuild_step outside of GitMode");
@@ -1651,12 +1656,12 @@ fn git_switch_and_submodule_init_re(query: &str) -> Result<String,String> {
     }
 }
 
-fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<String,String> {
+fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String) -> Result<String,String> {
 
     let output;
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
-            let move_command_anvilc = format!("mv {} {}", env.bin.as_ref().unwrap(), bin_path.display());
+            let move_command_anvilc = format!("mv {} {}", bin, bin_path.display());
             output = Command::new("sh")
                 .arg("-c")
                 .arg(move_command_anvilc)
@@ -1665,15 +1670,12 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
         }
         AnvilKern::AnvilPy => {
             #[cfg(feature = "anvilPy")] {
-                let mut bindir_path = bin_path.clone();
-                bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
-                                   // could be coded in a more explicit way
                 let curr_proj_name = env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name.clone().replace("-","_");
                 let srcdist_name = format!("{}-{}.tar.gz", curr_proj_name, query);
                 let mut srcdist_path = PathBuf::from("./dist/");
                 srcdist_path.push(srcdist_name.clone());
-                let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), bindir_path.display());
-                let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", curr_proj_name, query, bindir_path.display());
+                let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), build_path.display());
+                let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", curr_proj_name, query, build_path.display());
                 info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
                 let output_srcdist = Command::new("sh")
                     .arg("-c")
@@ -1684,7 +1686,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                     Some(mv_ec) => {
                         if mv_ec == 0 {
                             debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
-                            let mut srcdist_pack_path = PathBuf::from(bindir_path.clone());
+                            let mut srcdist_pack_path = PathBuf::from(build_path.clone());
                             srcdist_pack_path.push(srcdist_name);
                             let unpack_res = unpack_srcdist(&srcdist_pack_path);
                             match unpack_res {
@@ -1721,7 +1723,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                                     }
                                     let mut unpack_initpy_path = target_unpack_path.clone();
                                     unpack_initpy_path.push("__init__.py");
-                                    match post_unpack(&unpack_initpy_path, &bindir_path, &env) {
+                                    match post_unpack(&unpack_initpy_path, &build_path, &env) {
                                         Ok(_) => {}
                                         Err(e) => {
                                             error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
@@ -1755,7 +1757,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
             }
             #[cfg(not(feature = "anvilPy"))] {
                 // Handle AnvilPy case when the feature is not enabled
-                error!("AnvilPy kern feature is not enabled");
+                error!("AnvilPy kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
                 return Err("AnvilPy kern feauture is not enabled".to_string());
             }
         }
@@ -1784,7 +1786,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
             }
             #[cfg(not(feature = "anvilCustom"))] {
                 // Handle AnvilCustom case when the feature is not enabled
-                error!("AnvilCustom kern feature is not enabled");
+                error!("AnvilCustom kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
                 return Err("AnvilCustom kern feauture is not enabled".to_string());
             }
         }
