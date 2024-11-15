@@ -2004,6 +2004,16 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         Ok(anvilpy_env) => {
                             debug!("Done parse_pyproject_toml()");
                             debug!("{:?}", anvilpy_env);
+                            for author in &anvilpy_env.authors {
+                                let mut email = "Unspecified";
+                                if let Some(em) = &author.email {
+                                    email = em;
+                                }
+                                debug!("Author: {{{}}}, Email: {{{}}}", author.name, email);
+                            }
+                            for url in &anvilpy_env.urls {
+                                debug!("{{{}}}: {{{}}}", url.name, url.link);
+                            }
                             anvil_env.anvilpy_env = Some(anvilpy_env);
                         }
                         Err(e) => {
