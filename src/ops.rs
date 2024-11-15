@@ -1561,10 +1561,12 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 .expect("failed to execute process");
         }
         AnvilKern::Custom => {
-            debug!("Runnin \'{build_step_command}\'");
+            // "custom_builder" "target_d/bin_name" "q_tag" "stego_dir"
+            let custom_call = format!("{} {} {} {}", build_step_command, bin_path.display(), query, env.stego_dir.clone().expect("failed initialising stego_dir").display());
+            debug!("Running \'{custom_call}\'");
             output = Command::new("sh")
                 .arg("-c")
-                .arg(format!("{}", build_step_command))
+                .arg(custom_call)
                 .output()
                 .expect("failed to execute process");
         }
@@ -1760,7 +1762,25 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
         AnvilKern::Custom => {
             #[cfg(feature = "anvilCustom")] {
                 trace!("TODO: postbuild checks for custom kern");
-                return Ok("TODO: postbuild for custom kern".to_string());
+                match env.run_mode.as_ref().unwrap() {
+                    AmbosoMode::GitMode => {
+                        let gswinit_res = git_switch_and_submodule_init_re(query);
+                        match gswinit_res {
+                            Ok(m) => {
+                                trace!("Done git cleaning");
+                                return Ok(m);
+                            }
+                            Err(e) => {
+                                error!("git cleaning failed");
+                                return Err(e);
+                            }
+                        }
+                    }
+                    _ => {
+                        error!("Unexpected mode in postbuild_step(): {:?}", env.run_mode.as_ref());
+                        return Err("Unexpected mode in postbuild step".to_string());
+                    }
+                }
             }
             #[cfg(not(feature = "anvilCustom"))] {
                 // Handle AnvilCustom case when the feature is not enabled
@@ -1810,8 +1830,8 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                 }
             }
         }
-        AnvilKern::Custom => {
-            return Ok("Done postbuild for custom kern".to_string());
+        _ => {
+            return Err("Unexpected kern in mv check".to_string());
         }
     }
 }
