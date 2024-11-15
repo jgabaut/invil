@@ -197,11 +197,42 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                             if use_make {
                                 trace!("Using make mode");
-                                Command::new("sh")
+                                let cd_output = Command::new("sh")
                                     .arg("-c")
-                                    .arg(format!("( cd {} || echo \"cd failed\"; {} make )", build_path.display(), cflg_str))
+                                    .arg(format!("( cd {} || echo \"cd failed\";)", build_path.display()))
                                     .output()
-                                    .expect("failed to execute process")
+                                    .expect("failed to execute process");
+
+                                    match cd_output.status.code() {
+                                        Some(x) => {
+                                            if x == 0 {
+                                                trace!("cd to build_path {} succeded with status: {}", build_path.display(), x.to_string());
+                                                match build_step(args, env, cflg_str, query, bin_path) {
+                                                    Ok(s) => {
+                                                        trace!("{s}");
+                                                        let cdback_output = Command::new("sh")
+                                                            .arg("-c")
+                                                            .arg(format!("( cd - || echo \"cd failed\";)"))
+                                                            .output()
+                                                            .expect("failed to execute process");
+                                                        cdback_output
+                                                    }
+                                                    Err(e) => {
+                                                        return Err(format!("Build failed for {{{query}}}. Err: {e}"));
+                                                    }
+                                                }
+                                            } else {
+                                                error!("cd to build_path {} failed with status: {}", build_path.display(), x.to_string());
+                                                return Err("Failed cd to build_path".to_string());
+                                            }
+                                        }
+                                        None => {
+                                            error!("cd to build_path {} failed", build_path.display());
+                                            io::stdout().write_all(&cd_output.stdout).unwrap();
+                                            io::stderr().write_all(&cd_output.stderr).unwrap();
+                                            return Err("Cd to build_path command failed".to_string());
+                                        }
+                                    }
                             } else {
                                 let single_mode_cmd = format!("{} {} {} -o {} -lm", cc_str, cflg_str, source_path.display(), bin_path.display());
                                 trace!("Using single file mode: {{{}}}", single_mode_cmd);
@@ -1557,7 +1588,15 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         Some(make_ec) => {
             if make_ec == 0 {
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
-               return postbuild_step(env, query, bin_path);
+               match env.run_mode.as_ref().unwrap() {
+                   AmbosoMode::GitMode => {
+                       return postbuild_step(env, query, bin_path);
+                   }
+                   _ => {
+                       trace!("Avoiding postbuild_step outside of GitMode");
+                       return Ok(format!("{{{build_step_command}}} succeded"));
+                   }
+               }
             } else {
                 warn!("{{{}}} failed with status: {}", build_step_command, make_ec.to_string());
                 io::stdout().write_all(&output.stdout).unwrap();
@@ -1752,15 +1791,23 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<Str
                 Some(mv_ec) => {
                     if mv_ec == 0 {
                         debug!("mv succeded with status: {}", mv_ec.to_string());
-                        let gswinit_res = git_switch_and_submodule_init_re(query);
-                        match gswinit_res {
-                            Ok(m) => {
-                                trace!("Done git cleaning");
-                                return Ok(m);
+                        match env.run_mode.as_ref().unwrap() {
+                            AmbosoMode::GitMode => {
+                                let gswinit_res = git_switch_and_submodule_init_re(query);
+                                match gswinit_res {
+                                    Ok(m) => {
+                                        trace!("Done git cleaning");
+                                        return Ok(m);
+                                    }
+                                    Err(e) => {
+                                        error!("git cleaning failed");
+                                        return Err(e);
+                                    }
+                                }
                             }
-                            Err(e) => {
-                                error!("git cleaning failed");
-                                return Err(e);
+                            _ => {
+                                error!("Unexpected mode in postbuild_step(): {:?}", env.run_mode.as_ref());
+                                return Err("Unexpected mode in postbuild step".to_string());
                             }
                         }
                     } else {
