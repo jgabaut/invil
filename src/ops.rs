@@ -197,42 +197,27 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                             if use_make {
                                 trace!("Using make mode");
-                                let cd_output = Command::new("sh")
-                                    .arg("-c")
-                                    .arg(format!("( cd {} || echo \"cd failed\";)", build_path.display()))
-                                    .output()
-                                    .expect("failed to execute process");
-
-                                    match cd_output.status.code() {
-                                        Some(x) => {
-                                            if x == 0 {
-                                                trace!("cd to build_path {} succeded with status: {}", build_path.display(), x.to_string());
-                                                match build_step(args, env, cflg_str, query, bin_path) {
-                                                    Ok(s) => {
-                                                        trace!("{s}");
-                                                        let cdback_output = Command::new("sh")
-                                                            .arg("-c")
-                                                            .arg(format!("( cd - || echo \"cd failed\";)"))
-                                                            .output()
-                                                            .expect("failed to execute process");
-                                                        cdback_output
-                                                    }
-                                                    Err(e) => {
-                                                        return Err(format!("Build failed for {{{query}}}. Err: {e}"));
-                                                    }
-                                                }
+                                let current_dir = env::current_dir().expect("failed getting current directory");
+                                let cd_output = env::set_current_dir(&build_path);
+                                if cd_output.is_ok() {
+                                    match build_step(args, env, cflg_str, query, bin_path) {
+                                        Ok(s) => {
+                                            trace!("{s}");
+                                            let cdback_output = env::set_current_dir(&current_dir);
+                                            if cdback_output.is_ok() {
+                                                return Ok(s);
                                             } else {
-                                                error!("cd to build_path {} failed with status: {}", build_path.display(), x.to_string());
-                                                return Err("Failed cd to build_path".to_string());
+                                                return Err(format!("cdback to {{{}}} failed", current_dir.display()));
                                             }
                                         }
-                                        None => {
-                                            error!("cd to build_path {} failed", build_path.display());
-                                            io::stdout().write_all(&cd_output.stdout).unwrap();
-                                            io::stderr().write_all(&cd_output.stderr).unwrap();
-                                            return Err("Cd to build_path command failed".to_string());
+                                        Err(e) => {
+                                            return Err(format!("Build failed for {{{query}}}. Err: {e}"));
                                         }
                                     }
+                                } else {
+                                    error!("cd to build_path {} failed", build_path.display());
+                                    return Err("Failed cd to build_path".to_string());
+                                }
                             } else {
                                 let single_mode_cmd = format!("{} {} {} -o {} -lm", cc_str, cflg_str, source_path.display(), bin_path.display());
                                 trace!("Using single file mode: {{{}}}", single_mode_cmd);
