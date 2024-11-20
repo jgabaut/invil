@@ -1796,35 +1796,37 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
         }
         AnvilKern::Custom => {
             #[cfg(feature = "anvilCustom")] {
-                let mut found_bin = true;
                 if !bin_path.exists() {
-                    error!("Can't find {{{}}} after running custom command", bin_path.display());
-                    found_bin = false;
-                }
-                trace!("TODO: postbuild checks for custom kern");
-                match env.run_mode.as_ref().unwrap() {
-                    AmbosoMode::GitMode => {
-                        let gswinit_res = git_switch_and_submodule_init_re(query);
-                        match gswinit_res {
-                            Ok(m) => {
-                                trace!("Done git cleaning");
-                                if found_bin {
-                                    return Ok(m);
-                                } else {
-                                    return Err("Can't find binary after custom command".to_string());
+                } else {
+                    debug!("It seems that custom command created {{{}}}.", bin_path.display());
+                    debug!("Ignoring the move step.");
+                    match env.run_mode.as_ref().unwrap() {
+                        AmbosoMode::GitMode => {
+                            let gswinit_res = git_switch_and_submodule_init_re(query);
+                            match gswinit_res {
+                                Ok(_) => {
+                                    trace!("Done git cleaning");
+                                    return Ok("Custom command moved the build by itself".to_string());
+                                }
+                                Err(e) => {
+                                    error!("git cleaning failed");
+                                    return Err(e);
                                 }
                             }
-                            Err(e) => {
-                                error!("git cleaning failed");
-                                return Err(e);
-                            }
+                        }
+                        _ => {
+                            error!("Unexpected mode in postbuild_step(): {:?}", env.run_mode.as_ref());
+                            return Err("Unexpected mode in postbuild step".to_string());
                         }
                     }
-                    _ => {
-                        error!("Unexpected mode in postbuild_step(): {:?}", env.run_mode.as_ref());
-                        return Err("Unexpected mode in postbuild step".to_string());
-                    }
                 }
+                trace!("TODO: postbuild checks for custom kern");
+                let move_command_anvilcustom = format!("mv {} {}", bin, bin_path.display());
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(move_command_anvilcustom)
+                    .output()
+                    .expect("failed to execute process");
             }
             #[cfg(not(feature = "anvilCustom"))] {
                 // Handle AnvilCustom case when the feature is not enabled
@@ -1835,7 +1837,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
     }
 
     match env.anvil_kern {
-        AnvilKern::AmbosoC | AnvilKern::AnvilPy => {
+        AnvilKern::AmbosoC | AnvilKern::AnvilPy | AnvilKern::Custom => {
             match output.status.code() {
                 Some(mv_ec) => {
                     if mv_ec == 0 {
@@ -1873,9 +1875,6 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                     return Err("mv command failed".to_string());
                 }
             }
-        }
-        _ => {
-            return Err("Unexpected kern in mv check".to_string());
         }
     }
 }
