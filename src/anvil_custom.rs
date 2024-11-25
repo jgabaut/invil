@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 use std::fs;
 use toml::Table;
+use regex::Regex;
 
 pub const ANVILCUST_CUSTOM_BUILDER_KEYNAME: &str = "custombuilder";
 
@@ -36,6 +37,18 @@ pub fn parse_anvilcustom_toml(stego_path: &PathBuf) -> Result<AnvilCustomEnv,Str
     return parse_anvilcustom_tomlvalue(&stego, stego_path, start_time);
 }
 
+fn has_reserved_char(input: &str) -> bool {
+    // Use a delimited raw string to handle backslashes correctly
+    let re = Regex::new(r#"[\$\`\";\|\&><\*\(\)\#\{\}\[\]]"#).unwrap();
+
+    // Check if any forbidden character is found
+    if re.is_match(input) {
+        return true;
+    }
+
+    false
+}
+
 fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, start_time: Instant) -> Result<AnvilCustomEnv,String> {
     let toml_value = stego_str.parse::<Table>();
     match toml_value {
@@ -47,6 +60,11 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, start_time
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
                 if let Some(custom_builder) = anvil_table.get(ANVILCUST_CUSTOM_BUILDER_KEYNAME) {
                     let anvilcust_builder_str = custom_builder.as_str().expect("toml conversion failed");
+                    if has_reserved_char(anvilcust_builder_str) {
+                        //TODO: warning about the reserved chars?
+                        error!("anvil_custombuilder: --> {{{anvilcust_builder_str}}}");
+                        return Err("Invalid custombuilder arg".to_string());
+                    }
                     debug!("anvil_custombuilder: {{{anvilcust_builder_str}}}");
                     anvilcustom_env.custom_builder = anvilcust_builder_str.to_string();
                 } else {
