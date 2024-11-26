@@ -1,12 +1,31 @@
 # Changelog
 
+## [0.2.19] - 2024-11-26
+
+### Added
+
+- Add -Z to pass CFLAGS to single file build mode
+  - Avoids reading CFLAGS from env
+- Basic optional support for AnvilCustom kern
+
+### Changed
+
+- Fix: avoid error on wrong tag for -G, mimicking amboso
+- BaseMode cd is now done through env::set_current_dir()
+- Refactored BaseMode do_build() to also use build_step() for queries above anvil_env.makevers
+- Fix: anvilPy does not try to call gcc when query >= makevers
+- Fix: anvilPy does not try to do autotools prep when query >= automakevers
+- Try reading AMBOSO_CONFIG_ARG_ISFILE to use -C with flags directly
+  - Setting it to 0 enables the new, backwards incompatible behaviour
+- Bump expected amboso version to 2.0.9
+
 ## [0.2.18] - 2024-10-24
 
 ### Changed
 
 - Fix: avoid error on relative paths with no `./` for `-x`, `-Lx`
 - Fix: don't try parsing global conf when file doesn't exist
-- Bump `EXPECTED_AMBOSO_API_LEVEL` to `2.0.8`
+- Bump expected amboso version to 2.0.8
 
 ## [0.2.17] - 2024-08-29
 

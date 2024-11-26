@@ -17,6 +17,8 @@ mod ops;
 mod utils;
 #[cfg(feature = "anvilPy")]
 mod anvil_py;
+#[cfg(feature = "anvilCustom")]
+mod anvil_custom;
 
 #[macro_use] extern crate log;
 use simplelog::*;
@@ -53,6 +55,11 @@ fn main() -> ExitCode {
                 println!("Experimental anvilPy support is enabled.");
             } else {
                 println!("Experimental anvilPy support is NOT enabled.");
+            }
+            if cfg!(feature = "anvilCustom") {
+                println!("Experimental anvilCustom support is enabled.");
+            } else {
+                println!("Experimental anvilCustom support is NOT enabled.");
             }
         } else {
             println!("{}",INVIL_VERSION);

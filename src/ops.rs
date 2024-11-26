@@ -93,61 +93,67 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     trace!("No file found for {{{}}}", queried_path.display());
                 }
 
-                let use_make = query >= &env.mintag_make.clone().unwrap();
+                let mut use_make = false;
+                match env.anvil_kern {
+                    AnvilKern::AmbosoC => {
+                        use_make = query >= &env.mintag_make.clone().unwrap();
 
-                if use_make && !env.support_makemode {
-                    error!("Can't build {{{}}}, as makemode is not supported by the project", query);
-                    return Err("Missing makemode support".to_string());
-                }
-
-                let use_automake = query >= &env.mintag_automake.clone().unwrap();
-
-                if use_automake && !env.support_automakemode {
-                    error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
-                    return Err("Missing automakemode support".to_string());
-                } else if use_automake {
-                    match env.run_mode.as_ref().unwrap() {
-                        AmbosoMode::GitMode => {
-                            if cfg!(target_os = "windows") {
-                                todo!("Support windows automake prep?");
-                                /*
-                                 * let output = Command::new("cmd")
-                                 *   .args(["/C", "echo hello"])
-                                 *   .output()
-                                 *   .expect("failed to execute process")
-                                 */
-                            } else {
-                                debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure \"{}\"\'", env.configure_arg);
-                                let output = Command::new("sh")
-                                    .arg("-c")
-                                    .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
-                                    .output()
-                                    .expect("failed to execute process");
-
-                                match output.status.code() {
-                                    Some(autotools_prep_ec) => {
-                                        if autotools_prep_ec == 0 {
-                                            debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
-                                        } else {
-                                            error!("Automake failed with status: {}", autotools_prep_ec.to_string());
-                                            io::stdout().write_all(&output.stdout).unwrap();
-                                            io::stderr().write_all(&output.stderr).unwrap();
-                                            return Err("Automake prep failed".to_string());
-                                        }
-                                    }
-                                    None => {
-                                        error!("Automake prep command failed");
-                                        io::stdout().write_all(&output.stdout).unwrap();
-                                        io::stderr().write_all(&output.stderr).unwrap();
-                                        return Err("Automake prep command failed".to_string());
-                                    }
-                                }
-                            };
+                        if use_make && !env.support_makemode {
+                            error!("Can't build {{{}}}, as makemode is not supported by the project", query);
+                            return Err("Missing makemode support".to_string());
                         }
-                        _ => {
-                            todo!("automake prep for {:?}", env.run_mode.as_ref().unwrap());
+
+                        let use_automake = query >= &env.mintag_automake.clone().unwrap();
+
+                        if use_automake && !env.support_automakemode {
+                            error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
+                            return Err("Missing automakemode support".to_string());
+                        } else if use_automake {
+                            match env.run_mode.as_ref().unwrap() {
+                                AmbosoMode::GitMode => {
+                                    if cfg!(target_os = "windows") {
+                                        todo!("Support windows automake prep?");
+                                        /*
+                                         * let output = Command::new("cmd")
+                                         *   .args(["/C", "echo hello"])
+                                         *   .output()
+                                         *   .expect("failed to execute process")
+                                         */
+                                    } else {
+                                        debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure \"{}\"\'", env.configure_arg);
+                                        let output = Command::new("sh")
+                                            .arg("-c")
+                                            .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
+                                            .output()
+                                            .expect("failed to execute process");
+
+                                        match output.status.code() {
+                                            Some(autotools_prep_ec) => {
+                                                if autotools_prep_ec == 0 {
+                                                    debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
+                                                } else {
+                                                    error!("Automake failed with status: {}", autotools_prep_ec.to_string());
+                                                    io::stdout().write_all(&output.stdout).unwrap();
+                                                    io::stderr().write_all(&output.stderr).unwrap();
+                                                    return Err("Automake prep failed".to_string());
+                                                }
+                                            }
+                                            None => {
+                                                error!("Automake prep command failed");
+                                                io::stdout().write_all(&output.stdout).unwrap();
+                                                io::stderr().write_all(&output.stderr).unwrap();
+                                                return Err("Automake prep command failed".to_string());
+                                            }
+                                        }
+                                    };
+                                }
+                                _ => {
+                                    todo!("automake prep for {:?}", env.run_mode.as_ref().unwrap());
+                                }
+                            }
                         }
                     }
+                    _ => {}
                 }
 
                 let output = if cfg!(target_os = "windows") {
@@ -166,16 +172,21 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
-                            let cflg = "CFLAGS";
                             let cflg_str;
-                            match env::var(cflg) {
-                                Ok(val) => {
-                                    debug!("Using {{{}: {}}}", cflg, val);
-                                    cflg_str = format!("CFLAGS={}", &val);
-                                },
-                                Err(e) => {
-                                    debug!("Failed reading {{{}: {}}}", cflg, e);
-                                    cflg_str = "".to_string();
+                            if env.cflags_arg.len() > 0 { //We have the arg from --config/-Z
+                                debug!("Using passed CFLAGS {{{}}}", env.cflags_arg);
+                                cflg_str = env.cflags_arg.clone();
+                            } else { //Backcomp reading env CFLAGS
+                                let cflags = "CFLAGS";
+                                match env::var(cflags) {
+                                    Ok(val) => {
+                                        debug!("Using {{{}: {}}}", cflags, val);
+                                        cflg_str = format!("{}",val);
+                                    },
+                                    Err(e) => {
+                                        error!("Failed reading {{{}: {}}}", cflags, e);
+                                        cflg_str = "".to_string()
+                                    }
                                 }
                             }
                             let cc = "CC";
@@ -190,19 +201,64 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     cc_str = "gcc".to_string();
                                 }
                             }
-                            if use_make {
-                                trace!("Using make mode");
-                                Command::new("sh")
-                                    .arg("-c")
-                                    .arg(format!("( cd {} || echo \"cd failed\"; {} make )", build_path.display(), cflg_str))
-                                    .output()
-                                    .expect("failed to execute process")
-                            } else {
-                                Command::new("sh")
-                                    .arg("-c")
-                                    .arg(format!("{} {} {} -o {} -lm", cflg_str, cc_str, source_path.display(), bin_path.display()))
-                                    .output()
-                                    .expect("failed to execute process")
+                            match env.anvil_kern {
+                                AnvilKern::AmbosoC => {
+                                    if use_make {
+                                        trace!("Using make mode");
+                                        let current_dir = env::current_dir().expect("failed getting current directory");
+                                        let cd_output = env::set_current_dir(&build_path);
+                                        if cd_output.is_ok() {
+                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
+                                                Ok(s) => {
+                                                    trace!("{s}");
+                                                    let cdback_output = env::set_current_dir(&current_dir);
+                                                    if cdback_output.is_ok() {
+                                                        return Ok(s);
+                                                    } else {
+                                                        return Err(format!("cdback to {{{}}} failed", current_dir.display()));
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    return Err(format!("Build failed for {{{query}}}. Err: {e}"));
+                                                }
+                                            }
+                                        } else {
+                                            error!("cd to build_path {} failed", build_path.display());
+                                            return Err("Failed cd to build_path".to_string());
+                                        }
+                                    } else {
+                                        let single_mode_cmd = format!("{} {} {} -o {} -lm", cc_str, cflg_str, source_path.display(), bin_path.display());
+                                        trace!("Using single file mode: {{{}}}", single_mode_cmd);
+                                        Command::new("sh")
+                                            .arg("-c")
+                                            .arg(single_mode_cmd)
+                                            .output()
+                                            .expect("failed to execute process")
+                                    }
+                                }
+                                AnvilKern::AnvilPy | AnvilKern::Custom => {
+                                    let current_dir = env::current_dir().expect("failed getting current directory");
+                                    let cd_output = env::set_current_dir(&build_path);
+                                    if cd_output.is_ok() {
+                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
+                                            Ok(s) => {
+                                                trace!("{s}");
+                                                let cdback_output = env::set_current_dir(&current_dir);
+                                                if cdback_output.is_ok() {
+                                                    return Ok(s);
+                                                } else {
+                                                    return Err(format!("cdback to {{{}}} failed", current_dir.display()));
+                                                }
+                                            }
+                                            Err(e) => {
+                                                return Err(format!("Build failed for {{{query}}}. Err: {e}"));
+                                            }
+                                        }
+                                    } else {
+                                        error!("cd to build_path {} failed", build_path.display());
+                                        return Err("Failed cd to build_path".to_string());
+                                    }
+                                }
                             }
                         }
                         AmbosoMode::GitMode => {
@@ -211,17 +267,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
-                            let cflg = "CFLAGS";
                             let cflg_str;
-                            match env::var(cflg) {
-                                Ok(val) => {
-                                    debug!("Using {{{}: {}}}", cflg, val);
-                                    cflg_str = format!("CFLAGS={}", &val);
-                                },
-                                Err(e) => {
-                                    debug!("Failed reading {{{}: {}}}", cflg, e);
-                                    cflg_str = "".to_string();
-                                }
+                            if env.cflags_arg.len() > 0 {
+                                debug!("Using passed CFLAGS{{{}}}", env.cflags_arg);
+                                cflg_str = env.cflags_arg.clone();
+                            } else {
+                                cflg_str = "".to_string()
                             }
                             trace!("Git mode, checking out {}",query);
 
@@ -247,7 +298,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                     trace!("Build step");
                                                     trace!("cflg_str: {{{cflg_str}}}");
                                                     trace!("bin_path: {{{}}}", bin_path.display());
-                                                    match build_step(args, env, cflg_str, query, bin_path) {
+                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
                                                         Ok(s) => {
                                                             trace!("{s}");
                                                         }
@@ -842,9 +893,9 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
     let repo = Repository::discover(target_path);
     let mut head_author_name = "".to_string();
     let id;
-    let commit_time;
     let mut commit_message = "".to_string();
     let gen_time = SystemTime::now();
+    let commit_time;
     let gen_timestamp = gen_time.duration_since(SystemTime::UNIX_EPOCH);
     let mut fgen_time = "".to_string();
     match gen_timestamp {
@@ -863,7 +914,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                 Ok(refr) => {
                     if !refr.is_tag() {
                         error!("{target_tag} is not a reference");
-                        return Err("ERROR".to_string());
+                        return Err(format!("Requested tag is not a reference: {target_tag}").to_string());
                     } else {
                         let commit = refr.peel_to_commit();
                         match commit {
@@ -885,7 +936,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                                        warn!("Commit author is empty: {}", head_author_name);
                                    }
                                 }
-                                commit_time = commit.time().seconds();
+                                commit_time = commit.time().seconds().to_string();
                                 info!("Commit time: {{{}}}", commit_time);
                                    }
                             Err(e) => {
@@ -896,8 +947,48 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                     }
                 }
                 Err(_) => {
-                    error!("{}", format!("Failed getting {target_tag}"));
-                    return Err(format!("Failed getting tag {{{target_tag}}}"));
+                    if target_tag.len() == 0 {
+                        error!("Invalid empty tag request");
+                        return Err("Invalid empty tag request".to_string());
+                    }
+                    warn!("{}", format!("Failed getting tag {target_tag}, retrying using HEAD"));
+                    let head = r.head();
+                    match head {
+                        Ok(head) => {
+                            let commit = head.peel_to_commit();
+                            match commit {
+                                Ok(commit) => {
+                                    if let Some(msg) = commit.message() {
+                                        info!("Commit message: {{{}}}", msg);
+                                        commit_message = msg.escape_default().to_string();
+                                    }
+                                    id = commit.id().to_string();
+                                    info!("Commit id: {{{}}}", id);
+                                    let author = commit.author();
+                                    let name = author.name();
+                                    match name {
+                                        Some(name) => {
+                                            head_author_name = name.to_string();
+                                            info!("Commit author: {{{}}}", head_author_name);
+                                        }
+                                        None => {
+                                            warn!("Commit author is empty: {}", head_author_name);
+                                        }
+                                    }
+                                    commit_time = commit.time().seconds().to_string();
+                                    info!("Commit time: {{{}}}", commit_time);
+                                }
+                                Err(e) => {
+                                    error!("Failed peel to head commit for {{{}}}. Err: {e}", target_path.display());
+                                    return Err("Failed peel to head commit for repo".to_string());
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            error!("Failed getting head for {{{}}}. Err: {e}", target_path.display());
+                            return Err("Failed getting head for repo".to_string());
+                        }
+                    }
                 }
             }
         }
@@ -1428,7 +1519,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     Ok(tot_warns)
 }
 
-fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf) -> Result<String,String> {
+fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String) -> Result<String,String> {
     let output;
     let build_step_command;
     match env.anvil_kern {
@@ -1456,29 +1547,81 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 build_step_command = "make";
             }
         }
+        AnvilKern::Custom => {
+            #[cfg(feature = "anvilCustom")] {
+                match &env.anvilcustom_env {
+                    Some(cust_env) => {
+                        build_step_command = &cust_env.custom_builder;
+                    }
+                    None => {
+                        error!("Missing anvilcustom_env");
+                        return Err("Missing anvilcustom_env".to_string());
+                    }
+                }
+            }
+            #[cfg(not(feature = "anvilCustom"))] {
+                // Handle AnvilCustom case when the feature is not enabled
+                error!("AnvilCustom kern feature is not enabled");
+                return Err("AnvilCustom kern feauture is not enabled".to_string());
+            }
+        }
     }
 
-    if args.no_rebuild || env.anvil_kern == AnvilKern::AnvilPy {
-        debug!("Running \'{build_step_command}\'");
-        output = Command::new("sh")
-            .arg("-c")
-            .arg(format!("{} {}", cflg_str, build_step_command))
-            .output()
-            .expect("failed to execute process");
-    }
-    else {
-        debug!("Running \'make rebuild\'");
-        output = Command::new("sh")
-            .arg("-c")
-            .arg(format!("{} make rebuild", cflg_str))
-            .output()
-            .expect("failed to execute process");
+    match env.anvil_kern {
+        AnvilKern::AmbosoC => {
+            if args.no_rebuild {
+                debug!("Running \'{build_step_command}\'");
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("{} {}", cflg_str, build_step_command))
+                    .output()
+                    .expect("failed to execute process");
+            } else {
+                debug!("Running \'make rebuild\'");
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("{} make rebuild", cflg_str))
+                    .output()
+                    .expect("failed to execute process");
+            }
+        }
+        AnvilKern::AnvilPy => {
+            debug!("Running \'{build_step_command}\'");
+            output = Command::new("sh")
+                .arg("-c")
+                .arg(format!("{} {}", cflg_str, build_step_command))
+                .output()
+                .expect("failed to execute process");
+        }
+        AnvilKern::Custom => {
+            // "custom_builder" "target_d" "bin_name" "q_tag" "stego_dir"
+            let custom_call = format!("{} {} {} {} {}", build_step_command,
+                build_path.display(),
+                bin,
+                query,
+                env.stego_dir.clone().expect("failed initialising stego_dir").display()
+            );
+            debug!("Running \'{custom_call}\'");
+            output = Command::new("sh")
+                .arg("-c")
+                .arg(custom_call)
+                .output()
+                .expect("failed to execute process");
+        }
     }
     match output.status.code() {
         Some(make_ec) => {
             if make_ec == 0 {
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
-               return postbuild_step(env, query, bin_path);
+               match env.run_mode.as_ref().unwrap() {
+                   AmbosoMode::GitMode => {
+                       return postbuild_step(env, query, bin_path, build_path, bin);
+                   }
+                   _ => {
+                       trace!("Avoiding postbuild_step outside of GitMode");
+                       return Ok(format!("{{{build_step_command}}} succeded"));
+                   }
+               }
             } else {
                 warn!("{{{}}} failed with status: {}", build_step_command, make_ec.to_string());
                 io::stdout().write_all(&output.stdout).unwrap();
@@ -1495,185 +1638,243 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
     }
 }
 
-fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf) -> Result<String,String> {
+fn git_switch_and_submodule_init_re(query: &str) -> Result<String,String> {
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!("git switch -"))
+        .output()
+        .expect("failed to execute process");
+    match output.status.code() {
+        Some(gswitch_ec) => {
+            if gswitch_ec == 0 {
+               debug!("git switch succeded with status: {}", gswitch_ec.to_string());
+                let output = Command::new("sh")
+                    .arg("-c")
+                    .arg(format!("git submodule update --init --recursive"))
+                    .output()
+                    .expect("failed to execute process");
+                match output.status.code() {
+                    Some(gsinit_end_ec) => {
+                        if gsinit_end_ec == 0 {
+                            debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
+                            debug!("Done build for {}", query);
+                            return Ok(format!("Done build step for {{{query}}}"));
+                        } else {
+                            warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
+                            io::stdout().write_all(&output.stdout).unwrap();
+                            io::stderr().write_all(&output.stderr).unwrap();
+                            return Err("git submodule init failed".to_string());
+                        }
+                    }
+                    None => {
+                        error!("git submodule init command failed");
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
+                        return Err("git submodule init command failed".to_string());
+                    }
+                }
+            } else {
+                warn!("git switch failed with status: {}", gswitch_ec.to_string());
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                return Err("git switch failed".to_string());
+            }
+        }
+        None => {
+            error!("git switch command failed");
+            io::stdout().write_all(&output.stdout).unwrap();
+            io::stderr().write_all(&output.stderr).unwrap();
+            return Err("git switch command failed".to_string());
+        }
+    }
+}
 
-    let move_command_anvilc = format!("mv {} {}", env.bin.as_ref().unwrap(), bin_path.display());
+fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String) -> Result<String,String> {
+
     let output;
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
+            let move_command_anvilc = format!("mv {} {}", bin, bin_path.display());
             output = Command::new("sh")
                 .arg("-c")
                 .arg(move_command_anvilc)
                 .output()
                 .expect("failed to execute process");
         }
-        #[cfg(feature = "anvilPy")]
         AnvilKern::AnvilPy => {
-            let mut bindir_path = bin_path.clone();
-            bindir_path.pop(); // TODO This ensures we move the files to the correct query dir, but it
-                               // could be coded in a more explicit way
-            let proj_name = &env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name;
-            let srcdist_name = format!("{}-{}.tar.gz", proj_name, query);
-            let mut srcdist_path = PathBuf::from("./dist/");
-            srcdist_path.push(srcdist_name.clone());
-            let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), bindir_path.display());
-            let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", proj_name.replace("-","_"), query, bindir_path.display());
-            let output_srcdist = Command::new("sh")
-                .arg("-c")
-                .arg(move_command_srcdist)
-                .output()
-                .expect("failed to execute process");
-            match output_srcdist.status.code() {
-                Some(mv_ec) => {
-                    if mv_ec == 0 {
-                        debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
-                        let mut srcdist_pack_path = PathBuf::from(bindir_path.clone());
-                        srcdist_pack_path.push(srcdist_name);
-                        let unpack_res = unpack_srcdist(&srcdist_pack_path);
-                        match unpack_res {
-                            Ok(unpack_path) => {
-                                let proj_dirname = format!("{proj_name}-{query}");
-                                let mut target_unpack_path = unpack_path.clone();
-                                target_unpack_path.push(ANVILPY_UNPACKDIR_NAME);
-                                let mut curr_unpack_path = unpack_path.clone();
-                                curr_unpack_path.push(proj_dirname.clone());
+            #[cfg(feature = "anvilPy")] {
+                let curr_proj_name = env.anvilpy_env.as_ref().expect("Failed initialising anvilpy_env").proj_name.clone().replace("-","_");
+                let srcdist_name = format!("{}-{}.tar.gz", curr_proj_name, query);
+                let mut srcdist_path = PathBuf::from("./dist/");
+                srcdist_path.push(srcdist_name.clone());
+                let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), build_path.display());
+                let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", curr_proj_name, query, build_path.display());
+                info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
+                let output_srcdist = Command::new("sh")
+                    .arg("-c")
+                    .arg(move_command_srcdist)
+                    .output()
+                    .expect("failed to execute process");
+                match output_srcdist.status.code() {
+                    Some(mv_ec) => {
+                        if mv_ec == 0 {
+                            debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
+                            let mut srcdist_pack_path = PathBuf::from(build_path.clone());
+                            srcdist_pack_path.push(srcdist_name);
+                            let unpack_res = unpack_srcdist(&srcdist_pack_path);
+                            match unpack_res {
+                                Ok(unpack_path) => {
+                                    let proj_dirname = format!("{curr_proj_name}-{query}");
+                                    let mut target_unpack_path = unpack_path.clone();
+                                    target_unpack_path.push(ANVILPY_UNPACKDIR_NAME);
+                                    let mut curr_unpack_path = unpack_path.clone();
+                                    curr_unpack_path.push(proj_dirname.clone());
 
-                                let move_unpackdir = format!("mv {} {}", curr_unpack_path.display(), target_unpack_path.display());
-                                let output_unpackmv = Command::new("sh")
-                                    .arg("-c")
-                                    .arg(move_unpackdir)
-                                    .output()
-                                    .expect("failed to execute process");
-                                match output_unpackmv.status.code() {
-                                    Some(mv_ec) => {
-                                        if mv_ec == 0 {
-                                            trace!("Moved {{{}}} to {{{}}}", curr_unpack_path.display(), target_unpack_path.display());
-                                        } else {
-                                            warn!("mv unpack failed with status: {}", mv_ec.to_string());
-                                            io::stdout().write_all(&output_unpackmv.stdout).unwrap();
-                                            io::stderr().write_all(&output_unpackmv.stderr).unwrap();
-                                            return Err("mv unpack failed".to_string());
+                                    let move_unpackdir = format!("mv {} {}", curr_unpack_path.display(), target_unpack_path.display());
+                                    let output_unpackmv = Command::new("sh")
+                                        .arg("-c")
+                                        .arg(move_unpackdir)
+                                        .output()
+                                        .expect("failed to execute process");
+                                    match output_unpackmv.status.code() {
+                                        Some(mv_ec) => {
+                                            if mv_ec == 0 {
+                                                trace!("Moved {{{}}} to {{{}}}", curr_unpack_path.display(), target_unpack_path.display());
+                                            } else {
+                                                warn!("mv unpack failed with status: {}", mv_ec.to_string());
+                                                io::stdout().write_all(&output_unpackmv.stdout).unwrap();
+                                                io::stderr().write_all(&output_unpackmv.stderr).unwrap();
+                                                return Err("mv unpack failed".to_string());
+                                            }
+                                        }
+                                        None => {
+                                            error!("mv unpack command failed");
+                                            io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                                            io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                                            return Err("mv command failed".to_string());
                                         }
                                     }
-                                    None => {
-                                        error!("mv unpack command failed");
-                                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
-                                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
-                                        return Err("mv command failed".to_string());
+                                    let mut unpack_initpy_path = target_unpack_path.clone();
+                                    unpack_initpy_path.push("__init__.py");
+                                    match post_unpack(&unpack_initpy_path, &build_path, &env) {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
+                                            return Err("Failed post_unpack()".to_string());
+                                        }
                                     }
                                 }
-                                let mut unpack_initpy_path = target_unpack_path.clone();
-                                unpack_initpy_path.push("__init__.py");
-                                match post_unpack(&unpack_initpy_path, &bindir_path, &env) {
-                                    Ok(_) => {}
+                                Err(e) => {
+                                    return Err(e);
+                                }
+                            }
+                        } else {
+                            warn!("mv srcdist failed with status: {}", mv_ec.to_string());
+                            io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                            io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                            return Err("mv failed".to_string());
+                        }
+                    }
+                    None => {
+                        error!("mv srcdist command failed");
+                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
+                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                        return Err("mv command failed".to_string());
+                    }
+                }
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(move_command_whldist)
+                    .output()
+                    .expect("failed to execute process");
+            }
+            #[cfg(not(feature = "anvilPy"))] {
+                // Handle AnvilPy case when the feature is not enabled
+                error!("AnvilPy kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
+                return Err("AnvilPy kern feauture is not enabled".to_string());
+            }
+        }
+        AnvilKern::Custom => {
+            #[cfg(feature = "anvilCustom")] {
+                if !bin_path.exists() {
+                } else {
+                    debug!("It seems that custom command created {{{}}}.", bin_path.display());
+                    debug!("Ignoring the move step.");
+                    match env.run_mode.as_ref().unwrap() {
+                        AmbosoMode::GitMode => {
+                            let gswinit_res = git_switch_and_submodule_init_re(query);
+                            match gswinit_res {
+                                Ok(_) => {
+                                    trace!("Done git cleaning");
+                                    return Ok("Custom command moved the build by itself".to_string());
+                                }
+                                Err(e) => {
+                                    error!("git cleaning failed");
+                                    return Err(e);
+                                }
+                            }
+                        }
+                        _ => {
+                            error!("Unexpected mode in postbuild_step(): {:?}", env.run_mode.as_ref());
+                            return Err("Unexpected mode in postbuild step".to_string());
+                        }
+                    }
+                }
+                trace!("TODO: postbuild checks for custom kern");
+                let move_command_anvilcustom = format!("mv {} {}", bin, bin_path.display());
+                output = Command::new("sh")
+                    .arg("-c")
+                    .arg(move_command_anvilcustom)
+                    .output()
+                    .expect("failed to execute process");
+            }
+            #[cfg(not(feature = "anvilCustom"))] {
+                // Handle AnvilCustom case when the feature is not enabled
+                error!("AnvilCustom kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
+                return Err("AnvilCustom kern feauture is not enabled".to_string());
+            }
+        }
+    }
+
+    match env.anvil_kern {
+        AnvilKern::AmbosoC | AnvilKern::AnvilPy | AnvilKern::Custom => {
+            match output.status.code() {
+                Some(mv_ec) => {
+                    if mv_ec == 0 {
+                        debug!("mv succeded with status: {}", mv_ec.to_string());
+                        match env.run_mode.as_ref().unwrap() {
+                            AmbosoMode::GitMode => {
+                                let gswinit_res = git_switch_and_submodule_init_re(query);
+                                match gswinit_res {
+                                    Ok(m) => {
+                                        trace!("Done git cleaning");
+                                        return Ok(m);
+                                    }
                                     Err(e) => {
-                                        error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
-                                        return Err("Failed post_unpack()".to_string());
+                                        error!("git cleaning failed");
+                                        return Err(e);
                                     }
                                 }
                             }
-                            Err(e) => {
-                                return Err(e);
+                            _ => {
+                                error!("Unexpected mode in postbuild_step(): {:?}", env.run_mode.as_ref());
+                                return Err("Unexpected mode in postbuild step".to_string());
                             }
                         }
                     } else {
-                        warn!("mv srcdist failed with status: {}", mv_ec.to_string());
-                        io::stdout().write_all(&output_srcdist.stdout).unwrap();
-                        io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                        warn!("mv failed with status: {}", mv_ec.to_string());
+                        io::stdout().write_all(&output.stdout).unwrap();
+                        io::stderr().write_all(&output.stderr).unwrap();
                         return Err("mv failed".to_string());
                     }
                 }
                 None => {
-                    error!("mv srcdist command failed");
-                    io::stdout().write_all(&output_srcdist.stdout).unwrap();
-                    io::stderr().write_all(&output_srcdist.stderr).unwrap();
+                    error!("mv command failed");
+                    io::stdout().write_all(&output.stdout).unwrap();
+                    io::stderr().write_all(&output.stderr).unwrap();
                     return Err("mv command failed".to_string());
                 }
             }
-            output = Command::new("sh")
-                .arg("-c")
-                .arg(move_command_whldist)
-                .output()
-                .expect("failed to execute process");
-        }
-        #[cfg(not(feature = "anvilPy"))]
-        _ => {
-            if let AnvilKern::AnvilPy = env.anvil_kern {
-                // Handle AnvilPy case when the feature is not enabled
-                error!("AnvilPy kern feature is not enabled");
-                return Err("AnvilPy kern feauture is not enabled".to_string());
-            } else {
-                error!("Unexpected anvil kern");
-                return Err("Unexpected anvil kern".to_string());
-            }
         }
     }
-
-    match output.status.code() {
-        Some(mv_ec) => {
-            if mv_ec == 0 {
-                debug!("mv succeded with status: {}", mv_ec.to_string());
-                let output = Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("git switch -"))
-                    .output()
-                    .expect("failed to execute process");
-                match output.status.code() {
-                    Some(gswitch_ec) => {
-                        if gswitch_ec == 0 {
-                           debug!("git switch succeded with status: {}", gswitch_ec.to_string());
-                            let output = Command::new("sh")
-                                .arg("-c")
-                                .arg(format!("git submodule update --init --recursive"))
-                                .output()
-                                .expect("failed to execute process");
-                            match output.status.code() {
-                                Some(gsinit_end_ec) => {
-                                    if gsinit_end_ec == 0 {
-                                        debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
-                                        debug!("Done build for {}", query);
-                                        return Ok(format!("Done build step for {{{query}}}"));
-                                    } else {
-                                        warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
-                                        io::stdout().write_all(&output.stdout).unwrap();
-                                        io::stderr().write_all(&output.stderr).unwrap();
-                                        return Err("git submodule init failed".to_string());
-                                    }
-                                }
-                                None => {
-                                    error!("git submodule init command failed");
-                                    io::stdout().write_all(&output.stdout).unwrap();
-                                    io::stderr().write_all(&output.stderr).unwrap();
-                                    return Err("git submodule init command failed".to_string());
-                                }
-                            }
-                        } else {
-                            warn!("git switch failed with status: {}", gswitch_ec.to_string());
-                            io::stdout().write_all(&output.stdout).unwrap();
-                            io::stderr().write_all(&output.stderr).unwrap();
-                            return Err("git switch failed".to_string());
-                        }
-                    }
-                    None => {
-                        error!("git switch command failed");
-                        io::stdout().write_all(&output.stdout).unwrap();
-                        io::stderr().write_all(&output.stderr).unwrap();
-                        return Err("git switch command failed".to_string());
-                    }
-                }
-            } else {
-                warn!("mv failed with status: {}", mv_ec.to_string());
-                io::stdout().write_all(&output.stdout).unwrap();
-                io::stderr().write_all(&output.stderr).unwrap();
-                return Err("mv failed".to_string());
-            }
-        }
-        None => {
-            error!("mv command failed");
-            io::stdout().write_all(&output.stdout).unwrap();
-            io::stderr().write_all(&output.stderr).unwrap();
-            return Err("mv command failed".to_string());
-        }
-    }
-
 }
