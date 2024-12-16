@@ -1605,25 +1605,23 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         AnvilKern::AmbosoC => {
             if args.no_rebuild {
                 debug!("Running \'{build_step_command}\'");
-                output = Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("{} {}", cflg_str, build_step_command))
+                output = Command::new(build_step_command)
+                    .arg(cflg_str)
                     .output()
                     .expect("failed to execute process");
             } else {
                 debug!("Running \'make rebuild\'");
-                output = Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("{} make rebuild", cflg_str))
+                output = Command::new("make")
+                    .arg("rebuild")
+                    .arg(cflg_str)
                     .output()
                     .expect("failed to execute process");
             }
         }
         AnvilKern::AnvilPy => {
             debug!("Running \'{build_step_command}\'");
-            output = Command::new("sh")
-                .arg("-c")
-                .arg(format!("{} {}", cflg_str, build_step_command))
+            output = Command::new(build_step_command)
+                .arg(cflg_str)
                 .output()
                 .expect("failed to execute process");
         }
