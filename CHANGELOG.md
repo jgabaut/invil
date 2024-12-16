@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.20] - Unreleased
+
+### Changed
+
+- Fixed some wrong Command usages
+
 ## [0.2.19] - 2024-11-26
 
 ### Added
