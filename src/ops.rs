@@ -14,7 +14,7 @@
 use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection, semver_compare, MIN_AMBOSO_V_PYKERN};
 use crate::utils::try_parse_stego;
 
-use std::process::{Command, exit};
+use std::process::{Command, Stdio, exit};
 use std::io::{self, Write, BufRead};
 use std::path::{Path, PathBuf};
 use is_executable::is_executable;
@@ -120,22 +120,23 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                          *   .expect("failed to execute process")
                                          */
                                     } else {
-                                        debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure \"{}\"\'", env.configure_arg);
+                                        debug!("Running \'aclocal; autoconf; automake --add-missing;\'");
+                                        let autoconf_bootstrap_cmd = "aclocal; autoconf; automake --add-missing;";
                                         let output = Command::new("sh")
                                             .arg("-c")
-                                            .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure \"{}\"", env.configure_arg))
+                                            .arg(format!("{}", autoconf_bootstrap_cmd))
                                             .output()
                                             .expect("failed to execute process");
 
                                         match output.status.code() {
-                                            Some(autotools_prep_ec) => {
-                                                if autotools_prep_ec == 0 {
-                                                    debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
+                                            Some(autotools_bootstrap_ec) => {
+                                                if autotools_bootstrap_ec == 0 {
+                                                    debug!("Automake bootstrap succeded with status: {}", autotools_bootstrap_ec.to_string());
                                                 } else {
-                                                    error!("Automake failed with status: {}", autotools_prep_ec.to_string());
+                                                    error!("Automake bootstrap failed with status: {}", autotools_bootstrap_ec.to_string());
                                                     io::stdout().write_all(&output.stdout).unwrap();
                                                     io::stderr().write_all(&output.stderr).unwrap();
-                                                    return Err("Automake prep failed".to_string());
+                                                    return Err("Automake bootstrap failed".to_string());
                                                 }
                                             }
                                             None => {
@@ -145,6 +146,33 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                 return Err("Automake prep command failed".to_string());
                                             }
                                         }
+                                        debug!("Running \'./configure \"{}\"\'", env.configure_arg);
+                                        let autoconf_configure_cmd = "./configure";
+
+                                        let output = Command::new(autoconf_configure_cmd)
+                                            .arg(format!("{}", env.configure_arg))
+                                            .output()
+                                            .expect("failed to execute process");
+
+                                        match output.status.code() {
+                                            Some(autotools_config_ec) => {
+                                                if autotools_config_ec == 0 {
+                                                    debug!("Automake config succeded with status: {}", autotools_config_ec.to_string());
+                                                } else {
+                                                    error!("Automake failed with status: {}", autotools_config_ec.to_string());
+                                                    io::stdout().write_all(&output.stdout).unwrap();
+                                                    io::stderr().write_all(&output.stderr).unwrap();
+                                                    return Err("Automake config failed".to_string());
+                                                }
+                                            }
+                                            None => {
+                                                error!("Automake config command failed");
+                                                io::stdout().write_all(&output.stdout).unwrap();
+                                                io::stderr().write_all(&output.stderr).unwrap();
+                                                return Err("Automake config command failed".to_string());
+                                            }
+                                        }
+
                                     };
                                 }
                                 _ => {
@@ -227,11 +255,15 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                             return Err("Failed cd to build_path".to_string());
                                         }
                                     } else {
-                                        let single_mode_cmd = format!("{} {} {} -o {} -lm", cc_str, cflg_str, source_path.display(), bin_path.display());
-                                        trace!("Using single file mode: {{{}}}", single_mode_cmd);
-                                        Command::new("sh")
-                                            .arg("-c")
-                                            .arg(single_mode_cmd)
+
+                                        let single_mode_cmd = cc_str;
+                                        trace!("Using single file mode: \'{} {} {} -o {} -lm\'", single_mode_cmd, cflg_str, source_path.display(), bin_path.display());
+                                        Command::new(single_mode_cmd)
+                                            .arg(cflg_str)
+                                            .arg(source_path)
+                                            .arg("-o")
+                                            .arg(bin_path)
+                                            .arg("-lm")
                                             .output()
                                             .expect("failed to execute process")
                                     }
@@ -275,10 +307,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 cflg_str = "".to_string()
                             }
                             trace!("Git mode, checking out {}",query);
+                            trace!("Running \'git checkout {}\'", query);
 
-                            let output = Command::new("sh")
-                                .arg("-c")
-                                .arg(format!("git checkout {} 2>/dev/null", query))
+                            let output = Command::new("git")
+                                .arg("checkout")
+                                .arg(query)
+                                .stderr(Stdio::null())
                                 .output()
                                 .expect("failed to execute process");
 
@@ -286,9 +320,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 Some(checkout_ec) => {
                                     if checkout_ec == 0 {
                                         debug!("Checkout succeded with status: {}", checkout_ec.to_string());
-                                        let output = Command::new("sh")
-                                            .arg("-c")
-                                            .arg(format!("git submodule update --init --recursive"))
+                                        trace!("Running \'git submodule update --init --recursive\'");
+                                        let output = Command::new("git")
+                                            .arg("submodule")
+                                            .arg("update")
+                                            .arg("--init")
+                                            .arg("--recursive")
                                             .output()
                                             .expect("failed to execute process");
                                         match output.status.code() {
@@ -430,9 +467,8 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      */
                 } else {
                     let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
-                    Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("{}", bin_path.display()))
+                    trace!("Running \'{}\'", bin_path.display());
+                    Command::new(bin_path)
                     .output()
                     .expect("failed to execute process")
                 };
@@ -520,9 +556,10 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      */
                 } else {
                     let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
-                    Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("rm -f {}", bin_path.display()))
+                    trace!("Running \'rm -f {}\'", bin_path.display());
+                    Command::new("rm")
+                    .arg("-f")
+                    .arg(bin_path)
                     .output()
                     .expect("failed to execute process")
                 };
@@ -760,9 +797,8 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
          *   .expect("failed to execute process")
          */
     } else {
-        Command::new("sh")
-        .arg("-c")
-        .arg(format!("{}", test_path.display()))
+        trace!("Running \'{}\'", test_path.display());
+        Command::new(test_path)
         .output()
         .expect("failed to execute process")
     };
@@ -1211,9 +1247,7 @@ pub fn handle_running_make() {
         if Path::new("./Makefile").exists() {
             info!("Found Makefile");
             debug!("Running \'make\'");
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(format!("make"))
+            let output = Command::new("make")
                 .output()
                 .expect("failed to execute process");
 
@@ -1602,9 +1636,11 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 env.stego_dir.clone().expect("failed initialising stego_dir").display()
             );
             debug!("Running \'{custom_call}\'");
-            output = Command::new("sh")
-                .arg("-c")
-                .arg(custom_call)
+            output = Command::new(build_step_command)
+                .arg(build_path.clone())
+                .arg(bin.clone())
+                .arg(query)
+                .arg(env.stego_dir.clone().expect("failed initialising stego_dir"))
                 .output()
                 .expect("failed to execute process");
         }
@@ -1639,18 +1675,22 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
 }
 
 fn git_switch_and_submodule_init_re(query: &str) -> Result<String,String> {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(format!("git switch -"))
+    trace!("Running \'git switch -\'");
+    let output = Command::new("git")
+        .arg("switch")
+        .arg("-")
         .output()
         .expect("failed to execute process");
     match output.status.code() {
         Some(gswitch_ec) => {
             if gswitch_ec == 0 {
                debug!("git switch succeded with status: {}", gswitch_ec.to_string());
-                let output = Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("git submodule update --init --recursive"))
+                trace!("Running \'git submodule update --init --recursive\'");
+                let output = Command::new("git")
+                    .arg("submodule")
+                    .arg("update")
+                    .arg("--init")
+                    .arg("--recursive")
                     .output()
                     .expect("failed to execute process");
                 match output.status.code() {
@@ -1694,10 +1734,10 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
     let output;
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
-            let move_command_anvilc = format!("mv {} {}", bin, bin_path.display());
-            output = Command::new("sh")
-                .arg("-c")
-                .arg(move_command_anvilc)
+            trace!("Running \'mv {} {}\'", bin, bin_path.display());
+            output = Command::new("mv")
+                .arg(bin)
+                .arg(bin_path)
                 .output()
                 .expect("failed to execute process");
         }
@@ -1707,12 +1747,11 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                 let srcdist_name = format!("{}-{}.tar.gz", curr_proj_name, query);
                 let mut srcdist_path = PathBuf::from("./dist/");
                 srcdist_path.push(srcdist_name.clone());
-                let move_command_srcdist = format!("mv {} {}", srcdist_path.display(), build_path.display());
-                let move_command_whldist = format!("mv ./dist/{}-{}-py3-none-any.whl {}", curr_proj_name, query, build_path.display());
                 info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
-                let output_srcdist = Command::new("sh")
-                    .arg("-c")
-                    .arg(move_command_srcdist)
+                trace!("Running \'mv {} {}\'", srcdist_path.display(), build_path.display());
+                let output_srcdist = Command::new("mv")
+                    .arg(srcdist_path)
+                    .arg(build_path.clone())
                     .output()
                     .expect("failed to execute process");
                 match output_srcdist.status.code() {
@@ -1730,10 +1769,10 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                                     let mut curr_unpack_path = unpack_path.clone();
                                     curr_unpack_path.push(proj_dirname.clone());
 
-                                    let move_unpackdir = format!("mv {} {}", curr_unpack_path.display(), target_unpack_path.display());
-                                    let output_unpackmv = Command::new("sh")
-                                        .arg("-c")
-                                        .arg(move_unpackdir)
+                                    trace!("Running \'mv {} {}\'", curr_unpack_path.display(), target_unpack_path.display());
+                                    let output_unpackmv = Command::new("mv")
+                                        .arg(curr_unpack_path.clone())
+                                        .arg(target_unpack_path.clone())
                                         .output()
                                         .expect("failed to execute process");
                                     match output_unpackmv.status.code() {
@@ -1782,9 +1821,12 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                         return Err("mv command failed".to_string());
                     }
                 }
-                output = Command::new("sh")
-                    .arg("-c")
-                    .arg(move_command_whldist)
+                let curr_whldist_name = format!("./dist/{}-{}-py3-none-any.whl", curr_proj_name, query);
+                let curr_whldist_path = PathBuf::from(curr_whldist_name);
+                trace!("Running \'mv {} {}\'", curr_whldist_path.display(), build_path.display());
+                output = Command::new("mv")
+                    .arg(curr_whldist_path)
+                    .arg(build_path)
                     .output()
                     .expect("failed to execute process");
             }
@@ -1821,10 +1863,10 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                     }
                 }
                 trace!("TODO: postbuild checks for custom kern");
-                let move_command_anvilcustom = format!("mv {} {}", bin, bin_path.display());
-                output = Command::new("sh")
-                    .arg("-c")
-                    .arg(move_command_anvilcustom)
+                trace!("Running \'mv {} {}\'", bin, bin_path.display());
+                output = Command::new("mv")
+                    .arg(bin)
+                    .arg(bin_path)
                     .output()
                     .expect("failed to execute process");
             }
