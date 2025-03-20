@@ -38,47 +38,29 @@ pub fn print_config_args(args: &Args) {
     let ignore_gitcheck_string: String = "X".to_owned();
     let anvil_version_string: String = "a".to_owned();
     let anvil_kern_string: String = "k".to_owned();
-    match args.amboso_dir {
-        Some(ref x) => {
-            debug!("Passed amboso_dir: {{{}}}", x.display());
-            config_string.push_str(&amboso_dir_string);
-        }
-        None => {}
+    if let Some(ref x) = args.amboso_dir {
+        debug!("Passed amboso_dir: {{{}}}", x.display());
+        config_string.push_str(&amboso_dir_string);
     }
-    match args.kazoj_dir {
-        Some(ref x) => {
-            debug!("Passed kazoj_dir: {{{}}}", x.display());
-            config_string.push_str(&kazoj_dir_string);
-        }
-        None => {}
+    if let Some(ref x) = args.kazoj_dir {
+        debug!("Passed kazoj_dir: {{{}}}", x.display());
+        config_string.push_str(&kazoj_dir_string);
     }
-    match args.source {
-        Some(ref x) => {
-            debug!("Passed source: {{{}}}", x);
-            config_string.push_str(&source_string);
-        }
-        None => {}
+    if let Some(ref x) = args.source {
+        debug!("Passed source: {{{}}}", x);
+        config_string.push_str(&source_string);
     }
-    match args.execname {
-        Some(ref x) => {
-            debug!("Passed execname: {{{}}}", x);
-            config_string.push_str(&execname_string);
-        }
-        None => {}
+    if let Some(ref x) = args.execname {
+        debug!("Passed execname: {{{}}}", x);
+        config_string.push_str(&execname_string);
     }
-    match args.maketag {
-        Some(ref x) => {
-            debug!("Passed maketag: {{{}}}", x);
-            config_string.push_str(&maketag_string);
-        }
-        None => {}
+    if let Some(ref x) = args.maketag {
+        debug!("Passed maketag: {{{}}}", x);
+        config_string.push_str(&maketag_string);
     }
-    match args.anvil_version {
-        Some(ref x) => {
-            debug!("Passed anvil_version: {{{}}}", x);
-            config_string.push_str(&anvil_version_string);
-        }
-        None => {}
+    if let Some(ref x) = args.anvil_version {
+        debug!("Passed anvil_version: {{{}}}", x);
+        config_string.push_str(&anvil_version_string);
     }
     match args.anvil_kern {
         Some(ref x) => {
@@ -118,19 +100,11 @@ pub fn print_mode_args(args: &Args) {
     if args.testmacro {
         flags_string.push_str(&testmacromode_string);
     }
-    match args.gen_c_header {
-        Some(_) => {
-            flags_string.push_str(&gen_c_mode_string);
-        }
-        None => {
-        }
+    if args.gen_c_header.is_some() {
+        flags_string.push_str(&gen_c_mode_string);
     }
-    match args.linter {
-        Some(_) => {
-            flags_string.push_str(&linter_mode_string);
-        }
-        None => {
-        }
+    if args.linter.is_some() {
+        flags_string.push_str(&linter_mode_string);
     }
     debug!("Mode flags: {{-{}}}", flags_string);
 }
@@ -166,25 +140,25 @@ pub fn print_info_args(args: &Args) {
     let mut info_flags_string: String = "".to_owned();
 
     if args.version {
-        info_flags_string.push_str("v");
+        info_flags_string.push('v');
     }
     if args.watch {
-        info_flags_string.push_str("w");
+        info_flags_string.push('w');
     }
     if args.quiet {
-        info_flags_string.push_str("q");
+        info_flags_string.push('q');
     }
     if args.silent {
-        info_flags_string.push_str("s");
+        info_flags_string.push('s');
     }
     if args.list {
-        info_flags_string.push_str("l");
+        info_flags_string.push('l');
     }
     if args.list_all {
-        info_flags_string.push_str("L");
+        info_flags_string.push('L');
     }
     if args.warranty {
-        info_flags_string.push_str("W");
+        info_flags_string.push('W');
     }
 
     debug!("Info flags: {{-{}}}", info_flags_string);
@@ -195,19 +169,19 @@ pub fn print_op_args(args: &Args) {
     let mut op_flags_string: String = "".to_owned();
 
     if args.build {
-        op_flags_string.push_str("b");
+        op_flags_string.push('b');
     }
     if args.run {
-        op_flags_string.push_str("r");
+        op_flags_string.push('r');
     }
     if args.delete {
-        op_flags_string.push_str("d");
+        op_flags_string.push('d');
     }
     if args.init {
-        op_flags_string.push_str("i");
+        op_flags_string.push('i');
     }
     if args.purge {
-        op_flags_string.push_str("p");
+        op_flags_string.push('p');
     }
 
     debug!("Op flags: {{-{}}}", op_flags_string);
@@ -246,13 +220,13 @@ fn print_strict_mode_notice(args: &Args) {
 
 pub fn print_grouped_args(args: &Args) {
     // Log asserted flags
-    print_subcommand_args(&args);
-    print_config_args(&args);
-    print_mode_args(&args);
-    print_info_args(&args);
-    print_op_args(&args);
-    print_extension_args(&args);
-    print_strict_mode_notice(&args);
+    print_subcommand_args(args);
+    print_config_args(args);
+    print_mode_args(args);
+    print_info_args(args);
+    print_op_args(args);
+    print_extension_args(args);
+    print_strict_mode_notice(args);
 }
 
 pub fn print_warranty_info() {
@@ -273,11 +247,11 @@ pub fn try_parse_stego(stego_path: &PathBuf) -> Result<String,String> {
     match toml_value {
         Ok(_) => {
             debug!("try_parse_stego(): Lint success for {{{}}}", stego_path.display());
-            return Ok("Lint success".to_string());
+            Ok("Lint success".to_string())
         }
         Err(e) => {
             error!("Lint failed for {{{}}}. Err: {e}", stego_path.display());
-            return Err("Lint failed".to_string());
+            Err("Lint failed".to_string())
         }
     }
 }

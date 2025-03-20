@@ -111,16 +111,11 @@ fn main() -> ExitCode {
         .set_thread_mode(ThreadLogMode::Both)
         .build();
 
-    let color_choice;
-
-    match args.no_color {
-        true => {
-            color_choice = ColorChoice::Never;
-        }
-        false => {
-            color_choice = ColorChoice::Always;
-        }
-    }
+    let color_choice = if args.no_color {
+        ColorChoice::Never
+    } else {
+        ColorChoice::Always
+    };
 
     match args.logged {
         false => {
@@ -171,37 +166,28 @@ fn main() -> ExitCode {
     match args.linter {
         Some(ref x) => {
             let mut lint_mode = AmbosoLintMode::FullCheck;
-            match args.list_all {
-                true => {
-                    lint_mode = AmbosoLintMode::Lex;
-                }
-                false => {}
+            if args.list_all {
+                lint_mode = AmbosoLintMode::Lex;
             }
-            match args.list {
-                true => {
-                    lint_mode = AmbosoLintMode::LintOnly;
-                }
-                false => {}
+            if args.list {
+                lint_mode = AmbosoLintMode::LintOnly;
             }
-            match args.ignore_gitcheck {
-                true => {
-                    lint_mode = match args.list_all {
-                        true => {
-                            AmbosoLintMode::NajloDebug
-                        }
-                        false => {
-                            match args.quiet {
-                                true => {
-                                    AmbosoLintMode::NajloQuiet
-                                }
-                                false => {
-                                    AmbosoLintMode::NajloFull
-                                }
+            if args.ignore_gitcheck {
+                lint_mode = match args.list_all {
+                    true => {
+                        AmbosoLintMode::NajloDebug
+                    }
+                    false => {
+                        match args.quiet {
+                            true => {
+                                AmbosoLintMode::NajloQuiet
+                            }
+                            false => {
+                                AmbosoLintMode::NajloFull
                             }
                         }
                     }
                 }
-                false => {}
             }
             let res = handle_linter_flag(x, &lint_mode);
             match res {
@@ -243,20 +229,20 @@ fn main() -> ExitCode {
                     if args.watch {
                         info!("Done handling args. Elapsed: {:.2?}", elapsed_handling_args);
                     }
-                    return ExitCode::SUCCESS;
+                    ExitCode::SUCCESS
                 }
                 None => {
                     let elapsed_no_runmode = env.start_time.elapsed();
                     if args.watch {
                         info!("Done no runmode arg. Elapsed: {:.2?}", elapsed_no_runmode);
                     }
-                    return ExitCode::SUCCESS;
+                    ExitCode::SUCCESS
                 }
             }
         }
         Err(e) => {
             error!("check_passed_args() failed with: \"{}\"",e);
-            return ExitCode::FAILURE;
+            ExitCode::FAILURE
         }
     }
 }
