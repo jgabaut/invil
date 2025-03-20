@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.2.20] - Unreleased
+## [0.2.21] - Unreleased
+
+### Changed
+
+- Solve clippy lints
+
+## [0.2.20] - 2024-12-20
 
 ### Changed
 

@@ -94,94 +94,91 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
 
                 let mut use_make = false;
-                match env.anvil_kern {
-                    AnvilKern::AmbosoC => {
-                        use_make = query >= &env.mintag_make.clone().unwrap();
+                if env.anvil_kern == AnvilKern::AmbosoC {
+                    use_make = query >= &env.mintag_make.clone().unwrap();
 
-                        if use_make && !env.support_makemode {
-                            error!("Can't build {{{}}}, as makemode is not supported by the project", query);
-                            return Err("Missing makemode support".to_string());
-                        }
+                    if use_make && !env.support_makemode {
+                        error!("Can't build {{{}}}, as makemode is not supported by the project", query);
+                        return Err("Missing makemode support".to_string());
+                    }
 
-                        let use_automake = query >= &env.mintag_automake.clone().unwrap();
+                    let use_automake = query >= &env.mintag_automake.clone().unwrap();
 
-                        if use_automake && !env.support_automakemode {
-                            error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
-                            return Err("Missing automakemode support".to_string());
-                        } else if use_automake {
-                            match env.run_mode.as_ref().unwrap() {
-                                AmbosoMode::GitMode => {
-                                    if cfg!(target_os = "windows") {
-                                        todo!("Support windows automake prep?");
-                                        /*
-                                         * let output = Command::new("cmd")
-                                         *   .args(["/C", "echo hello"])
-                                         *   .output()
-                                         *   .expect("failed to execute process")
-                                         */
-                                    } else {
-                                        debug!("Running \'aclocal; autoconf; automake --add-missing;\'");
-                                        let autoconf_bootstrap_cmd = "aclocal; autoconf; automake --add-missing;";
-                                        let output = Command::new("sh")
-                                            .arg("-c")
-                                            .arg(format!("{}", autoconf_bootstrap_cmd))
-                                            .output()
-                                            .expect("failed to execute process");
+                    if use_automake && !env.support_automakemode {
+                        error!("Can't build {{{}}}, as automakemode is not supported by the project", query);
+                        return Err("Missing automakemode support".to_string());
+                    } else if use_automake {
+                        match env.run_mode.as_ref().unwrap() {
+                            AmbosoMode::GitMode => {
+                                if cfg!(target_os = "windows") {
+                                    todo!("Support windows automake prep?");
+                                    /*
+                                     * let output = Command::new("cmd")
+                                     *   .args(["/C", "echo hello"])
+                                     *   .output()
+                                     *   .expect("failed to execute process")
+                                     */
+                                } else {
+                                    debug!("Running \'aclocal; autoconf; automake --add-missing;\'");
+                                    let autoconf_bootstrap_cmd = "aclocal; autoconf; automake --add-missing;";
+                                    let output = Command::new("sh")
+                                        .arg("-c")
+                                        .arg(autoconf_bootstrap_cmd)
+                                        .output()
+                                        .expect("failed to execute process");
 
-                                        match output.status.code() {
-                                            Some(autotools_bootstrap_ec) => {
-                                                if autotools_bootstrap_ec == 0 {
-                                                    debug!("Automake bootstrap succeded with status: {}", autotools_bootstrap_ec.to_string());
-                                                } else {
-                                                    error!("Automake bootstrap failed with status: {}", autotools_bootstrap_ec.to_string());
-                                                    io::stdout().write_all(&output.stdout).unwrap();
-                                                    io::stderr().write_all(&output.stderr).unwrap();
-                                                    return Err("Automake bootstrap failed".to_string());
-                                                }
-                                            }
-                                            None => {
-                                                error!("Automake prep command failed");
+                                    match output.status.code() {
+                                        Some(autotools_bootstrap_ec) => {
+                                            if autotools_bootstrap_ec == 0 {
+                                                debug!("Automake bootstrap succeded with status: {}", autotools_bootstrap_ec.to_string());
+                                            } else {
+                                                error!("Automake bootstrap failed with status: {}", autotools_bootstrap_ec.to_string());
                                                 io::stdout().write_all(&output.stdout).unwrap();
                                                 io::stderr().write_all(&output.stderr).unwrap();
-                                                return Err("Automake prep command failed".to_string());
+                                                return Err("Automake bootstrap failed".to_string());
                                             }
                                         }
-                                        debug!("Running \'./configure \"{}\"\'", env.configure_arg);
-                                        let autoconf_configure_cmd = "./configure";
+                                        None => {
+                                            error!("Automake prep command failed");
+                                            io::stdout().write_all(&output.stdout).unwrap();
+                                            io::stderr().write_all(&output.stderr).unwrap();
+                                            return Err("Automake prep command failed".to_string());
+                                        }
+                                    }
+                                    debug!("Running \'./configure \"{}\"\'", env.configure_arg);
+                                    let autoconf_configure_cmd = "./configure";
 
-                                        let output = Command::new(autoconf_configure_cmd)
-                                            .arg(format!("{}", env.configure_arg))
-                                            .output()
-                                            .expect("failed to execute process");
+                                    let output = Command::new(autoconf_configure_cmd)
+                                        .arg(env.configure_arg.clone())
+                                        .output()
+                                        .expect("failed to execute process");
 
-                                        match output.status.code() {
-                                            Some(autotools_config_ec) => {
-                                                if autotools_config_ec == 0 {
-                                                    debug!("Automake config succeded with status: {}", autotools_config_ec.to_string());
-                                                } else {
-                                                    error!("Automake failed with status: {}", autotools_config_ec.to_string());
-                                                    io::stdout().write_all(&output.stdout).unwrap();
-                                                    io::stderr().write_all(&output.stderr).unwrap();
-                                                    return Err("Automake config failed".to_string());
-                                                }
-                                            }
-                                            None => {
-                                                error!("Automake config command failed");
+                                    match output.status.code() {
+                                        Some(autotools_config_ec) => {
+                                            if autotools_config_ec == 0 {
+                                                debug!("Automake config succeded with status: {}", autotools_config_ec.to_string());
+                                            } else {
+                                                error!("Automake failed with status: {}", autotools_config_ec.to_string());
                                                 io::stdout().write_all(&output.stdout).unwrap();
                                                 io::stderr().write_all(&output.stderr).unwrap();
-                                                return Err("Automake config command failed".to_string());
+                                                return Err("Automake config failed".to_string());
                                             }
                                         }
+                                        None => {
+                                            error!("Automake config command failed");
+                                            io::stdout().write_all(&output.stdout).unwrap();
+                                            io::stderr().write_all(&output.stderr).unwrap();
+                                            return Err("Automake config command failed".to_string());
+                                        }
+                                    }
 
-                                    };
-                                }
-                                _ => {
-                                    todo!("automake prep for {:?}", env.run_mode.as_ref().unwrap());
-                                }
+                                };
+                            }
+                            _ => {
+                                todo!("automake prep for {:?}", env.run_mode.as_ref().unwrap());
                             }
                         }
                     }
-                    _ => {}
                 }
 
                 let output = if cfg!(target_os = "windows") {
@@ -201,7 +198,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
                             let cflg_str;
-                            if env.cflags_arg.len() > 0 { //We have the arg from --config/-Z
+                            if !env.cflags_arg.is_empty() { //We have the arg from --config/-Z
                                 debug!("Using passed CFLAGS {{{}}}", env.cflags_arg);
                                 cflg_str = env.cflags_arg.clone();
                             } else { //Backcomp reading env CFLAGS
@@ -209,7 +206,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 match env::var(cflags) {
                                     Ok(val) => {
                                         debug!("Using {{{}: {}}}", cflags, val);
-                                        cflg_str = format!("{}",val);
+                                        cflg_str = val.to_string();
                                     },
                                     Err(e) => {
                                         error!("Failed reading {{{}: {}}}", cflags, e);
@@ -218,17 +215,16 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 }
                             }
                             let cc = "CC";
-                            let cc_str;
-                            match env::var(cc) {
+                            let cc_str = match env::var(cc) {
                                 Ok(val) => {
                                     debug!("Using {{{}: {}}}", cc, val);
-                                    cc_str = format!("{}",val);
+                                    val.to_string()
                                 },
                                 Err(e) => {
                                     error!("Failed reading {{{}: {}}}", cc, e);
-                                    cc_str = "gcc".to_string();
+                                    "gcc".to_string()
                                 }
-                            }
+                            };
                             match env.anvil_kern {
                                 AnvilKern::AmbosoC => {
                                     if use_make {
@@ -299,13 +295,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
                             bin_path.push(env.bin.clone().unwrap());
-                            let cflg_str;
-                            if env.cflags_arg.len() > 0 {
+                            let cflg_str = if !env.cflags_arg.is_empty() {
                                 debug!("Using passed CFLAGS{{{}}}", env.cflags_arg);
-                                cflg_str = env.cflags_arg.clone();
+                                env.cflags_arg.clone()
                             } else {
-                                cflg_str = "".to_string()
-                            }
+                                "".to_string()
+                            };
                             trace!("Git mode, checking out {}",query);
                             trace!("Running \'git checkout {}\'", query);
 
@@ -389,23 +384,23 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         }
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Ok("Build done".to_string());
+                        Ok("Build done".to_string())
                     }
                     None => {
                         error!("Build command failed");
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Err("Build command failed".to_string());
+                        Err("Build command failed".to_string())
                     }
                 }
             } else {
                 warn!("No directory found for {{{}}}", queried_path.display());
-                return Err("No dir found".to_string())
+                Err("No dir found".to_string())
             }
         }
         None => {
             warn!("No tag provided.");
-            return Err("No tag provided".to_string())
+            Err("No tag provided".to_string())
         }
     }
 }
@@ -481,23 +476,23 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         }
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Ok("Run done".to_string());
+                        Ok("Run done".to_string())
                     }
                     None => {
                         error!("Run command for {{{}}} failed", args.tag.as_ref().unwrap());
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Err("Run command failed".to_string());
+                        Err("Run command failed".to_string())
                     }
                 }
             } else {
                 warn!("No directory found for {{{}}}", queried_path.display());
-                return Err("No dir found".to_string())
+                Err("No dir found".to_string())
             }
         }
         None => {
             warn!("No tag provided.");
-            return Err("No tag provided".to_string())
+            Err("No tag provided".to_string())
         }
     }
 }
@@ -572,23 +567,23 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         }
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Ok("Delete done".to_string());
+                        Ok("Delete done".to_string())
                     }
                     None => {
                         error!("Delete command for {{{}}} failed", args.tag.as_ref().unwrap());
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Err("Delete command failed".to_string());
+                        Err("Delete command failed".to_string())
                     }
                 }
             } else {
                 warn!("No directory found for {{{}}}", queried_path.display());
-                return Err("No dir found".to_string())
+                Err("No dir found".to_string())
             }
         }
         None => {
             warn!("No tag provided.");
-            return Err("No tag provided".to_string())
+            Err("No tag provided".to_string())
         }
     }
 }
@@ -618,14 +613,13 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
                     } else {
-                        let do_record : bool;
-                        if env.do_build {
+                        let do_record = if env.do_build {
                             info!("Recording test {{{:?}}}", q);
-                            do_record = true;
+                            true
                         } else {
                             info!("Testing {{{:?}}}", q);
-                            do_record = false;
-                        }
+                            false
+                        };
 
                         let queried_path;
                         if ! env.bonetests_table.contains_key(q) && ! env.kulpotests_table.contains_key(q) {
@@ -643,7 +637,7 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 trace!("Found {{{}}}", qp.display());
                                 if qp.is_file() {
                                     info!("{} is a file", qp.display());
-                                    if is_executable(&qp) {
+                                    if is_executable(qp) {
                                         debug!("{} is executable", qp.display());
                                         let test_res = run_test(qp, do_record);
 
@@ -688,23 +682,23 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         info!("{} is a file", queried_path.display());
                         if is_executable(&queried_path) {
                             debug!("{} is executable", queried_path.display());
-                            return Ok("Is executable".to_string());
+                            Ok("Is executable".to_string())
                         } else {
                             debug!("{} is not executable", queried_path.display());
-                            return Ok("Is not executable".to_string());
+                            Ok("Is not executable".to_string())
                         }
 
                     } else {
                         debug!("{} is not a file", queried_path.display());
-                        return Err("Not a file".to_string())
+                        Err("Not a file".to_string())
                     }
                 } else {
                     warn!("No file found for {{{}}}", queried_path.display());
-                    return Err("No file found".to_string())
+                    Err("No file found".to_string())
                 }
             } else {
                 warn!("No directory found for {{{}}}", queried_path.display());
-                return Err("No dir found".to_string())
+                Err("No dir found".to_string())
             }
         }
         None => {
@@ -713,14 +707,13 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
                     } else {
-                        let do_record : bool;
-                        if env.do_build {
+                        let do_record = if env.do_build {
                             info!("Recording all tests");
-                            do_record = true;
+                            true
                         } else {
                             info!("Running all tests");
-                            do_record = false;
-                        }
+                            false
+                        };
                         let mut alltests_map: BTreeMap<String, PathBuf> = BTreeMap::new();
                         let mut bonetests_map = env.bonetests_table.clone();
                         let mut kulpotests_map = env.kulpotests_table.clone();
@@ -733,7 +726,7 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                 trace!("Found {{{}}}", test.display());
                                 if test.is_file() {
                                     info!("{} is a file", test.display());
-                                    if is_executable(&test) {
+                                    if is_executable(test) {
                                         debug!("{} is executable", test.display());
                                         let test_res = run_test(test, do_record);
 
@@ -782,7 +775,7 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 _ => {}
             }
             warn!("No tag provided for query op.");
-            return Err("No tag provided.".to_string())
+            Err("No tag provided.".to_string())
         }
     }
 }
@@ -804,11 +797,7 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
     };
     match output.status.code() {
         Some(x) => {
-            if x == 0 {
-                info!("Test exited with status: {}", x.to_string());
-            } else {
-                info!("Test exited with status: {}", x.to_string());
-            }
+            info!("Test exited with status: {}", x.to_string());
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
 
@@ -825,7 +814,7 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
                         trace!("Stdout record: {{\"\n{:?}\"}}", stdout_record.as_bytes());
                         trace!("Stdout found: {{\"\n{:?}\"}}", output.stdout);
                         let matching = stdout_record.as_bytes().iter().zip(output.stdout.iter()).filter(|&(a, b)| a == b).count();
-                        if matching == stdout_record.as_bytes().len() && matching == output.stdout.len() {
+                        if matching == stdout_record.len() && matching == output.stdout.len() {
                             info!("Stdout matched!");
                         } else {
                             warn!("Stdout did not match!");
@@ -874,33 +863,31 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
                         trace!("Stderr record: {{\"\n{:?}\"}}", stderr_record.as_bytes());
                         trace!("Stderr found: {{\"\n{:?}\"}}", output.stderr);
                         let matching = stderr_record.as_bytes().iter().zip(output.stderr.iter()).filter(|&(a, b)| a == b).count();
-                        if matching == stderr_record.as_bytes().len() && matching == output.stderr.len() {
+                        if matching == stderr_record.len() && matching == output.stderr.len() {
                             info!("Stderr matched!");
-                        } else {
-                            if record {
-                                info!("Recording stderr");
-                                let write_res = fs::write(stderr_record_path,output.stderr);
-                                match write_res {
-                                    Ok(_) => {
-                                        debug!("Recorded stderr");
-                                    }
-                                    Err(e) => {
-                                        error!("Failed recording stderr. Err: {e}");
-                                        return Err("Failed recording stderr".to_string());
-                                    }
+                        } else if record {
+                            info!("Recording stderr");
+                            let write_res = fs::write(stderr_record_path,output.stderr);
+                            match write_res {
+                                Ok(_) => {
+                                    debug!("Recorded stderr");
                                 }
-                            } else {
-                                warn!("Stderr did not match!");
-                                warn!("Expected: {{\"\n{}\"}}", stderr_record);
-                                match std::str::from_utf8(&output.stderr) {
-                                    Ok(v) => {
-                                        info!("Found: {{\"\n{}\"}}", v);
-                                        return Err("Stderr mismatch".to_string());
-                                    }
-                                    Err(e) => {
-                                        error!("Failed parsing output.stderr. Err: {e}");
-                                        return Err("Failed parsing output.stderr".to_string());
-                                    }
+                                Err(e) => {
+                                    error!("Failed recording stderr. Err: {e}");
+                                    return Err("Failed recording stderr".to_string());
+                                }
+                            }
+                        } else {
+                            warn!("Stderr did not match!");
+                            warn!("Expected: {{\"\n{}\"}}", stderr_record);
+                            match std::str::from_utf8(&output.stderr) {
+                                Ok(v) => {
+                                    info!("Found: {{\"\n{}\"}}", v);
+                                    return Err("Stderr mismatch".to_string());
+                                }
+                                Err(e) => {
+                                    error!("Failed parsing output.stderr. Err: {e}");
+                                    return Err("Failed parsing output.stderr".to_string());
                                 }
                             }
                         }
@@ -914,13 +901,13 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
                 warn!("Record stderr for {{{}}} not found", test_path.display());
             }
 
-            return Ok("Test done".to_string());
+            Ok("Test done".to_string())
         }
         None => {
             error!("Test command for {{{}}} failed", test_path.display());
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
-            return Err("Test command failed".to_string());
+            Err("Test command failed".to_string())
         }
     }
 }
@@ -983,7 +970,7 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
                     }
                 }
                 Err(_) => {
-                    if target_tag.len() == 0 {
+                    if target_tag.is_empty() {
                         error!("Invalid empty tag request");
                         return Err("Invalid empty tag request".to_string());
                     }
@@ -1152,11 +1139,11 @@ fn try_lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
                 return Err(format!("Lex failure, {warns} warnings."));
             }
             debug!("Lex successful for {{{}}}.", path.display());
-            return Ok(format!("Lex success with {warns} warns."));
+            Ok(format!("Lex success with {warns} warns."))
         }
         Err(e) => {
             trace!("Failed lex for {{{}}}.\nError was:    {e}", path.display());
-            return Err("Lex failure".to_string());
+            Err("Lex failure".to_string())
         }
     }
 }
@@ -1167,24 +1154,24 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
         trace!("Found {}", stego_path.display());
         match lint_mode {
             AmbosoLintMode::NajloFull => {
-                return try_lex_makefile(stego_path, false, false, true);
+                try_lex_makefile(stego_path, false, false, true)
             }
             AmbosoLintMode::NajloDebug => {
-                return try_lex_makefile(stego_path, true, false, true);
+                try_lex_makefile(stego_path, true, false, true)
             }
             AmbosoLintMode::NajloQuiet => {
-                return try_lex_makefile(stego_path, false, true, true);
+                try_lex_makefile(stego_path, false, true, true)
             }
             AmbosoLintMode::LintOnly => {
                 let res = try_parse_stego(stego_path);
                 match res {
                     Ok(_) => {
                         info!("Lint successful for {{{}}}.", stego_path.display());
-                        return Ok("Lint success".to_string());
+                        Ok("Lint success".to_string())
                 }
                     Err(e) => {
                         trace!("Failed lint for {{{}}}.\nError was:    {e}",stego_path.display());
-                        return Err("Lint failure".to_string());
+                        Err("Lint failure".to_string())
                     }
                 }
             }
@@ -1206,11 +1193,11 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
                         for v in r.gitmode_versions_table {
                             println!("ANVIL_GIT_VERSION: {{{}}}", v.0);
                         }
-                        return Ok("Full linter check success".to_string());
+                        Ok("Full linter check success".to_string())
                     }
                     Err(e) => {
                         error!("Failed lint for {{{}}}.\nError was:    {e}", stego_path.display());
-                        return Err(e);
+                        Err(e)
                     }
                 }
             }
@@ -1219,18 +1206,18 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
                 match res {
                     Ok(_) => {
                         debug!("Lex successful for {{{}}}.", stego_path.display());
-                        return Ok("Linter lex check success".to_string());
+                        Ok("Linter lex check success".to_string())
                     }
                     Err(e) => {
                         error!("Failed lex for {{{}}}.\nError was:    {e}",stego_path.display());
-                        return Err(e);
+                        Err(e)
                     }
                 }
             }
         }
     } else {
         error!("Could not find file: {{{}}}", stego_path.display());
-        return Err("Failed linter call".to_string());
+        Err("Failed linter call".to_string())
     }
 }
 
@@ -1243,64 +1230,62 @@ pub fn handle_running_make() {
          *   .output()
          *   .expect("failed to execute process")
          */
-    } else {
-        if Path::new("./Makefile").exists() {
-            info!("Found Makefile");
-            debug!("Running \'make\'");
-            let output = Command::new("make")
-                .output()
-                .expect("failed to execute process");
+    } else if Path::new("./Makefile").exists() {
+        info!("Found Makefile");
+        debug!("Running \'make\'");
+        let output = Command::new("make")
+            .output()
+            .expect("failed to execute process");
 
-            match output.status.code() {
-                Some(make_ec) => {
-                    if make_ec == 0 {
-                        debug!("make succeded with status: {}", make_ec.to_string());
-                        exit(make_ec);
-                    } else {
-                        error!("make failed with status: {}", make_ec.to_string());
-                        io::stdout().write_all(&output.stdout).unwrap();
-                        io::stderr().write_all(&output.stderr).unwrap();
-                        exit(make_ec);
-                    }
-                }
-                None => {
-                    error!("make command failed");
+        match output.status.code() {
+            Some(make_ec) => {
+                if make_ec == 0 {
+                    debug!("make succeded with status: {}", make_ec.to_string());
+                    exit(make_ec);
+                } else {
+                    error!("make failed with status: {}", make_ec.to_string());
                     io::stdout().write_all(&output.stdout).unwrap();
                     io::stderr().write_all(&output.stderr).unwrap();
-                    exit(1);
+                    exit(make_ec);
                 }
             }
-        } else if Path::new("./configure.ac").exists() && Path::new("./Makefile.am").exists() {
-            debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure; make\'");
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg(format!("aclocal ; autoconf ; automake --add-missing ; ./configure; make"))
-                .output()
-                .expect("failed to execute process");
-
-            match output.status.code() {
-                Some(autotools_prep_ec) => {
-                    if autotools_prep_ec == 0 {
-                        debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
-                        exit(autotools_prep_ec);
-                    } else {
-                        error!("Automake failed with status: {}", autotools_prep_ec.to_string());
-                        io::stdout().write_all(&output.stdout).unwrap();
-                        io::stderr().write_all(&output.stderr).unwrap();
-                        exit(autotools_prep_ec);
-                    }
-                }
-                None => {
-                    error!("Automake prep command failed");
-                    io::stdout().write_all(&output.stdout).unwrap();
-                    io::stderr().write_all(&output.stderr).unwrap();
-                    exit(1);
-                }
+            None => {
+                error!("make command failed");
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                exit(1);
             }
-        } else {
-            error!("Can't find Makefile or configure.ac and Makefile.am. Quitting.");
-            exit(1);
         }
+    } else if Path::new("./configure.ac").exists() && Path::new("./Makefile.am").exists() {
+        debug!("Running \'aclocal ; autoconf; automake --add-missing ; ./configure; make\'");
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg("aclocal ; autoconf ; automake --add-missing ; ./configure; make")
+            .output()
+            .expect("failed to execute process");
+
+        match output.status.code() {
+            Some(autotools_prep_ec) => {
+                if autotools_prep_ec == 0 {
+                    debug!("Automake prep succeded with status: {}", autotools_prep_ec.to_string());
+                    exit(autotools_prep_ec);
+                } else {
+                    error!("Automake failed with status: {}", autotools_prep_ec.to_string());
+                    io::stdout().write_all(&output.stdout).unwrap();
+                    io::stderr().write_all(&output.stderr).unwrap();
+                    exit(autotools_prep_ec);
+                }
+            }
+            None => {
+                error!("Automake prep command failed");
+                io::stdout().write_all(&output.stdout).unwrap();
+                io::stderr().write_all(&output.stderr).unwrap();
+                exit(1);
+            }
+        }
+    } else {
+        error!("Can't find Makefile or configure.ac and Makefile.am. Quitting.");
+        exit(1);
     }
 }
 
@@ -1325,200 +1310,196 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     let mut rulexpr_i: u64 = 0;
     let mut mainexpr_i: usize = 0;
     // Read the file line by line
-    if let Ok(file) = File::open(&path) {
+    if let Ok(file) = File::open(path) {
         let tab_regex = Regex::new(&format!("^{}", RULELINE_MARK_CHAR)).expect("Failed to create ruleline regex");
         let rule_regex = Regex::new(RULE_REGEX).expect("Failed to create rule regex");
 
         let mut continuation = false;
         let mut current_line = String::new();
 
-        for line in io::BufReader::new(file).lines() {
-            if let Ok(line_content) = line {
-                if continuation {
-                    current_line.pop();
-                    current_line.push_str(&line_content);
-                } else {
-                    current_line = line_content.to_string();
-                }
-                continuation = current_line.ends_with("\\");
+        let rulewarn_regex = Regex::new(RULEWARN_REGEX).expect("Failed to create rulewarn regex");
+        for line in io::BufReader::new(file).lines().map_while(Option::Some).flatten() {
+            if continuation {
+                current_line.pop();
+                current_line.push_str(&line);
+            } else {
+                current_line = line;
+            }
+            continuation = current_line.ends_with("\\");
 
-                if continuation {
-                    continue
+            if continuation {
+                continue
+            }
+            cur_line += 1;
+            if current_line.is_empty() {
+                trace!("Ignoring empty line.");
+                continue;
+            }
+            let _comment = cut_line_at_char(&current_line, '#', CutDirection::After);
+            let stripped_line = cut_line_at_char(&current_line, '#', CutDirection::Before);
+            if rule_regex.is_match(stripped_line) {
+                let rulename = cut_line_at_char(stripped_line, ':', CutDirection::Before);
+                let mut rule_ingredients = cut_line_at_char(cut_line_at_char(stripped_line, ':', CutDirection::After), ' ', CutDirection::After); // Cut ': '
+                let mut ingrs_len = 0;
+                rulexpr_i = 0;
+                ruleingrs_arr.push("".to_string());
+                rulexpr_arr.push("".to_string());
+                let set_len: bool = rule_ingredients.is_empty();
+                if set_len {
+                    rule_ingredients = "NO_DEPS";
+                    ingrs_len = 0;
                 }
-                cur_line += 1;
-                if current_line.is_empty() {
-                    trace!("Ignoring empty line.");
-                    continue;
+                let ingrs_arr: Vec<_> = rule_ingredients.split_whitespace().collect();
+                if !set_len {
+                    ingrs_len = ingrs_arr.len();
                 }
-                let _comment = cut_line_at_char(&current_line, '#', CutDirection::After);
-                let stripped_line = cut_line_at_char(&current_line, '#', CutDirection::Before);
-                if rule_regex.is_match(&stripped_line) {
-                    let rulename = cut_line_at_char(&stripped_line, ':', CutDirection::Before);
-                    let mut rule_ingredients = cut_line_at_char(&cut_line_at_char(&stripped_line, ':', CutDirection::After), ' ', CutDirection::After); // Cut ': '
-                    let mut ingrs_len = 0;
-                    rulexpr_i = 0;
-                    let ingrs_arr: Vec<_>;
-                    ruleingrs_arr.push("".to_string());
-                    rulexpr_arr.push("".to_string());
-                    let set_len: bool = rule_ingredients.is_empty();
-                    if set_len {
-                        rule_ingredients = "NO_DEPS";
-                        ingrs_len = 0;
-                    }
-                    ingrs_arr = rule_ingredients.split_whitespace().collect();
-                    if !set_len {
-                        ingrs_len = ingrs_arr.len();
-                    }
-                    //println!("Line matches rule regex: {}", stripped_line);
-                    last_rulename = rulename.to_string();
-                    let mod_time: String;
-                    let rule_path = Path::new(rulename);
-                    if rule_path.exists() {
-                        let metadata = fs::metadata(rulename)?;
+                //println!("Line matches rule regex: {}", stripped_line);
+                last_rulename = rulename.to_string();
+                let mod_time: String;
+                let rule_path = Path::new(rulename);
+                if rule_path.exists() {
+                    let metadata = fs::metadata(rulename)?;
 
-                        if let Ok(time) = metadata.modified() {
-                            let mod_timestamp = time.duration_since(SystemTime::UNIX_EPOCH);
-                            match mod_timestamp {
-                                Ok(t) => {
-                                    mod_time=format!("{}", t.as_secs());
-                                }
-                                Err(e) => {
-                                    panic!("Failed getting modification time for {}. Err: {e}", rule_path.display());
-                                }
+                    if let Ok(time) = metadata.modified() {
+                        let mod_timestamp = time.duration_since(SystemTime::UNIX_EPOCH);
+                        match mod_timestamp {
+                            Ok(t) => {
+                                mod_time=format!("{}", t.as_secs());
                             }
-                        } else {
-                            // This branch is meant for unsupported platforms.
-                            mod_time="NO_TIME".to_string();
+                            Err(e) => {
+                                panic!("Failed getting modification time for {}. Err: {e}", rule_path.display());
+                            }
                         }
                     } else {
+                        // This branch is meant for unsupported platforms.
                         mod_time="NO_TIME".to_string();
                     }
-                    let rulepart_decl = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}}");
-                    let rulepart_deps;
-                    if !set_len {
-                        rulepart_deps = format!("<- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
-                    } else {
-                        rulepart_deps = format!("<- {{DEPS}} -> {{}} -> [#{ingrs_len}]");
-                    }
-                    //let rule_str = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}} <- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
-                    let rule_str = format!("{rulepart_decl} {rulepart_deps}");
-                    rules_arr.push(rule_str.clone());
-                    if dbg_print {
-                        println!("{rulepart_decl}\n\t{rulepart_deps} ->");
-                    }
-                    let mut ingr_mod_time: String;
-                    if !set_len {
-                        for (ingr_i, ingr) in ingrs_arr.iter().enumerate() {
-                            let ingr_path = Path::new(ingr);
-                            if ingr_path.exists() {
-                                //TODO
-                                //In amboso 2.0.3, the embedded najlo version (0.0.3) wrongly
-                                //passes the rule name to the modification time call. A strict port
-                                //would do the same?
-                                let ingr_metadata = fs::metadata(ingr_path)?;
+                } else {
+                    mod_time="NO_TIME".to_string();
+                }
+                let rulepart_decl = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}}");
+                let rulepart_deps = if !set_len {
+                    format!("<- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]")
+                } else {
+                    format!("<- {{DEPS}} -> {{}} -> [#{ingrs_len}]")
+                };
+                //let rule_str = format!("{{RULE}} [#{rule_i}] -> {{{rulename}}} <- {{{mod_time}}} <- {{DEPS}} -> {{{rule_ingredients}}} -> [#{ingrs_len}]");
+                let rule_str = format!("{rulepart_decl} {rulepart_deps}");
+                rules_arr.push(rule_str.clone());
+                if dbg_print {
+                    println!("{rulepart_decl}\n\t{rulepart_deps} ->");
+                }
+                let mut ingr_mod_time: String;
+                if !set_len {
+                    for (ingr_i, ingr) in ingrs_arr.iter().enumerate() {
+                        let ingr_path = Path::new(ingr);
+                        if ingr_path.exists() {
+                            //TODO
+                            //In amboso 2.0.3, the embedded najlo version (0.0.3) wrongly
+                            //passes the rule name to the modification time call. A strict port
+                            //would do the same?
+                            let ingr_metadata = fs::metadata(ingr_path)?;
 
-                                if let Ok(time) = ingr_metadata.modified() {
-                                    let mod_timestamp = time.duration_since(SystemTime::UNIX_EPOCH);
-                                    match mod_timestamp {
-                                        Ok(t) => {
-                                            ingr_mod_time=format!("{}", t.as_secs());
-                                        }
-                                        Err(e) => {
-                                            panic!("Failed getting modification time for {}. Err: {e}", ingr_path.display());
-                                        }
+                            if let Ok(time) = ingr_metadata.modified() {
+                                let mod_timestamp = time.duration_since(SystemTime::UNIX_EPOCH);
+                                match mod_timestamp {
+                                    Ok(t) => {
+                                        ingr_mod_time=format!("{}", t.as_secs());
                                     }
-                                } else {
-                                    // This branch is meant for unsupported platforms.
-                                    ingr_mod_time="NO_TIME".to_string();
+                                    Err(e) => {
+                                        panic!("Failed getting modification time for {}. Err: {e}", ingr_path.display());
+                                    }
                                 }
                             } else {
+                                // This branch is meant for unsupported platforms.
                                 ingr_mod_time="NO_TIME".to_string();
                             }
+                        } else {
+                            ingr_mod_time="NO_TIME".to_string();
+                        }
 
-                            let ingr_str = format!("{{{ingr}}} {{[{ingr_i}], [{ingr_mod_time}]}}, ");
-                            if dbg_print {
-                                println!("\t\t{{INGR}} - {{{ingr}}} [{ingr_i}], [{ingr_mod_time}]");
-                            }
-                            ruleingrs_arr[rule_i] = format!("{}{ingr_str}", ruleingrs_arr[rule_i]);
-                        }
-                        ruleingrs_arr[rule_i] = format!("{{RULE: {rulename} #{rule_i}}} <-- [{}]", ruleingrs_arr[rule_i]);
-                    } else {
+                        let ingr_str = format!("{{{ingr}}} {{[{ingr_i}], [{ingr_mod_time}]}}, ");
                         if dbg_print {
-                            println!("\t\t{{{rule_ingredients}}}");
+                            println!("\t\t{{INGR}} - {{{ingr}}} [{ingr_i}], [{ingr_mod_time}]");
                         }
-                        ruleingrs_arr[rule_i] = format!("{{RULE: {rulename} #{rule_i}}} <-- [{{NO_DEPS}}]");
+                        ruleingrs_arr[rule_i] = format!("{}{ingr_str}", ruleingrs_arr[rule_i]);
                     }
-                    if dbg_print {
-                        println!("\t}};");
-                    }
-                    rule_i += 1;
-                } else if !last_rulename.is_empty() && tab_regex.is_match(&stripped_line) {
-                    //println!("Line starts with a tab: {}", stripped_line);
-                    let stripped_rulexpr_line = cut_line_at_char(stripped_line, '\t', CutDirection::After);
-                    if stripped_rulexpr_line.is_empty() {
-                        trace!("Ignoring empty stripped rulexpr line.");
-                        continue;
-                    }
-                    if dbg_print {
-                        println!("\t{{RULE_EXPR}} -> {{{stripped_rulexpr_line}}}, [#{rulexpr_i}],");
-                    }
-                    if rulexpr_arr.len() == 0 {
-                        error!("Can't have this. Line: [#{cur_line}], Stripped rulexpr line: {{{stripped_rulexpr_line}}}");
-                        panic!("OUCH");
-                    }
-                    let rulexpr_str = format!("{{RULE_EXPR #{rulexpr_i}}} {{{stripped_rulexpr_line}}}, ");
-                    rulexpr_arr[rule_i-1] = format!("{}{}", rulexpr_arr[rule_i-1], rulexpr_str);
-                    rulexpr_i += 1;
+                    ruleingrs_arr[rule_i] = format!("{{RULE: {rulename} #{rule_i}}} <-- [{}]", ruleingrs_arr[rule_i]);
                 } else {
-                    //println!("Line does not start with a tab: {}", stripped_line);
-                    if stripped_line.is_empty() {
-                        trace!("Ignoring empty stripped line.");
+                    if dbg_print {
+                        println!("\t\t{{{rule_ingredients}}}");
+                    }
+                    ruleingrs_arr[rule_i] = format!("{{RULE: {rulename} #{rule_i}}} <-- [{{NO_DEPS}}]");
+                }
+                if dbg_print {
+                    println!("\t}};");
+                }
+                rule_i += 1;
+            } else if !last_rulename.is_empty() && tab_regex.is_match(stripped_line) {
+                //println!("Line starts with a tab: {}", stripped_line);
+                let stripped_rulexpr_line = cut_line_at_char(stripped_line, '\t', CutDirection::After);
+                if stripped_rulexpr_line.is_empty() {
+                    trace!("Ignoring empty stripped rulexpr line.");
+                    continue;
+                }
+                if dbg_print {
+                    println!("\t{{RULE_EXPR}} -> {{{stripped_rulexpr_line}}}, [#{rulexpr_i}],");
+                }
+                if rulexpr_arr.is_empty() {
+                    error!("Can't have this. Line: [#{cur_line}], Stripped rulexpr line: {{{stripped_rulexpr_line}}}");
+                    panic!("OUCH");
+                }
+                let rulexpr_str = format!("{{RULE_EXPR #{rulexpr_i}}} {{{stripped_rulexpr_line}}}, ");
+                rulexpr_arr[rule_i-1] = format!("{}{}", rulexpr_arr[rule_i-1], rulexpr_str);
+                rulexpr_i += 1;
+            } else {
+                //println!("Line does not start with a tab: {}", stripped_line);
+                if stripped_line.is_empty() {
+                    trace!("Ignoring empty stripped line.");
+                    continue;
+                } else {
+                    rulexpr_i = 0;
+                }
+                if last_rulename.is_empty() {
+                    if tab_regex.is_match(stripped_line) {
+                        // This branch is not 1-1 in najlo, but it's needed
+                        //
+                        // TODO
+                        // Correctly concatenate the expressions, in some way
+                        // Current implementation may be a bit clunky but is close
+                        //
+                        debug!("Found mainexpr starting with a tab. {{{stripped_line}}}");
+                        todo!("Implement handling tabbed main_exprs");
+                        /*
+                        let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
+                        if dbg_print {
+                            println!("{},", mainexpr_str);
+                        }
+                        mainexpr_arr[mainexpr_i-1] = format!("{}{}", mainexpr_arr[mainexpr_i-1], mainexpr_str);
                         continue;
-                    } else {
-                        rulexpr_i = 0;
+                        */
                     }
-                    if last_rulename.is_empty() {
-                        if tab_regex.is_match(&stripped_line) {
-                            // This branch is not 1-1 in najlo, but it's needed
-                            //
-                            // TODO
-                            // Correctly concatenate the expressions, in some way
-                            // Current implementation may be a bit clunky but is close
-                            //
-                            debug!("Found mainexpr starting with a tab. {{{stripped_line}}}");
-                            todo!("Implement handling tabbed main_exprs");
-                            /*
-                            let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
-                            if dbg_print {
-                                println!("{},", mainexpr_str);
-                            }
-                            mainexpr_arr[mainexpr_i-1] = format!("{}{}", mainexpr_arr[mainexpr_i-1], mainexpr_str);
-                            continue;
-                            */
-                        }
-                        //println!("Line is an expression before any rule was found");
-                        let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
-                        if dbg_print {
-                            println!("{},", mainexpr_str);
-                        }
-                        mainexpr_arr.push(mainexpr_str);
-                        mainexpr_i += 1;
-                    } else {
-                        //println!("Line is an expression after at least one rule was found");
-                        let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
-                        if dbg_print {
-                            println!("{},", mainexpr_str);
-                        }
-                        let rulewarn_regex = Regex::new(RULEWARN_REGEX).expect("Failed to create rulewarn regex");
-                        if report_warns && rulewarn_regex.is_match(&stripped_line) {
-                            warn!("A recipe line must start with a tab.");
-                            warn!("{stripped_line}");
-                            warn!("^^^ Any recipe line starting with a space will be interpreted as a main expression.");
-                            tot_warns += 1;
-                        }
-                        mainexpr_arr.push(mainexpr_str);
-                        mainexpr_i += 1;
+                    //println!("Line is an expression before any rule was found");
+                    let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
+                    if dbg_print {
+                        println!("{},", mainexpr_str);
                     }
+                    mainexpr_arr.push(mainexpr_str);
+                    mainexpr_i += 1;
+                } else {
+                    //println!("Line is an expression after at least one rule was found");
+                    let mainexpr_str = format!("{{EXPR_MAIN}} -> {{{stripped_line}}}, [#{mainexpr_i}]");
+                    if dbg_print {
+                        println!("{},", mainexpr_str);
+                    }
+                    if report_warns && rulewarn_regex.is_match(stripped_line) {
+                        warn!("A recipe line must start with a tab.");
+                        warn!("{stripped_line}");
+                        warn!("^^^ Any recipe line starting with a space will be interpreted as a main expression.");
+                        tot_warns += 1;
+                    }
+                    mainexpr_arr.push(mainexpr_str);
+                    mainexpr_i += 1;
                 }
             }
         }
@@ -1562,17 +1543,14 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         }
         AnvilKern::AnvilPy => {
             let mut use_python_build = true;
-            match args.strict {
-                true => {
-                    match semver_compare(&env.anvil_version, MIN_AMBOSO_V_PYKERN) {
-                        Ordering::Less => {
-                            warn!("Strict behaviour for v{}, still using make", env.anvil_version);
-                            use_python_build = false;
-                        }
-                        Ordering::Equal | Ordering::Greater => {}
+            if args.strict {
+                match semver_compare(&env.anvil_version, MIN_AMBOSO_V_PYKERN) {
+                    Ordering::Less => {
+                        warn!("Strict behaviour for v{}, still using make", env.anvil_version);
+                        use_python_build = false;
                     }
+                    Ordering::Equal | Ordering::Greater => {}
                 }
-                false => {}
             }
             if use_python_build {
                 build_step_command = "python -m build"; // Using -o bin_path would allow skipping the
@@ -1649,25 +1627,25 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
                match env.run_mode.as_ref().unwrap() {
                    AmbosoMode::GitMode => {
-                       return postbuild_step(env, query, bin_path, build_path, bin);
+                       postbuild_step(env, query, bin_path, build_path, bin)
                    }
                    _ => {
                        trace!("Avoiding postbuild_step outside of GitMode");
-                       return Ok(format!("{{{build_step_command}}} succeded"));
+                       Ok(format!("{{{build_step_command}}} succeded"))
                    }
                }
             } else {
                 warn!("{{{}}} failed with status: {}", build_step_command, make_ec.to_string());
                 io::stdout().write_all(&output.stdout).unwrap();
                 io::stderr().write_all(&output.stderr).unwrap();
-                return Err(format!("{{{build_step_command}}} failed"));
+                Err(format!("{{{build_step_command}}} failed"))
             }
         }
         None => {
             error!("{{{}}} command failed", build_step_command);
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
-            return Err(format!("{{{build_step_command}}} command failed"));
+            Err(format!("{{{build_step_command}}} command failed"))
         }
     }
 }
@@ -1696,33 +1674,33 @@ fn git_switch_and_submodule_init_re(query: &str) -> Result<String,String> {
                         if gsinit_end_ec == 0 {
                             debug!("git submodule init succeded with status: {}", gsinit_end_ec.to_string());
                             debug!("Done build for {}", query);
-                            return Ok(format!("Done build step for {{{query}}}"));
+                            Ok(format!("Done build step for {{{query}}}"))
                         } else {
                             warn!("git submodule init failed with status: {}", gsinit_end_ec.to_string());
                             io::stdout().write_all(&output.stdout).unwrap();
                             io::stderr().write_all(&output.stderr).unwrap();
-                            return Err("git submodule init failed".to_string());
+                            Err("git submodule init failed".to_string())
                         }
                     }
                     None => {
                         error!("git submodule init command failed");
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Err("git submodule init command failed".to_string());
+                        Err("git submodule init command failed".to_string())
                     }
                 }
             } else {
                 warn!("git switch failed with status: {}", gswitch_ec.to_string());
                 io::stdout().write_all(&output.stdout).unwrap();
                 io::stderr().write_all(&output.stderr).unwrap();
-                return Err("git switch failed".to_string());
+                Err("git switch failed".to_string())
             }
         }
         None => {
             error!("git switch command failed");
             io::stdout().write_all(&output.stdout).unwrap();
             io::stderr().write_all(&output.stderr).unwrap();
-            return Err("git switch command failed".to_string());
+            Err("git switch command failed".to_string())
         }
     }
 }
@@ -1888,31 +1866,31 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                                 match gswinit_res {
                                     Ok(m) => {
                                         trace!("Done git cleaning");
-                                        return Ok(m);
+                                        Ok(m)
                                     }
                                     Err(e) => {
                                         error!("git cleaning failed");
-                                        return Err(e);
+                                        Err(e)
                                     }
                                 }
                             }
                             _ => {
                                 error!("Unexpected mode in postbuild_step(): {:?}", env.run_mode.as_ref());
-                                return Err("Unexpected mode in postbuild step".to_string());
+                                Err("Unexpected mode in postbuild step".to_string())
                             }
                         }
                     } else {
                         warn!("mv failed with status: {}", mv_ec.to_string());
                         io::stdout().write_all(&output.stdout).unwrap();
                         io::stderr().write_all(&output.stderr).unwrap();
-                        return Err("mv failed".to_string());
+                        Err("mv failed".to_string())
                     }
                 }
                 None => {
                     error!("mv command failed");
                     io::stdout().write_all(&output.stdout).unwrap();
                     io::stderr().write_all(&output.stderr).unwrap();
-                    return Err("mv command failed".to_string());
+                    Err("mv command failed".to_string())
                 }
             }
         }
