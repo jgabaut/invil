@@ -34,5 +34,5 @@ log = "0.4.22"
 regex = "1.11.1"
 simplelog = "0.12.2"
 tar = { version = "0.4.43", optional = true }
-toml = "0.8.19"
+toml = "0.8.20"
 url = { version = "2.5.4", optional = true }
