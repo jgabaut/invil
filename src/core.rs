@@ -12,7 +12,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
@@ -51,7 +51,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.9";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.10";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -438,7 +438,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
             }
 
             if env.do_build {
-                let build_res = do_build(&env,&args);
+                let build_res = do_build(env,args);
                 match build_res {
                     Ok(s) => {
                         trace!("{}", s);
@@ -449,7 +449,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
             }
             if env.do_run {
-                let run_res = do_run(&env,&args);
+                let run_res = do_run(env,args);
                 match run_res {
                     Ok(s) => {
                         trace!("{}", s);
@@ -460,7 +460,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
             }
             if env.do_delete {
-                let delete_res = do_delete(&env,&args);
+                let delete_res = do_delete(env,args);
                 match delete_res {
                     Ok(s) => {
                         trace!("{}", s);
@@ -477,7 +477,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                         let mut args_copy = args.clone();
                         for tag in env.gitmode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
-                            let build_res = do_build(&env,&args_copy);
+                            let build_res = do_build(env,&args_copy);
                             match build_res {
                                 Ok(s) => {
                                     trace!("{}", s);
@@ -493,7 +493,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                         let mut args_copy = args.clone();
                         for tag in env.basemode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
-                            let build_res = do_build(&env,&args_copy);
+                            let build_res = do_build(env,&args_copy);
                             match build_res {
                                 Ok(s) => {
                                     trace!("{}", s);
@@ -519,7 +519,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                         let mut args_copy = args.clone();
                         for tag in env.gitmode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
-                            let delete_res = do_delete(&env,&args_copy);
+                            let delete_res = do_delete(env,&args_copy);
                             match delete_res {
                                 Ok(s) => {
                                     trace!("{}", s);
@@ -535,7 +535,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                         let mut args_copy = args.clone();
                         for tag in env.basemode_versions_table.keys() {
                             args_copy.tag = Some(tag.to_string());
-                            let delete_res = do_delete(&env,&args_copy);
+                            let delete_res = do_delete(env,&args_copy);
                             match delete_res {
                                 Ok(s) => {
                                     trace!("{}", s);
@@ -558,7 +558,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
             match env.anvil_kern {
                 AnvilKern::AmbosoC => {
                     //By default, run do_query()
-                    let query_res = do_query(&env,&args);
+                    let query_res = do_query(env,args);
                     match query_res {
                         Ok(s) => {
                             trace!("{}", s);
@@ -579,7 +579,6 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
         }
         None => {
             error!("Invalid: None env.run_mode");
-            return;
         }
     }
 }
@@ -743,42 +742,34 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
                 }
                 Err(e) => {
                     error!("Failed getting repo statuses. Err: {e}");
-                    return Err("Failed repo.statuses()".to_string());
+                    Err("Failed repo.statuses()".to_string())
                 }
             }
         }
         Err(e) => {
             error!("Failed discover of repo at {{{}}}.", path.display());
-            match e.code() {
-                ErrorCode::NotFound => {
-                    error!("Could not find repo.");
-                    if ! args.strict {
-                        //Without --strict, we return success when current directory is not a repo.
-                        return Ok(true);
-                    } else {
-                        debug!("is_git_repo_clean():    Strict behaviour, quitting on missing repo");
-                    }
+            if e.code() == ErrorCode::NotFound {
+                error!("Could not find repo.");
+                if ! args.strict {
+                    //Without --strict, we return success when current directory is not a repo.
+                    return Ok(true);
+                } else {
+                    debug!("is_git_repo_clean():    Strict behaviour, quitting on missing repo");
                 }
-                _ => {}
             }
-            return Err("Failed repo discovery".to_string());
+            Err("Failed repo discovery".to_string())
         }
     }
 }
 
 
-fn check_stego_file(stego_path: &PathBuf, builds_path: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
+fn check_stego_file(stego_path: &PathBuf, builds_path: &Path, format: StegoFormat) -> Result<AmbosoEnv,String> {
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
-        let res;
-        match format {
-            StegoFormat::Toml => {
-                res = parse_stego_toml(&stego_path, &builds_path);
-            }
-            StegoFormat::Legacy => {
-                res = parse_legacy_stego(&stego_path);
-            }
-        }
+        let res = match format {
+            StegoFormat::Toml => parse_stego_toml(stego_path, builds_path),
+            StegoFormat::Legacy => parse_legacy_stego(stego_path)
+        };
         match res {
             Ok(mut a) => {
                 //trace!("Stego contents: {{{:#?}}}", a);
@@ -826,21 +817,19 @@ fn check_stego_file(stego_path: &PathBuf, builds_path: &PathBuf, format: StegoFo
                                                 trace!("Test stderr file: {{{}}}", test_path.display());
                                             } else if test_path.ends_with(".stdout") {
                                                 trace!("Test stdout file: {{{}}}", test_path.display());
-                                            } else {
-                                                if is_executable(test_path.clone()) {
-                                                    debug!("Found kulpo test: {{{}}}", test_path.display());
-                                                    let test_name = test_path.file_name();
-                                                    match test_name {
-                                                        Some(t) => {
-                                                            a.kulpotests_table.insert(t.to_str().unwrap().to_string(), test_path);
-                                                        }
-                                                        None => {
-                                                            error!("Failed adding test to kulpo map");
-                                                        }
+                                            } else if is_executable(test_path.clone()) {
+                                                debug!("Found kulpo test: {{{}}}", test_path.display());
+                                                let test_name = test_path.file_name();
+                                                match test_name {
+                                                    Some(t) => {
+                                                        a.kulpotests_table.insert(t.to_str().unwrap().to_string(), test_path);
                                                     }
-                                                } else {
-                                                    debug!("Kulpo test: {{{}}} not executable", test_path.display());
+                                                    None => {
+                                                        error!("Failed adding test to kulpo map");
+                                                    }
                                                 }
+                                            } else {
+                                                debug!("Kulpo test: {{{}}} not executable", test_path.display());
                                             }
                                         }
                                         Err(e) => {
@@ -866,21 +855,19 @@ fn check_stego_file(stego_path: &PathBuf, builds_path: &PathBuf, format: StegoFo
                                                 trace!("Test stderr file: {{{}}}", test_path.display());
                                             } else if test_path.ends_with(".stdout") {
                                                 trace!("Test stdout file: {{{}}}", test_path.display());
-                                            } else {
-                                                if is_executable(test_path.clone()) {
-                                                    debug!("Found bone test: {{{}}}", test_path.display());
-                                                    let test_name = test_path.file_name();
-                                                    match test_name {
-                                                        Some(t) => {
-                                                            a.bonetests_table.insert(t.to_str().unwrap().to_string(), test_path);
-                                                        }
-                                                        None => {
-                                                            error!("Failed adding test to bone map");
-                                                        }
+                                            } else if is_executable(test_path.clone()) {
+                                                debug!("Found bone test: {{{}}}", test_path.display());
+                                                let test_name = test_path.file_name();
+                                                match test_name {
+                                                    Some(t) => {
+                                                        a.bonetests_table.insert(t.to_str().unwrap().to_string(), test_path);
                                                     }
-                                                } else {
-                                                    debug!("Bone test: {{{}}} not executable", test_path.display());
+                                                    None => {
+                                                        error!("Failed adding test to bone map");
+                                                    }
                                                 }
+                                            } else {
+                                                debug!("Bone test: {{{}}} not executable", test_path.display());
                                             }
                                         }
                                         Err(e) => {
@@ -896,22 +883,22 @@ fn check_stego_file(stego_path: &PathBuf, builds_path: &PathBuf, format: StegoFo
                         }
                     }
                 }
-                return Ok(a);
+                Ok(a)
             }
             Err(e) => {
-                return Err(e);
+                Err(e)
             }
         }
     } else {
-        return Err(format!("Can't find {}.", stego_path.display()));
+        Err(format!("Can't find {}.", stego_path.display()))
     }
 }
 
-pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> {
+pub fn check_amboso_dir(dir: &Path, args: &Args) -> Result<AmbosoEnv,String> {
     if ! dir.exists() {
         if ! args.strict {
             debug!("No amboso_dir found at {{{}}}. Preparing it.", dir.display());
-            match fs::create_dir_all(dir.clone()) {
+            match fs::create_dir_all(dir) {
                 Ok(_) => {
                     debug!("Created amboso dir, proceeding.");
                 }
@@ -931,15 +918,15 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
         Ordering::Less => {
             warn!("Taken legacy path, checking for stego.lock at {{{}}}", dir.display());
             trace!("Found {}", dir.display());
-            let mut stego_path = dir.clone();
+            let mut stego_path = dir.to_path_buf();
             stego_path.push("stego.lock");
             match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
                 Ordering::Less => {
                     warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
-                    return check_stego_file(&stego_path, &dir, StegoFormat::Legacy);
+                    check_stego_file(&stego_path, dir, StegoFormat::Legacy)
                 }
                 Ordering::Greater | Ordering::Equal => {
-                    return check_stego_file(&stego_path, &dir, StegoFormat::Toml);
+                    check_stego_file(&stego_path, dir, StegoFormat::Toml)
                 }
             }
         }
@@ -951,7 +938,7 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                     // We use the provided dir
                     stego_path = query_dir.clone();
                     stego_path.push("stego.lock");
-                    let amb_env = check_stego_file(&stego_path, &dir, StegoFormat::Toml);
+                    let amb_env = check_stego_file(&stego_path, dir, StegoFormat::Toml);
                     match amb_env {
                         Ok(a) => {
                             return Ok(a);
@@ -962,7 +949,7 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                                 Ordering::Less => {
                                     warn!("Taken legacy path");
                                     warn!("Will retry to find it at {{{}}}.", dir.display());
-                                    stego_path = dir.clone();
+                                    stego_path = dir.to_path_buf();
                                     stego_path.push("stego.lock");
                                 }
                                 Ordering::Equal | Ordering::Greater => {
@@ -974,11 +961,11 @@ pub fn check_amboso_dir(dir: &PathBuf, args: &Args) -> Result<AmbosoEnv,String> 
                 }
                 None => {
                     // We look into amboso_dir when no stego_dir was passed
-                    stego_path = dir.clone();
+                    stego_path = dir.to_path_buf();
                     stego_path.push("stego.lock");
                 }
             }
-            return check_stego_file(&stego_path, &dir, StegoFormat::Toml);
+            check_stego_file(&stego_path, dir, StegoFormat::Toml)
         }
     }
 }
@@ -989,11 +976,11 @@ pub fn parse_invil_toml(invil_path: &PathBuf) -> Result<AmbosoConf, String> {
     let invil = fs::read_to_string(invil_path);
     match invil {
         Ok(i) => {
-            return parse_invil_tomlvalue(&i, start_time);
+            parse_invil_tomlvalue(&i, start_time)
         },
         Err(e) => {
             error!("Could not read anvil_conf.toml contents");
-            return Err(e.to_string());
+            Err(e.to_string())
         },
     }
 }
@@ -1020,7 +1007,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                     info!("Running as <2.0.4");
                                     anvil_conf.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" => {
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" | "2.0.10" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                     anvil_conf.anvil_kern = AnvilKern::AmbosoC;
                                 }
@@ -1030,7 +1017,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                 }
                             }
                             trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_conf.anvil_version = format!("{}", anvil_v_str);
+                            anvil_conf.anvil_version = anvil_v_str.to_string();
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
@@ -1043,7 +1030,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                 }
                             }
                             trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_conf.anvil_version = format!("{}", anvil_v_str);
+                            anvil_conf.anvil_version = anvil_v_str.to_string();
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
@@ -1119,18 +1106,18 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
             } else {
                 debug!("Missing ANVIL section.");
             }
-            return Ok(anvil_conf);
+            Ok(anvil_conf)
         }
         Err(e) => {
             let elapsed = start_time.elapsed();
             debug!("Done parsing anvil.toml. Elapsed: {:.2?}", elapsed);
             error!("Failed parsing {{{}}} as TOML. Err: [{e}]", invil_str);
-            return Err("Failed parsing TOML".to_string());
+            Err("Failed parsing TOML".to_string())
         }
     }
 }
 
-pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<AmbosoEnv,String> {
+pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &Path) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
@@ -1139,7 +1126,7 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         error!("Failed pop for {{{}}}", stego_dir.display());
         return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
     }
-    if stego_dir.to_str().expect("Could not stringify {stego_path}") == "" {
+    if stego_dir.to_str().expect("Could not stringify {stego_path}").is_empty() {
         stego_dir = PathBuf::from(".");
     }
     if stego_dir.exists() {
@@ -1148,10 +1135,10 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &PathBuf) -> Result<A
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
     }
-    return parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time);
+    parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time)
 }
 
-fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
+fn parse_stego_tomlvalue(stego_str: &str, builds_path: &Path, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
     let toml_value = stego_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
@@ -1179,7 +1166,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                 do_delete : false,
                 do_init : false,
                 do_purge : false,
-                start_time: start_time,
+                start_time,
                 configure_arg: "".to_string(),
                 cflags_arg: "".to_string(),
                 anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
@@ -1206,7 +1193,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                     info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" => {
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" | "2.0.10" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
@@ -1216,7 +1203,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                 }
                             }
                             trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_env.anvil_version = format!("{}", anvil_v_str);
+                            anvil_env.anvil_version = anvil_v_str.to_string();
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
@@ -1229,7 +1216,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                                 }
                             }
                             trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_env.anvil_version = format!("{}", anvil_v_str);
+                            anvil_env.anvil_version = anvil_v_str.to_string();
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
@@ -1322,25 +1309,25 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
             if let Some(build_table) = y.get("build").and_then(|v| v.as_table()) {
                 if let Some(source_name) = build_table.get(ANVIL_SOURCE_KEYNAME) {
                     trace!("ANVIL_SOURCE: {{{source_name}}}");
-                    anvil_env.source = Some(format!("{}", source_name.as_str().expect("toml conversion failed")));
+                    anvil_env.source = Some(source_name.as_str().expect("toml conversion failed").to_string());
                 } else {
                     warn!("Missing ANVIL_SOURCE definition.");
                 }
                 if let Some(binary_name) = build_table.get(ANVIL_BIN_KEYNAME) {
                     trace!("ANVIL_BIN: {{{binary_name}}}");
-                    anvil_env.bin = Some(format!("{}", binary_name.as_str().expect("toml conversion failed")));
+                    anvil_env.bin = Some(binary_name.as_str().expect("toml conversion failed").to_string());
                 } else {
                     warn!("Missing ANVIL_BIN definition.");
                 }
                 if let Some(anvil_make_vers_tag) = build_table.get(ANVIL_MAKE_VERS_KEYNAME) {
                     trace!("ANVIL_MAKE_VERS: {{{anvil_make_vers_tag}}}");
-                    anvil_env.mintag_make = Some(format!("{}", anvil_make_vers_tag.as_str().expect("toml conversion failed")));
+                    anvil_env.mintag_make = Some(anvil_make_vers_tag.as_str().expect("toml conversion failed").to_string());
                 } else {
                     warn!("Missing ANVIL_MAKE_VERS definition.");
                 }
                 if let Some(anvil_automake_vers_tag) = build_table.get(ANVIL_AUTOMAKE_VERS_KEYNAME) {
                     trace!("ANVIL_AUTOMAKE_VERS: {{{anvil_automake_vers_tag}}}");
-                    anvil_env.mintag_automake = Some(format!("{}", anvil_automake_vers_tag.as_str().expect("toml conversion failed")));
+                    anvil_env.mintag_automake = Some(anvil_automake_vers_tag.as_str().expect("toml conversion failed").to_string());
                 } else {
                     warn!("Missing ANVIL_AUTOMAKE_VERS definition.");
                 }
@@ -1348,7 +1335,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                     trace!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
                     let mut path = PathBuf::new();
                     path.push(".");
-                    let testdir_lit = format!("{}", anvil_testsdir.as_str().expect("toml conversion failed"));
+                    let testdir_lit = anvil_testsdir.as_str().expect("toml conversion failed").to_string();
                     path.push(testdir_lit);
                     anvil_env.tests_dir = Some(path);
                 } else {
@@ -1363,7 +1350,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                     trace!("ANVIL_BONEDIR: {{{anvil_bonetests_dir}}}");
                     let mut path = PathBuf::new();
                     path.push(".");
-                    let bonetestdir_lit = format!("{}", anvil_bonetests_dir.as_str().expect("toml conversion failed"));
+                    let bonetestdir_lit = anvil_bonetests_dir.as_str().expect("toml conversion failed").to_string();
                     path.push(bonetestdir_lit);
                     anvil_env.bonetests_dir = Some(path);
                 } else {
@@ -1374,7 +1361,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
                     trace!("ANVIL_KULPODIR: {{{anvil_kulpotests_dir}}}");
                     let mut path = PathBuf::new();
                     path.push(".");
-                    let kulpotestdir_lit = format!("{}", anvil_kulpotests_dir.as_str().expect("toml conversion failed"));
+                    let kulpotestdir_lit = anvil_kulpotests_dir.as_str().expect("toml conversion failed").to_string();
                     path.push(kulpotestdir_lit);
                     anvil_env.kulpotests_dir = Some(path);
                 } else {
@@ -1388,7 +1375,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
             if let Some(versions_tab) = y.get("versions").and_then(|v| v.as_table()) {
                 anvil_env.versions_table = versions_tab.iter().map(|(key, value)| (SemVerKey(key.to_string()), value.as_str().unwrap().to_string()))
                     .collect();
-                if anvil_env.versions_table.len() == 0 {
+                if anvil_env.versions_table.is_empty() {
                     warn!("versions_table is empty.");
                 } else {
                     for (key, value) in anvil_env.versions_table.iter() {
@@ -1427,13 +1414,13 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &PathBuf, stego_dir: Path
             }
             let elapsed = start_time.elapsed();
             debug!("Done parsing stego.toml. Elapsed: {:.2?}", elapsed);
-            return Ok(anvil_env);
+            Ok(anvil_env)
         }
         Err(e) => {
             let elapsed = start_time.elapsed();
             debug!("Done parsing stego.toml. Elapsed: {:.2?}", elapsed);
             error!("Failed parsing {{{}}} as TOML. Err: [{e}]", stego_str);
-            return Err("Failed parsing TOML".to_string());
+            Err("Failed parsing TOML".to_string())
         }
     }
 }
@@ -1455,16 +1442,15 @@ pub fn handle_init_subcommand(init_dir: Option<PathBuf>, strict: bool) -> ExitCo
                         dir_basename = "hello_world";
                         caps_dir_basename = "HW_".to_string();
                     } else {
-                        let dir_basename_osstr;
-                        match repo_workdir.file_name() {
+                        let dir_basename_osstr = match repo_workdir.file_name() {
                             Some(d) => {
-                                dir_basename_osstr = d;
+                                d
                             }
                             None => {
                                 error!("Failed to get base name for {{{}}}", repo_workdir.display());
                                 return ExitCode::FAILURE;
                             }
-                        }
+                        };
 
                         match dir_basename_osstr.to_str() {
                             Some(s) => {
@@ -1580,7 +1566,7 @@ errortestsdir = \"errors\"\n
                     let cmain_path = format!("{}/main.c", src.display());
                     trace!("Generating main.c - Target path: {{{}}}", cmain_path);
                     let output = File::create(cmain_path);
-                    let main_string = format!("#include <stdio.h>\nint main(void) {{\n    printf(\"Hello, World!\\n\");\n    return 0;\n}}\n");
+                    let main_string = "#include <stdio.h>\nint main(void) {{\n    printf(\"Hello, World!\\n\");\n    return 0;\n}}\n".to_string();
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", main_string);
@@ -1727,30 +1713,30 @@ errortestsdir = \"errors\"\n
                                 match ln_res {
                                     Ok(_) => {
                                         info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
-                                        return ExitCode::SUCCESS;
+                                        ExitCode::SUCCESS
                                     }
                                     Err(e) => {
                                         error!("Failed symlink for anvil. Err: {e}");
-                                        return ExitCode::FAILURE;
+                                        ExitCode::FAILURE
                                     }
                                 }
                             }
                         }
                         Err(e) => {
                             error!("Failed repo.submodule() call. Err: {e}");
-                            return ExitCode::FAILURE;
+                            ExitCode::FAILURE
                         }
                     }
                 }
                 Err(e) => {
                     error!("Failed creating git repo at {{{}}}. Err: {e}", target.display());
-                    return ExitCode::FAILURE;
+                    ExitCode::FAILURE
                 }
             }
         }
         None => {
             error!("Missing init_dir argument");
-            return ExitCode::FAILURE;
+            ExitCode::FAILURE
         }
     }
 }
@@ -1792,7 +1778,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         do_delete : false,
         do_init : false,
         do_purge : false,
-        start_time: start_time,
+        start_time,
         configure_arg: "".to_string(),
         cflags_arg: "".to_string(),
         anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
@@ -1806,67 +1792,64 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     let mut override_stego_anvil_version = false;
 
-    match args.anvil_version {
-        Some (ref x) => {
-            trace!("Passed anvil_version argument: {x}");
-            if is_semver(x) {
-                if x.starts_with("2.0") {
-                    match x.as_str() {
-                        "2.0.0" => {
-                            info!("Running as 2.0, turning off extensions.");
-                            args.strict = true;
-                            anvil_env.enable_extensions = false;
-                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
-                        }
-                        "2.0.1" | "2.0.2" | "2.0.3" => {
-                            info!("Running as {}", x.as_str());
-                            args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
-                        }
-                        "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" => {
-                            info!("Running as {}", x.as_str());
-                        }
-                        _ => {
-                            error!("Invalid anvil_version: {{{}}}", x);
-                            return Err("Invalid anvil_version".to_string());
-                        }
+    if let Some(ref x) = args.anvil_version {
+        trace!("Passed anvil_version argument: {x}");
+        if is_semver(x) {
+            if x.starts_with("2.0") {
+                match x.as_str() {
+                    "2.0.0" => {
+                        info!("Running as 2.0, turning off extensions.");
+                        args.strict = true;
+                        anvil_env.enable_extensions = false;
+                        args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                     }
-                    trace!("ANVIL_VERSION: {{{x}}}");
+                    "2.0.1" | "2.0.2" | "2.0.3" => {
+                        info!("Running as {}", x.as_str());
+                        args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
+                    }
+                    "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" | "2.0.10" => {
+                        info!("Running as {}", x.as_str());
+                    }
+                    _ => {
+                        error!("Invalid anvil_version: {{{}}}", x);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                }
+                trace!("ANVIL_VERSION: {{{x}}}");
 
-                    match semver_compare(x, MIN_AMBOSO_V_STEGO_NOFORCE) {
-                        Ordering::Greater | Ordering::Equal => {
-                            override_stego_anvil_version = true;
-                        }
-                        Ordering::Less => {
-                            warn!("Taken legacy path: stego-provided anvil_version always overrides passed one. Query was: {{{}}}", x);
-                            override_stego_anvil_version = false;
-                        }
+                match semver_compare(x, MIN_AMBOSO_V_STEGO_NOFORCE) {
+                    Ordering::Greater | Ordering::Equal => {
+                        override_stego_anvil_version = true;
                     }
-                } else {
-                    match semver_compare(x, MIN_AMBOSO_V_LEGACYPARSE) {
-                        Ordering::Less => {
-                            match semver_compare(x, "1.0.0") {
-                                Ordering::Equal | Ordering::Greater => {
-                                    warn!("Running as legacy 1.x");
-                                    debug!("Query was: {{{}}}", x);
-                                }
-                                Ordering::Less => {
-                                    error!("Invalid anvil_version: {{{}}}", x);
-                                    return Err("Invalid anvil_version".to_string());
-                                }
-                            }
-                        }
-                        _ => {
-                            error!("Invalid anvil_version: {{{}}}", x);
-                            return Err("Invalid anvil_version".to_string());
-                        }
+                    Ordering::Less => {
+                        warn!("Taken legacy path: stego-provided anvil_version always overrides passed one. Query was: {{{}}}", x);
+                        override_stego_anvil_version = false;
                     }
                 }
             } else {
-                error!("Invalid anvil_version: {{{}}}", x);
-                return Err("Invalid anvil_version".to_string());
+                match semver_compare(x, MIN_AMBOSO_V_LEGACYPARSE) {
+                    Ordering::Less => {
+                        match semver_compare(x, "1.0.0") {
+                            Ordering::Equal | Ordering::Greater => {
+                                warn!("Running as legacy 1.x");
+                                debug!("Query was: {{{}}}", x);
+                            }
+                            Ordering::Less => {
+                                error!("Invalid anvil_version: {{{}}}", x);
+                                return Err("Invalid anvil_version".to_string());
+                            }
+                        }
+                    }
+                    _ => {
+                        error!("Invalid anvil_version: {{{}}}", x);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                }
             }
+        } else {
+            error!("Invalid anvil_version: {{{}}}", x);
+            return Err("Invalid anvil_version".to_string());
         }
-        None => {}
     }
 
     match args.strict {
@@ -1874,11 +1857,8 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             anvil_env.enable_extensions = false;
         }
         false => {
-            match semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_EXTENSIONS) {
-                Ordering::Less => {
-                    anvil_env.enable_extensions = false;
-                },
-                _ => {}
+            if semver_compare(&anvil_env.anvil_version, MIN_AMBOSO_V_EXTENSIONS) == Ordering::Less {
+                anvil_env.enable_extensions = false;
             }
         }
     }
@@ -1888,12 +1868,12 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         args.git = true;
     }
 
-    print_grouped_args(&args);
+    print_grouped_args(args);
 
     if args.ignore_gitcheck || args.base {
         info!("Ignoring git check.");
     } else {
-        let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"), &args);
+        let gitcheck_res = is_git_repo_clean(&PathBuf::from("./"), args);
         match gitcheck_res {
             Ok(s) => {
                 if s {
@@ -1921,7 +1901,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 return Err("Could not find $HOME".to_string());
             }
         }
-        let mut invil_conf_path = PathBuf::from(user_home_dir.expect("Failed getting user's home directory"));
+        let mut invil_conf_path = user_home_dir.expect("Failed getting user's home directory");
         invil_conf_path.push(ANVIL_DEFAULT_CONF_PATH);
         if invil_conf_path.exists() {
             let res = parse_invil_toml(&invil_conf_path);
@@ -1950,7 +1930,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     match args.amboso_dir {
         Some(ref x) => {
             debug!("Amboso dir {{{}}}", x.display());
-            let res = check_amboso_dir(x, &args);
+            let res = check_amboso_dir(x, args);
             match res {
                 Ok(mut a) => {
                     trace!("{:#?}", a);
@@ -1958,11 +1938,8 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     if override_stego_anvil_version {
                         a.anvil_version = anvil_env.anvil_version;
                     }
-                    match a.stego_dir {
-                        Some(ref p) => {
-                            debug!("{}", format!("stego_dir: {}", p.display()));
-                        }
-                        None => {},
+                    if let Some(ref p) = a.stego_dir {
+                        debug!("{}", format!("stego_dir: {}", p.display()));
                     }
                     anvil_env = a;
                 }
@@ -2245,56 +2222,50 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     };
     trace!("{}", makemode_support_text);
 
-    match args.cflags {
-        Some(ref x) => {
-            trace!("Passed CFLAGS: {{{}}}", x);
-            anvil_env.cflags_arg = x.to_string();
-        },
-        None => {}
+    if let Some(ref x) = args.cflags {
+        trace!("Passed CFLAGS: {{{}}}", x);
+        anvil_env.cflags_arg = x.to_string();
     }
 
-    match args.config {
-        Some (ref x) => {
-            let mut backcomp_wanted = true;
-            let amboso_config_flag_arg_isfile = "AMBOSO_CONFIG_FLAG_ARG_ISFILE";
-            match env::var(amboso_config_flag_arg_isfile) {
-                Ok(val) => {
-                    let int_val = val.parse::<i32>();
-                    match int_val {
-                        Ok(v) => {
-                            if v == 0 {
-                                backcomp_wanted = false;
-                            }
+    if let Some(ref x) = args.config {
+        let mut backcomp_wanted = true;
+        let amboso_config_flag_arg_isfile = "AMBOSO_CONFIG_FLAG_ARG_ISFILE";
+        match env::var(amboso_config_flag_arg_isfile) {
+            Ok(val) => {
+                let int_val = val.parse::<i32>();
+                match int_val {
+                    Ok(v) => {
+                        if v == 0 {
+                            backcomp_wanted = false;
                         }
-                        Err(e) => {
-                            debug!("Failed reading {{{}: {}}}", amboso_config_flag_arg_isfile, e);
-                            debug!("Backcomp requested for config flag");
-                        }
-                    }
-                },
-                Err(e) => {
-                    debug!("Failed reading {{{}: {}}}", amboso_config_flag_arg_isfile, e);
-                    debug!("Backcomp requested for config flag");
-                }
-            }
-            if backcomp_wanted {
-                let config_read_res = fs::read_to_string(x);
-                match config_read_res {
-                    Ok(config_str) => {
-                        trace!("Read config file: {{{}}}", config_str);
-                        anvil_env.configure_arg = config_str;
                     }
                     Err(e) => {
-                        error!("Failed reading config file from {{{}}}. Err: {e}", x);
-                        return Err("Failed reading config file".to_string());
+                        debug!("Failed reading {{{}: {}}}", amboso_config_flag_arg_isfile, e);
+                        debug!("Backcomp requested for config flag");
                     }
                 }
-            } else {
-                trace!("Using config arg: {{{}}}", x);
-                anvil_env.configure_arg = x.to_string();
+            },
+            Err(e) => {
+                debug!("Failed reading {{{}: {}}}", amboso_config_flag_arg_isfile, e);
+                debug!("Backcomp requested for config flag");
             }
         }
-        None => {}
+        if backcomp_wanted {
+            let config_read_res = fs::read_to_string(x);
+            match config_read_res {
+                Ok(config_str) => {
+                    trace!("Read config file: {{{}}}", config_str);
+                    anvil_env.configure_arg = config_str;
+                }
+                Err(e) => {
+                    error!("Failed reading config file from {{{}}}. Err: {e}", x);
+                    return Err("Failed reading config file".to_string());
+                }
+            }
+        } else {
+            trace!("Using config arg: {{{}}}", x);
+            anvil_env.configure_arg = x.to_string();
+        }
     }
 
     debug!("TODO: check if supported tags can be associated with a directory");
@@ -2317,7 +2288,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
     anvil_env.do_init = args.init;
     anvil_env.do_purge = args.purge;
 
-    return Ok(anvil_env);
+    Ok(anvil_env)
 }
 
 fn is_semver(input: &str) -> bool {
@@ -2328,13 +2299,13 @@ fn is_semver(input: &str) -> bool {
     let strict_regex = Regex::new(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$").expect("Failed to create regex");
 
     if strict_regex.is_match(input) {
-        return true;
+        true
     } else {
         if full_regex.is_match(input) {
             error!("Prerelease or build metadata is not allowed in a strict SemVer key.");
             return false;
         }
-        return false;
+        false
     }
 }
 
@@ -2473,13 +2444,13 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
             }
             let elapsed = start_time.elapsed();
             debug!("Done lexing stego.toml. Elapsed: {:.2?}", elapsed);
-            return Ok("Lex success".to_string());
+            Ok("Lex success".to_string())
         }
         Err(e) => {
             let elapsed = start_time.elapsed();
             debug!("Done lexing stego.toml. Elapsed: {:.2?}", elapsed);
             error!("Failed lexing {{{}}} as TOML. Err: [{}]", stego, e);
-            return Err("Failed lexing TOML".to_string());
+            Err("Failed lexing TOML".to_string())
         }
     }
 }
@@ -2513,7 +2484,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
     }
 
     // Check if the file exists
-    if let Ok(file) = File::open(&stego_path) {
+    if let Ok(file) = File::open(stego_path) {
 
         let mut cur_line = 0;
         let mut anvil_env: AmbosoEnv = AmbosoEnv {
@@ -2540,7 +2511,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             do_delete : false,
             do_init : false,
             do_purge : false,
-            start_time: start_time,
+            start_time,
             configure_arg: "".to_string(),
             cflags_arg: "".to_string(),
             anvil_version: EXPECTED_AMBOSO_API_LEVEL.to_string(),
@@ -2598,7 +2569,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
 
                     let mut cur_kazoj_line = 0;
 
-                    if let Ok(kazoj_file) = File::open(&kazoj_path.clone()) {
+                    if let Ok(kazoj_file) = File::open(kazoj_path.clone()) {
                         for kazoj_line in BufReader::new(kazoj_file).lines() {
                             if let Ok(kazoj_line_content) = kazoj_line {
                                 let _kazoj_comment = cut_line_at_char(&kazoj_line_content, '#', CutDirection::After);
@@ -2691,9 +2662,9 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             }
         }
 
-        return Ok(anvil_env);
+        Ok(anvil_env)
     } else {
         error!("Failed opening stego.lock at path from {{{}}}", stego_path.display());
-        return  Err(format!("Can't find stego.lock, expected at {{{}}}", stego_path.display()));
+        Err(format!("Can't find stego.lock, expected at {{{}}}", stego_path.display()))
     }
 }

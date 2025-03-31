@@ -1,6 +1,14 @@
 # Changelog
 
-## [0.2.20] - Unreleased
+## [0.2.21] - 2025-03-31
+
+### Changed
+
+- Solve clippy lints
+- Bump deps
+- Bump expected amboso version to 2.0.10
+
+## [0.2.20] - 2024-12-20
 
 ### Changed
 
