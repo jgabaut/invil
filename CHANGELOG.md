@@ -5,6 +5,8 @@
 ### Changed
 
 - Solve clippy lints
+- Bump deps
+- Bump expected amboso version to 2.0.10
 
 ## [0.2.20] - 2024-12-20
 
