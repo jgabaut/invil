@@ -51,7 +51,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.9";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.10";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -1007,7 +1007,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                     info!("Running as <2.0.4");
                                     anvil_conf.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" => {
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" | "2.0.10" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                     anvil_conf.anvil_kern = AnvilKern::AmbosoC;
                                 }
@@ -1193,7 +1193,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &Path, stego_dir: PathBuf
                                     info!("Running as <2.0.4");
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
-                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" => {
+                                "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" | "2.0.10" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                     anvil_env.anvil_kern = AnvilKern::AmbosoC;
                                 }
@@ -1807,7 +1807,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         info!("Running as {}", x.as_str());
                         args.anvil_kern = Some(AnvilKern::AmbosoC.to_string());
                     }
-                    "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" => {
+                    "2.0.4" | "2.0.5" | "2.0.6" | "2.0.7" | "2.0.8" | "2.0.9" | "2.0.10" => {
                         info!("Running as {}", x.as_str());
                     }
                     _ => {
