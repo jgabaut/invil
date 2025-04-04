@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.22] - Unreleased
+
+## Changed
+
+- Add --detach to the switchback after a checkout coming from detached HEAD
+- Bump expected amboso version to 2.0.11
+
 ## [0.2.21] - 2025-03-31
 
 ### Changed

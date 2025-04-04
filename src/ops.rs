@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection, semver_compare, MIN_AMBOSO_V_PYKERN};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection, semver_compare, MIN_AMBOSO_V_PYKERN, MIN_AMBOSO_V_CHECK_DETACHED};
 use crate::utils::try_parse_stego;
 
 use std::process::{Command, Stdio, exit};
@@ -192,6 +192,8 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 } else {
                     match env.run_mode.as_ref().unwrap() {
                         AmbosoMode::BaseMode => {
+                            let head_was_detached = false; // We don't worry about HEAD if we're not in git
+                                                           // mode
                             let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
@@ -232,7 +234,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                         let current_dir = env::current_dir().expect("failed getting current directory");
                                         let cd_output = env::set_current_dir(&build_path);
                                         if cd_output.is_ok() {
-                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
+                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
                                                 Ok(s) => {
                                                     trace!("{s}");
                                                     let cdback_output = env::set_current_dir(&current_dir);
@@ -268,7 +270,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     let current_dir = env::current_dir().expect("failed getting current directory");
                                     let cd_output = env::set_current_dir(&build_path);
                                     if cd_output.is_ok() {
-                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
+                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
                                             Ok(s) => {
                                                 trace!("{s}");
                                                 let cdback_output = env::set_current_dir(&current_dir);
@@ -301,6 +303,33 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             } else {
                                 "".to_string()
                             };
+
+                            let repo = Repository::discover(".").expect("Failed to open repository");
+
+                            let head_was_detached = match semver_compare(&env.anvil_version, MIN_AMBOSO_V_CHECK_DETACHED) {
+                                Ordering::Less => {
+                                    warn!("Strict behaviour for v{}, won't check if starting from detached HEAD", env.anvil_version);
+                                    false
+                                }
+                                Ordering::Equal | Ordering::Greater => {
+                                    match repo.head() {
+                                        Ok(head) => {
+                                            if head.is_branch() {
+                                                //println!("On branch: {}", head.shorthand().unwrap_or("Unknown"));
+                                                false
+                                            } else {
+                                                debug!("Starting from a detached HEAD");
+                                                true
+                                            }
+                                        }
+                                        Err(e) => {
+                                            error!("Error retrieving HEAD: {}", e);
+                                            false
+                                        }
+                                    }
+                                }
+                            };
+
                             trace!("Git mode, checking out {}",query);
                             trace!("Running \'git checkout {}\'", query);
 
@@ -330,7 +359,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                     trace!("Build step");
                                                     trace!("cflg_str: {{{cflg_str}}}");
                                                     trace!("bin_path: {{{}}}", bin_path.display());
-                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap()) {
+                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
                                                         Ok(s) => {
                                                             trace!("{s}");
                                                         }
@@ -1534,7 +1563,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     Ok(tot_warns)
 }
 
-fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String) -> Result<String,String> {
+fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
     let output;
     let build_step_command;
     match env.anvil_kern {
@@ -1627,7 +1656,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
                match env.run_mode.as_ref().unwrap() {
                    AmbosoMode::GitMode => {
-                       postbuild_step(env, query, bin_path, build_path, bin)
+                       postbuild_step(env, query, bin_path, build_path, bin, head_was_detached)
                    }
                    _ => {
                        trace!("Avoiding postbuild_step outside of GitMode");
@@ -1650,13 +1679,28 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
     }
 }
 
-fn git_switch_and_submodule_init_re(query: &str) -> Result<String,String> {
+fn git_switch_and_submodule_init_re(query: &str, head_was_detached: bool) -> Result<String,String> {
     trace!("Running \'git switch -\'");
-    let output = Command::new("git")
-        .arg("switch")
-        .arg("-")
-        .output()
-        .expect("failed to execute process");
+    if head_was_detached {
+        debug!("Checkout started from a detached HEAD, will add --detach to the switchback");
+    }
+    let output = match head_was_detached {
+        false => {
+            Command::new("git")
+            .arg("switch")
+            .arg("-")
+            .output()
+            .expect("failed to execute process")
+        }
+        true => {
+            Command::new("git")
+            .arg("switch")
+            .arg("-")
+            .arg("--detach")
+            .output()
+            .expect("failed to execute process")
+        }
+    };
     match output.status.code() {
         Some(gswitch_ec) => {
             if gswitch_ec == 0 {
@@ -1705,7 +1749,7 @@ fn git_switch_and_submodule_init_re(query: &str) -> Result<String,String> {
     }
 }
 
-fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String) -> Result<String,String> {
+fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
 
     let output;
     match env.anvil_kern {
@@ -1862,7 +1906,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                         debug!("mv succeded with status: {}", mv_ec.to_string());
                         match env.run_mode.as_ref().unwrap() {
                             AmbosoMode::GitMode => {
-                                let gswinit_res = git_switch_and_submodule_init_re(query);
+                                let gswinit_res = git_switch_and_submodule_init_re(query, head_was_detached);
                                 match gswinit_res {
                                     Ok(m) => {
                                         trace!("Done git cleaning");
