@@ -1,6 +1,6 @@
 //  SPDX-License-Identifier: GPL-3.0-only
 /*  Build tool with support for git tags, wrapping make.
- *  Copyright (C) 2023-2024  jgabaut
+ *  Copyright (C) 2023-2025  jgabaut
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, version 3 of the License.
@@ -143,7 +143,7 @@ fn main() -> ExitCode {
         trace!("Please symlink me to anvil.");
     }
 
-    let invil_splash: String = format!("{}, version {}\nCopyright (C) 2023-2024  jgabaut\n\n  This program comes with ABSOLUTELY NO WARRANTY; for details type `{} -W`.\n  This is free software, and you are welcome to redistribute it\n  under certain conditions; see file `LICENSE` for details.\n\n  Full source is available at https://github.com/jgabaut/invil\n", INVIL_NAME, INVIL_VERSION, prog_name().expect("Could not determine program name"));
+    let invil_splash: String = format!("{}, version {}\nCopyright (C) 2023-2025  jgabaut\n\n  This program comes with ABSOLUTELY NO WARRANTY; for details type `{} -W`.\n  This is free software, and you are welcome to redistribute it\n  under certain conditions; see file `LICENSE` for details.\n\n  Full source is available at https://github.com/jgabaut/invil\n", INVIL_NAME, INVIL_VERSION, prog_name().expect("Could not determine program name"));
     if ! args.quiet {
         println!("{}", invil_splash);
     }
