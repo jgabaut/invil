@@ -28,7 +28,7 @@ anvilCustom = []
 clap = { version = "4.5.35", features = ["derive"] }
 dirs = "5.0.1"
 flate2 = { version = "1.1.1", optional = true }
-git2 = "0.20.1"
+git2 = "0.20.2"
 is_executable = "1.0.4"
 log = "0.4.27"
 regex = "1.11.1"
