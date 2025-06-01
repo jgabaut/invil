@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.23] - Unreleased
+
+## Changed
+
+- Bump deps
+
 ## [0.2.22] - 2025-04-11
 
 ## Changed
