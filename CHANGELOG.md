@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.24] - Unreleased
+
+## Changed
+
+- Bump deps
+- Bump expected amboso version to 2.0.12
+
 ## [0.2.23] - 2025-06-01
 
 ## Changed
