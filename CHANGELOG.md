@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.2.24] - Unreleased
+## [0.2.25] - 2025-06-20
+
+### Changed
+
+- Allow runs as 2.0.12
+
+## [0.2.24] - 2025-06-17
 
 ## Changed
 
@@ -9,13 +15,13 @@
 
 ## [0.2.23] - 2025-06-01
 
-## Changed
+### Changed
 
 - Bump deps
 
 ## [0.2.22] - 2025-04-11
 
-## Changed
+### Changed
 
 - Add --detach to the switchback after a checkout coming from detached HEAD
 - Bump deps
