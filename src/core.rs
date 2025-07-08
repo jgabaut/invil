@@ -840,8 +840,8 @@ fn check_stego_file(stego_path: &PathBuf, builds_path: &Path, format: StegoForma
                                 });
                             }
                             Err(e) => {
-                                error!("Failed reading kulpotests dir. Err: {e}");
-                                return Err("Failed reading kulpotests dir".to_string());
+                                warn!("Failed reading kulpotests dir. Err: {e}");
+                                a.support_testmode = false;
                             }
                         }
                         let bonetests_path = PathBuf::from(format!("{}/{}",a.tests_dir.as_ref().unwrap().display(),a.bonetests_dir.as_ref().unwrap().display()));
@@ -878,8 +878,8 @@ fn check_stego_file(stego_path: &PathBuf, builds_path: &Path, format: StegoForma
                                 });
                             }
                             Err(e) => {
-                                error!("Failed reading bonetests dir. Err: {e}");
-                                return Err("Failed reading bonetests dir".to_string());
+                                warn!("Failed reading bonetests dir. Err: {e}");
+                                a.support_testmode = false;
                             }
                         }
                     }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.26] - Unreleased
+
+### Changed
+
+- Avoid error on missing tests directories
+
 ## [0.2.25] - 2025-06-20
 
 ### Changed
