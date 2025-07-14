@@ -5,6 +5,7 @@
 ### Changed
 
 - Avoid error on missing tests directories
+- Bump deps
 
 ## [0.2.25] - 2025-06-20
 
