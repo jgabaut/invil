@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.26] - 2025-07-17
+
+### Changed
+
+- Avoid error on missing tests directories
+- Bump deps
+
 ## [0.2.25] - 2025-06-20
 
 ### Changed
