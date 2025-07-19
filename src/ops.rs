@@ -1864,7 +1864,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                     debug!("Ignoring the move step.");
                     match env.run_mode.as_ref().unwrap() {
                         AmbosoMode::GitMode => {
-                            let gswinit_res = git_switch_and_submodule_init_re(query);
+                            let gswinit_res = git_switch_and_submodule_init_re(query, head_was_detached);
                             match gswinit_res {
                                 Ok(_) => {
                                     trace!("Done git cleaning");

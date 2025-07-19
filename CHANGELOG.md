@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.27] - Unreleased
+
+### Changed
+
+- Fix anvilCustom build
+
 ## [0.2.26] - 2025-07-17
 
 ### Changed
