@@ -5,6 +5,7 @@
 ### Changed
 
 - Fix anvilCustom build
+- Bump deps
 
 ## [0.2.26] - 2025-07-17
 
