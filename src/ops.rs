@@ -1582,8 +1582,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 }
             }
             if use_python_build {
-                build_step_command = "python -m build"; // Using -o bin_path would allow skipping the
-                                                        // mv command
+                build_step_command = "python";
             } else {
                 build_step_command = "make";
             }
@@ -1628,7 +1627,8 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         AnvilKern::AnvilPy => {
             debug!("Running \'{build_step_command}\'");
             output = Command::new(build_step_command)
-                .arg(cflg_str)
+                .arg("-m")  // Using -o bin_path would allow skipping the mv command
+                .arg("build")
                 .output()
                 .expect("failed to execute process");
         }
