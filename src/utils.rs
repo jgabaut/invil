@@ -111,7 +111,7 @@ pub fn print_mode_args(args: &Args) {
 
 pub fn print_subcommand_args(args: &Args) {
     match &args.command {
-        Some(Commands::Test { list, query: _ }) => {
+        Some(Commands::Test { list, query: _, build: _}) => {
             if *list {
                 debug!("Printing testing lists...");
             } else {

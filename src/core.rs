@@ -382,6 +382,9 @@ pub enum Commands {
         /// lists test values
         #[arg(short, long)]
         list: bool,
+        /// sets record mode
+        #[arg(short, long)]
+        build: bool,
         query: Option<String>
     },
     /// Tries building latest tag
@@ -587,7 +590,10 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
 
 fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
     match &args.command {
-        Some(Commands::Test { list: _, query}) => {
+        Some(Commands::Test { list: _, query, build}) => {
+            if *build {
+                env.do_build = true;
+            }
             if let Some(q) = query {
                 println!("query: {}", q);
                 args.test = true;
