@@ -382,6 +382,7 @@ pub enum Commands {
         /// lists test values
         #[arg(short, long)]
         list: bool,
+        query: Option<String>
     },
     /// Tries building latest tag
     Build,
@@ -586,8 +587,27 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
 
 fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
     match &args.command {
-        Some(Commands::Test { list: _}) => {
-            todo!("Test command")
+        Some(Commands::Test { list: _, query}) => {
+            if let Some(q) = query {
+                println!("query: {}", q);
+                args.test = true;
+                args.tag = Some(q.to_string());
+                env.run_mode = Some(AmbosoMode::TestMode);
+            } else {
+                args.testmacro = true;
+                env.run_mode = Some(AmbosoMode::TestMacro);
+            }
+            let query_res = do_query(env,args);
+            match query_res {
+                Ok(s) => {
+                    trace!("{}", s);
+                    exit(1);
+                }
+                Err(e) => {
+                    error!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                    exit(1);
+                }
+            }
         }
         Some(Commands::Build) => {
             match env.run_mode {
