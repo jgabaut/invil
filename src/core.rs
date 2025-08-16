@@ -411,11 +411,11 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                         } else {
                             info!("Supported tests: {}", env.bonetests_table.len() + env.kulpotests_table.len());
                             for (k,v) in env.bonetests_table.iter() {
-                                info!("Test: {k}");
+                                debug!("Test: {k}");
                                 debug!("Path: {}", v.display());
                             }
                             for (k,v) in env.kulpotests_table.iter() {
-                                info!("Error Test: {k}");
+                                debug!("Error Test: {k}");
                                 debug!("Path: {}", v.display());
                             }
                         }
@@ -434,6 +434,9 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                             info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
                         }
                     },
+                    AmbosoMode::TestMacro => {
+                        // Listing all tag names is done later, in do_query
+                    }
                     _ => todo!("List flag for {:?} mode", env.run_mode),
                 }
             } else if args.list_all {
@@ -590,9 +593,12 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
 
 fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
     match &args.command {
-        Some(Commands::Test { list: _, query, build}) => {
+        Some(Commands::Test { list, query, build}) => {
             if *build {
                 env.do_build = true;
+            }
+            if *list {
+                args.list = true;
             }
             if let Some(q) = query {
                 println!("query: {}", q);

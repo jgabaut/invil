@@ -736,11 +736,21 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
                     } else {
-                        let do_record = if env.do_build {
-                            info!("Recording all tests");
+                        let do_list = if args.list {
+                            info!("Listing test names");
                             true
                         } else {
-                            info!("Running all tests");
+                            false
+                        };
+                        let do_record = if env.do_build {
+                            if !do_list {
+                                info!("Recording all tests");
+                            }
+                            true
+                        } else {
+                            if !do_list {
+                                info!("Running all tests");
+                            }
                             false
                         };
                         let mut alltests_map: BTreeMap<String, PathBuf> = BTreeMap::new();
@@ -750,6 +760,12 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         alltests_map.append(&mut kulpotests_map);
                         let mut tot_successes = 0;
                         let mut tot_failures = 0;
+                        if do_list {
+                            for test in alltests_map.keys() {
+                                info!("{}", test);
+                            }
+                            return Ok("Done listing all tests".to_string());
+                        }
                         for test in alltests_map.values() {
                             if test.exists() {
                                 trace!("Found {{{}}}", test.display());
