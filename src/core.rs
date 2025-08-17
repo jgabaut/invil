@@ -283,8 +283,8 @@ pub struct AmbosoEnv {
     /// Path to stego.lock dir
     pub stego_dir: Option<PathBuf>,
 
-    /// Path to builds dir from wd
-    pub builds_dir: Option<PathBuf>,
+    /// Path to amboso dir from wd
+    pub amboso_dir: Option<PathBuf>,
 
     /// Path to tests dir from wd
     pub tests_dir: Option<PathBuf>,
@@ -1171,13 +1171,13 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &Path) -> Result<Ambo
     parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time)
 }
 
-fn parse_stego_tomlvalue(stego_str: &str, builds_path: &Path, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
+fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
     let toml_value = stego_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
                 run_mode : None,
-                builds_dir: Some(builds_path.to_path_buf()),
+                amboso_dir: Some(amboso_dir_path.to_path_buf()),
                 stego_dir: Some(stego_dir),
                 source : None,
                 bin : None,
@@ -1789,7 +1789,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     let mut anvil_env: AmbosoEnv = AmbosoEnv {
         run_mode : None,
-        builds_dir: None,
+        amboso_dir: None,
         stego_dir: None,
         source : None,
         bin : None,
@@ -2115,14 +2115,14 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         }
     }
 
-    match anvil_env.builds_dir {
+    match anvil_env.amboso_dir {
         Some(ref x) => {
-            trace!("Anvil_env builds_dir: {{{}}}", x.display());
+            trace!("Anvil_env amboso_dir: {{{}}}", x.display());
             debug!("TODO:    Validate amboso_env and use it to set missing arguments");
         }
         None => {
-            error!("Missing builds_dir. Quitting.");
-            return Err("anvil_env.builds_dir was empty".to_string());
+            error!("Missing amboso_dir. Quitting.");
+            return Err("anvil_env.amboso_dir was empty".to_string());
         }
     }
 
@@ -2522,7 +2522,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
         let mut cur_line = 0;
         let mut anvil_env: AmbosoEnv = AmbosoEnv {
             run_mode : None,
-            builds_dir: Some(stego_dir),
+            amboso_dir: Some(stego_dir),
             stego_dir: None,
             source : None,
             bin : None,
