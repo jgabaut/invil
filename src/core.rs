@@ -47,6 +47,7 @@ pub const ANVIL_BIN_KEYNAME: &str = "bin";
 pub const ANVIL_MAKE_VERS_KEYNAME: &str = "makevers";
 pub const ANVIL_AUTOMAKE_VERS_KEYNAME: &str = "automakevers";
 pub const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
+pub const ANVIL_BUILDS_DIR_KEYNAME: &str = "dir";
 pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
@@ -94,6 +95,10 @@ pub struct Args {
     /// Specify the directory to host stego.lock
     #[arg(short = 'O', long, default_value = ".", value_name = "STEGO_DIR")]
     pub stego_dir: Option<PathBuf>,
+
+    /// Specify the directory to host build
+    #[arg(short = 'I', long, default_value = ".", value_name = "BUILDS_DIR")]
+    pub builds_dir: Option<PathBuf>,
 
     /// Specify the directory to host tests
     #[arg(short = 'K', long, value_name = "TESTS_DIR")]
@@ -285,6 +290,9 @@ pub struct AmbosoEnv {
 
     /// Path to amboso dir from wd
     pub amboso_dir: Option<PathBuf>,
+
+    /// Path to builds dir
+    pub builds_dir: Option<PathBuf>,
 
     /// Path to tests dir from wd
     pub tests_dir: Option<PathBuf>,
@@ -796,11 +804,11 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
 }
 
 
-fn check_stego_file(stego_path: &PathBuf, builds_path: &Path, format: StegoFormat) -> Result<AmbosoEnv,String> {
+fn check_stego_file(stego_path: &PathBuf, amboso_bin_path: &Path, builds_dir: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
         let res = match format {
-            StegoFormat::Toml => parse_stego_toml(stego_path, builds_path),
+            StegoFormat::Toml => parse_stego_toml(stego_path, amboso_bin_path, builds_dir),
             StegoFormat::Legacy => parse_legacy_stego(stego_path)
         };
         match res {
@@ -916,6 +924,16 @@ fn check_stego_file(stego_path: &PathBuf, builds_path: &Path, format: StegoForma
                         }
                     }
                 }
+                match a.builds_dir {
+                    Some(ref b) => {
+                        trace!("Have builds_dir, value: {{{}}}", b.display());
+                    }
+                    None => {
+                        error!("Missing builds_dir value");
+                        return Err("Missing builds_dir value".to_string());
+                    }
+
+                };
                 Ok(a)
             }
             Err(e) => {
@@ -956,10 +974,10 @@ pub fn check_amboso_dir(dir: &Path, args: &Args) -> Result<AmbosoEnv,String> {
             match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
                 Ordering::Less => {
                     warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
-                    check_stego_file(&stego_path, dir, StegoFormat::Legacy)
+                    check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initialising anvil_builds_dir"), StegoFormat::Legacy)
                 }
                 Ordering::Greater | Ordering::Equal => {
-                    check_stego_file(&stego_path, dir, StegoFormat::Toml)
+                    check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initilising anvil_builds_dir"), StegoFormat::Toml)
                 }
             }
         }
@@ -971,7 +989,7 @@ pub fn check_amboso_dir(dir: &Path, args: &Args) -> Result<AmbosoEnv,String> {
                     // We use the provided dir
                     stego_path = query_dir.clone();
                     stego_path.push("stego.lock");
-                    let amb_env = check_stego_file(&stego_path, dir, StegoFormat::Toml);
+                    let amb_env = check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initialising anvil_builds_dir"), StegoFormat::Toml);
                     match amb_env {
                         Ok(a) => {
                             return Ok(a);
@@ -998,7 +1016,7 @@ pub fn check_amboso_dir(dir: &Path, args: &Args) -> Result<AmbosoEnv,String> {
                     stego_path.push("stego.lock");
                 }
             }
-            check_stego_file(&stego_path, dir, StegoFormat::Toml)
+            check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initialing anvil_builds_dir"), StegoFormat::Toml)
         }
     }
 }
@@ -1150,7 +1168,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
     }
 }
 
-pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &Path) -> Result<AmbosoEnv,String> {
+pub fn parse_stego_toml(stego_path: &PathBuf, amboso_dir_path: &Path, builds_dir: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
@@ -1168,10 +1186,10 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &Path) -> Result<Ambo
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
     }
-    parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time)
+    parse_stego_tomlvalue(&stego, amboso_dir_path, stego_dir, builds_dir.to_path_buf(), start_time)
 }
 
-fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
+fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: PathBuf, builds_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
     let toml_value = stego_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
@@ -1179,6 +1197,7 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                 run_mode : None,
                 amboso_dir: Some(amboso_dir_path.to_path_buf()),
                 stego_dir: Some(stego_dir),
+                builds_dir: Some(builds_dir),
                 source : None,
                 bin : None,
                 mintag_make : None,
@@ -1363,6 +1382,10 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                     anvil_env.mintag_automake = Some(anvil_automake_vers_tag.as_str().expect("toml conversion failed").to_string());
                 } else {
                     warn!("Missing ANVIL_AUTOMAKE_VERS definition.");
+                }
+                if let Some(anvil_builds_dir) = build_table.get(ANVIL_BUILDS_DIR_KEYNAME) {
+                    trace!("ANVIL_BUILDS_DIR: {{{anvil_builds_dir}}}");
+                    anvil_env.builds_dir = Some(anvil_builds_dir.as_str().expect("toml conversion failed").into());
                 }
                 if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
                     trace!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
@@ -1791,6 +1814,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         run_mode : None,
         amboso_dir: None,
         stego_dir: None,
+        builds_dir: None,
         source : None,
         bin : None,
         mintag_make : None,
@@ -1956,6 +1980,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             }
         } else {
             debug!("Could not read global conf from {{{}}}", invil_conf_path.display());
+        }
+    }
+
+    match &args.builds_dir {
+        Some(x) => {
+            debug!("Builds dir {{{}}}", x.display());
+            anvil_env.builds_dir = Some(x.to_path_buf());
+        }
+        None => {
+            debug!("Using default builds_dir: .");
+            anvil_env.builds_dir = Some(PathBuf::from("."));
         }
     }
 
@@ -2524,6 +2559,7 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
             run_mode : None,
             amboso_dir: Some(stego_dir),
             stego_dir: None,
+            builds_dir: None,
             source : None,
             bin : None,
             mintag_make : None,
