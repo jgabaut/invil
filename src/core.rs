@@ -385,7 +385,7 @@ pub struct AmbosoConf {
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
-    /// does testing things
+    /// Run all tests or the passed TESTNAME
     Test {
         /// lists test values
         #[arg(short, long)]
