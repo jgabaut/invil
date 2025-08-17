@@ -54,12 +54,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to build {{{:?}}}", query);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", query);
             queried_path.push(tagdir_name);
 
             trace!("Looking for {{{}}}", queried_path.display());
-            trace!("Builds dir: {{{}}}", env.builds_dir.clone().unwrap().display());
+            trace!("Amboso dir: {{{}}}", env.amboso_dir.clone().unwrap().display());
 
             if ! queried_path.exists() {
                 match fs::create_dir_all(queried_path.clone()) {
@@ -194,7 +194,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         AmbosoMode::BaseMode => {
                             let head_was_detached = false; // We don't worry about HEAD if we're not in git
                                                            // mode
-                            let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let build_path = PathBuf::from(format!("./{}/v{}/",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -292,7 +292,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                         }
                         AmbosoMode::GitMode => {
-                            let build_path = PathBuf::from(format!("{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let build_path = PathBuf::from(format!("{}/v{}/",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -458,7 +458,7 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to run {{{:?}}}", q);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -490,7 +490,7 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      *   .expect("failed to execute process")
                      */
                 } else {
-                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
+                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
                     trace!("Running \'{}\'", bin_path.display());
                     Command::new(bin_path)
                     .output()
@@ -550,7 +550,7 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to delete {{{:?}}}", q);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -579,7 +579,7 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      *   .expect("failed to execute process")
                      */
                 } else {
-                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
+                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
                     trace!("Running \'rm -f {}\'", bin_path.display());
                     Command::new("rm")
                     .arg("-f")
@@ -698,7 +698,7 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
             }
             info!("Querying info for {{{:?}}}", q);
 
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
