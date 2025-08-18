@@ -103,31 +103,6 @@
   - [x] Pass CFLAGS to single file build mode: `-Z`
   - [x] Run make when no arguments are provided
 
-
-## Extensions, relative to amboso 1.9.9
-
-  - [x] When in `make` build mode, call `make rebuild` by default
-    - [x] Add `--no-rebuild` to disable make rebuild and run just `make`
-  - [x] Add `--logged` to output full log to file
-    - Outputs to `./anvil.log`. Not backwards compatible with repos not ignoring the file explicitly.
-  - [x] Add `-G` flag also includes:
-    - a string for build OS (from `env::consts::OS`)
-    - HEAD commit message
-  - [x] Add `--no-color` to disable color output
-  - [x] Add `--force` to overwrite ready targets
-
-## Extensions to amboso 2.0
-
-  - [x] Turn off extensions with `-e, --strict`
-  - [x] Ignore missing repo in current work dir
-  - [x] Add `-a` to set compatibility level
-  - [x] Add `-k` to set project type
-  - [x] Add `-O` to set stego.lock dir (defaults to working directory)
-  - [x] Retrocompatible `stego.lock` parsing, up to `1.7.x`
-  - [x] Init subcommand uses passed directory's basename for generated flags
-  - [x] Read global config file from `$HOME/.anvil/anvil.toml`
-  - [x] Add `-Z` to pass CFLAGS to single file build mode
-
 ## Extended amboso features <a name = "extended_amboso"></a>
 
 ## Experimental 2.1 version
@@ -147,6 +122,41 @@
       ```
   - [x] Refuse the experimental kern when running with `--strict`
     - The original implementation is not ready to support this extension.
+
+  These features are experimental and subject to change.
+  To enable them, add `--features="anvilCustom"` to your build/install command.
+
+  - [x] Use "custom" kern to support project with arbitrary build scripts
+    - Example usage (make sure this is in your `stego.lock`):
+      ```toml
+      [ anvil ]
+      version = "2.1.0"
+      kern = "custom"
+      custombuilder="./my_builder"
+      ```
+## Extensions to amboso 2.0
+
+  - [x] Turn off extensions with `-e, --strict`
+  - [x] Ignore missing repo in current work dir
+  - [x] Add `-a` to set compatibility level
+  - [x] Add `-k` to set project type
+  - [x] Add `-O` to set stego.lock dir (defaults to working directory)
+  - [x] Retrocompatible `stego.lock` parsing, up to `1.7.x`
+  - [x] Init subcommand uses passed directory's basename for generated flags
+  - [x] Read global config file from `$HOME/.anvil/anvil.toml`
+  - [x] Add `-Z` to pass CFLAGS to single file build mode
+
+## Extensions, relative to amboso 1.9.9
+
+  - [x] When in `make` build mode, call `make rebuild` by default
+    - [x] Add `--no-rebuild` to disable make rebuild and run just `make`
+  - [x] Add `--logged` to output full log to file
+    - Outputs to `./anvil.log`. Not backwards compatible with repos not ignoring the file explicitly.
+  - [x] Add `-G` flag also includes:
+    - a string for build OS (from `env::consts::OS`)
+    - HEAD commit message
+  - [x] Add `--no-color` to disable color output
+  - [x] Add `--force` to overwrite ready targets
 
 ## See how it behaves <a name = "try_anvil"></a>
 
