@@ -2059,6 +2059,10 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             for url in &anvilpy_env.urls {
                                 debug!("{{{}}}: {{{}}}", url.name, url.link);
                             }
+                            if anvilpy_env.build_sys.backend != "setuptools.build_meta" {
+                                error!("Unexpected build system: {{{}}}", anvilpy_env.build_sys.backend);
+                                return Err("Unexpected build system".to_string());
+                            }
                             anvil_env.anvilpy_env = Some(anvilpy_env);
                         }
                         Err(e) => {
