@@ -1649,9 +1649,10 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 .expect("failed to execute process");
         }
         AnvilKern::Custom => {
-            // "custom_builder" "target_d" "bin_name" "q_tag" "stego_dir"
-            let custom_call = format!("{} {} {} {} {}", build_step_command,
+            // "custom_builder" "target_d" "builds_dir" "bin_name" "q_tag" "stego_dir"
+            let custom_call = format!("{} {} {} {} {} {}", build_step_command,
                 target_path.display(),
+                env.builds_dir.clone().expect("failed initialising builds_dir").display(),
                 bin,
                 query,
                 env.stego_dir.clone().expect("failed initialising stego_dir").display()
@@ -1659,6 +1660,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
             debug!("Running \'{custom_call}\'");
             output = Command::new(build_step_command)
                 .arg(target_path.clone())
+                .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
                 .arg(bin.clone())
                 .arg(query)
                 .arg(env.stego_dir.clone().expect("failed initialising stego_dir"))
@@ -1908,7 +1910,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, target_path: 
                     }
                 }
                 trace!("TODO: postbuild checks for custom kern");
-                trace!("Running \'mv {} {}\'", build_path, bin_path.display());
+                trace!("Running \'mv {} {}\'", build_path.display(), bin_path.display());
                 output = Command::new("mv")
                     .arg(build_path)
                     .arg(bin_path)
