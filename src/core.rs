@@ -52,7 +52,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.12";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.1.0";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -1073,7 +1073,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
                                 "2.1.0" => {
-                                    info!("Running as 2.1 preview");
+                                    info!("Running as {{{}}}", anvil_v_str);
                                 }
                                 _ => {
                                     error!("Invalid anvil_version: {{{anvil_version}}}");
@@ -1260,7 +1260,7 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
                                 "2.1.0" => {
-                                    info!("Running as 2.1 preview");
+                                    info!("Running as {{{}}}", anvil_v_str);
                                 }
                                 _ => {
                                     error!("Invalid anvil_version: {{{anvil_version}}}");
@@ -1883,6 +1883,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         override_stego_anvil_version = false;
                     }
                 }
+            } else if x.starts_with("2.1") {
+                match x.as_str() {
+                    "2.1.0" => {
+                        info!("Running as {}", x.as_str());
+                    }
+                    _ => {
+                        error!("Invalid anvil_version: {{{}}}", x);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                }
+                trace!("ANVIL_VERSION: {{{x}}}");
             } else {
                 match semver_compare(x, MIN_AMBOSO_V_LEGACYPARSE) {
                     Ordering::Less => {
