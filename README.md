@@ -108,7 +108,6 @@
 ## Experimental 2.1 version
 
   These features are experimental and subject to change.
-  To enable them, add `--features="anvilPy"` to your build/install command.
 
   - [x] Use "anvilPy" kern to support python projects
     - Expects a suitable `pyproject.toml` is present alongside `stego.lock`
@@ -122,10 +121,6 @@
       ```
   - [x] Refuse the experimental kern when running with `--strict`
     - The original implementation is not ready to support this extension.
-
-  These features are experimental and subject to change.
-  To enable them, add `--features="anvilCustom"` to your build/install command.
-
   - [x] Use "custom" kern to support project with arbitrary build scripts
     - Example usage (make sure this is in your `stego.lock`):
       ```toml
