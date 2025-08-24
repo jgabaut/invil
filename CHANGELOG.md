@@ -1,10 +1,11 @@
 # Changelog
 
-## [0.2.27] - Unreleased
+## [0.2.27] - 2025-08-26
 
 ### Changed
 
 - Fix anvilCustom build
+- Fix anvilPy build_step()
 - Bump deps
 
 ## [0.2.26] - 2025-07-17
