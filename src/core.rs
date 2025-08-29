@@ -37,6 +37,7 @@ use crate::utils::{
 };
 use regex::Regex;
 use std::fmt;
+use std::io;
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -404,6 +405,7 @@ pub enum Commands {
         kern: Option<String>,
         /// Argument to specify directory to init
         init_dir: Option<PathBuf>,
+        template_name: Option<String>,
     },
     /// Prints invil version
     Version,
@@ -1484,7 +1486,29 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
     }
 }
 
-pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, strict: bool) -> ExitCode {
+fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
+    // Create the destination directory if it doesn't exist
+    fs::create_dir_all(dst)?;
+
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if file_type.is_dir() {
+            // Recurse into subdirectory
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else if file_type.is_file() {
+            // Copy file
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, template_name: Option<String>, strict: bool) -> ExitCode {
     let anvil_kern;
     match kern.clone().expect("Unset kern").as_str() {
         "amboso-C" => {
@@ -1494,7 +1518,59 @@ pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, s
             anvil_kern = AnvilKern::AnvilPy;
         }
         "custom" => {
-            todo!("handle_init_subcommand() for custom kern");
+            anvil_kern = AnvilKern::Custom;
+            if template_name.is_none() {
+                error!("Missing template name");
+                match init_dir {
+                    Some(ref d) => {
+                        error!("Usage: invil init -k custom {} <TEMPLATE>", d.display());
+                    }
+                    None => {
+                        error!("Missing init_dir argument");
+                        return ExitCode::FAILURE;
+                    }
+                }
+            } else {
+                let user_home_dir = dirs::home_dir();
+                match user_home_dir {
+                    Some(_) => {},
+                    None => {
+                        error!("Could not retrieve user's home directory");
+                        return ExitCode::FAILURE;
+                    }
+                }
+                let path = PathBuf::from(format!("{}/.anvil/templates/", user_home_dir.expect("Missing user home dir").display()));
+
+                let mut matched = false;
+                let template_paths = fs::read_dir(path);
+                match template_paths {
+                    Ok(p) => {
+                        p.for_each(|x| {
+                            match x {
+                                Ok(d) => {
+                                    let curr_path = d.path();
+                                    let file_name = curr_path.file_name().expect("Could not get file name");
+                                    info!("Found {}", file_name.display());
+                                    if let Some(s) = file_name.to_str() {
+                                        let s = s.to_string();
+                                        if s == template_name.clone().expect("Missing template name") {
+                                            matched = true;
+                                        }
+                                    } else {
+                                        error!("Path is not valid UTF-8!");
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+                        });
+                    }
+                    Err(_) => {}
+                }
+                if !matched {
+                    error!("Could not find a matching template for {}", template_name.expect("Missing template name"));
+                    return ExitCode::FAILURE;
+                }
+            }
         }
         _ => {
             eprintln!("Unexpected kern in handle_init_subcommand(): {}", kern.expect("Unset kern"));
@@ -1548,7 +1624,24 @@ pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, s
                             src.push(dir_basename);
                         }
                         AnvilKern::Custom => {
-                            todo!("Create src dir for custom kern");
+                            let user_home_dir = dirs::home_dir();
+                            match user_home_dir {
+                                Some(_) => {},
+                                None => {
+                                    error!("Could not retrieve user's home directory");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            let src = PathBuf::from(format!("{}/.anvil/templates/{}/", user_home_dir.expect("Missing user home dir").display(), template_name.expect("Missing template name")));
+                            let dst = PathBuf::from(format!("{}", dir_basename));
+                            match copy_dir_recursive(&src, &dst) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("Could not copy {} to {}, error: {}", src.display(), dst.display(), e);
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            return ExitCode::SUCCESS;
                         }
                     }
                     let mut bin = target.clone();
