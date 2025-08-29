@@ -121,7 +121,10 @@ pub fn print_subcommand_args(args: &Args) {
         Some(Commands::Build) => {
             debug!("Doing quick build command")
         }
-        Some(Commands::Init { init_dir }) => {
+        Some(Commands::Init { kern, init_dir }) => {
+            if kern.is_some() {
+                debug!("Passed kern: {}", kern.as_ref().expect("Missing kern"));
+            }
             if init_dir.is_some() {
                 debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
             } else {
