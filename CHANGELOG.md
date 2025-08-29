@@ -2,10 +2,24 @@
 
 ## [0.2.27] - 2025-08-26
 
+### Added
+
+- Add test subcommand
+  - Runs all tests or the specified test name
+  - Supports -l for listing all tests, -b to record
+- Add -I to set builds dir
+- Support -k in init subcommand
+  - anvilPy kern: main.py and pyproject.toml
+  - custom kern: copy a template project by name from ~/.anvil/templates/TEMPLATE
+
 ### Changed
 
 - Fix anvilCustom build
 - Fix anvilPy build_step()
+- Handle -tl to list all test names
+- Check anvilpy build backend
+- Pass builds_dir to custom builder in build_step()
+- Turn on anvilPy, anvilCustom by default
 - Bump deps
 
 ## [0.2.26] - 2025-07-17

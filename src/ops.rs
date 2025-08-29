@@ -54,12 +54,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to build {{{:?}}}", query);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", query);
             queried_path.push(tagdir_name);
 
             trace!("Looking for {{{}}}", queried_path.display());
-            trace!("Builds dir: {{{}}}", env.builds_dir.clone().unwrap().display());
+            trace!("Amboso dir: {{{}}}", env.amboso_dir.clone().unwrap().display());
 
             if ! queried_path.exists() {
                 match fs::create_dir_all(queried_path.clone()) {
@@ -194,7 +194,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         AmbosoMode::BaseMode => {
                             let head_was_detached = false; // We don't worry about HEAD if we're not in git
                                                            // mode
-                            let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let build_path = PathBuf::from(format!("./{}/v{}/",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -292,7 +292,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                         }
                         AmbosoMode::GitMode => {
-                            let build_path = PathBuf::from(format!("{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let build_path = PathBuf::from(format!("{}/v{}/",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -458,7 +458,7 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to run {{{:?}}}", q);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -490,7 +490,7 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      *   .expect("failed to execute process")
                      */
                 } else {
-                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
+                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
                     trace!("Running \'{}\'", bin_path.display());
                     Command::new(bin_path)
                     .output()
@@ -550,7 +550,7 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to delete {{{:?}}}", q);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -579,7 +579,7 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      *   .expect("failed to execute process")
                      */
                 } else {
-                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
+                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
                     trace!("Running \'rm -f {}\'", bin_path.display());
                     Command::new("rm")
                     .arg("-f")
@@ -698,7 +698,7 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
             }
             info!("Querying info for {{{:?}}}", q);
 
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -736,11 +736,21 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
                     } else {
-                        let do_record = if env.do_build {
-                            info!("Recording all tests");
+                        let do_list = if args.list {
+                            info!("Listing test names");
                             true
                         } else {
-                            info!("Running all tests");
+                            false
+                        };
+                        let do_record = if env.do_build {
+                            if !do_list {
+                                info!("Recording all tests");
+                            }
+                            true
+                        } else {
+                            if !do_list {
+                                info!("Running all tests");
+                            }
                             false
                         };
                         let mut alltests_map: BTreeMap<String, PathBuf> = BTreeMap::new();
@@ -750,6 +760,12 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         alltests_map.append(&mut kulpotests_map);
                         let mut tot_successes = 0;
                         let mut tot_failures = 0;
+                        if do_list {
+                            for test in alltests_map.keys() {
+                                info!("{}", test);
+                            }
+                            return Ok("Done listing all tests".to_string());
+                        }
                         for test in alltests_map.values() {
                             if test.exists() {
                                 trace!("Found {{{}}}", test.display());
@@ -1205,7 +1221,7 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
                 }
             }
             AmbosoLintMode::FullCheck => {
-                let res = parse_stego_toml(stego_path, &PathBuf::from(""));
+                let res = parse_stego_toml(stego_path, &PathBuf::from(""), &PathBuf::from("."));
                 match res {
                     Ok(r) => {
                         info!("Lint successful for {{{}}}.", stego_path.display());
@@ -1563,7 +1579,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     Ok(tot_warns)
 }
 
-fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
+fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, target_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
     let output;
     let build_step_command;
     match env.anvil_kern {
@@ -1633,16 +1649,18 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 .expect("failed to execute process");
         }
         AnvilKern::Custom => {
-            // "custom_builder" "target_d" "bin_name" "q_tag" "stego_dir"
-            let custom_call = format!("{} {} {} {} {}", build_step_command,
-                build_path.display(),
+            // "custom_builder" "target_d" "builds_dir" "bin_name" "q_tag" "stego_dir"
+            let custom_call = format!("{} {} {} {} {} {}", build_step_command,
+                target_path.display(),
+                env.builds_dir.clone().expect("failed initialising builds_dir").display(),
                 bin,
                 query,
                 env.stego_dir.clone().expect("failed initialising stego_dir").display()
             );
             debug!("Running \'{custom_call}\'");
             output = Command::new(build_step_command)
-                .arg(build_path.clone())
+                .arg(target_path.clone())
+                .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
                 .arg(bin.clone())
                 .arg(query)
                 .arg(env.stego_dir.clone().expect("failed initialising stego_dir"))
@@ -1656,7 +1674,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
                match env.run_mode.as_ref().unwrap() {
                    AmbosoMode::GitMode => {
-                       postbuild_step(env, query, bin_path, build_path, bin, head_was_detached)
+                       postbuild_step(env, query, bin_path, target_path, bin, head_was_detached)
                    }
                    _ => {
                        trace!("Avoiding postbuild_step outside of GitMode");
@@ -1749,14 +1767,23 @@ fn git_switch_and_submodule_init_re(query: &str, head_was_detached: bool) -> Res
     }
 }
 
-fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
+fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, target_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
 
     let output;
+    let builds_path = match env.builds_dir.clone() {
+        Some(x) => x,
+        None => {
+            debug!("Using . for default builds_dir");
+            PathBuf::from(".")
+        }
+    };
+    let mut build_path = builds_path;
+    build_path.push(&bin);
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
-            trace!("Running \'mv {} {}\'", bin, bin_path.display());
+            trace!("Running \'mv {} {}\'", build_path.display(), bin_path.display());
             output = Command::new("mv")
-                .arg(bin)
+                .arg(build_path)
                 .arg(bin_path)
                 .output()
                 .expect("failed to execute process");
@@ -1768,17 +1795,17 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                 let mut srcdist_path = PathBuf::from("./dist/");
                 srcdist_path.push(srcdist_name.clone());
                 info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
-                trace!("Running \'mv {} {}\'", srcdist_path.display(), build_path.display());
+                trace!("Running \'mv {} {}\'", srcdist_path.display(), target_path.display());
                 let output_srcdist = Command::new("mv")
                     .arg(srcdist_path)
-                    .arg(build_path.clone())
+                    .arg(target_path.clone())
                     .output()
                     .expect("failed to execute process");
                 match output_srcdist.status.code() {
                     Some(mv_ec) => {
                         if mv_ec == 0 {
                             debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
-                            let mut srcdist_pack_path = PathBuf::from(build_path.clone());
+                            let mut srcdist_pack_path = PathBuf::from(target_path.clone());
                             srcdist_pack_path.push(srcdist_name);
                             let unpack_res = unpack_srcdist(&srcdist_pack_path);
                             match unpack_res {
@@ -1815,7 +1842,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                                     }
                                     let mut unpack_initpy_path = target_unpack_path.clone();
                                     unpack_initpy_path.push("__init__.py");
-                                    match post_unpack(&unpack_initpy_path, &build_path, &env) {
+                                    match post_unpack(&unpack_initpy_path, &target_path, &env) {
                                         Ok(_) => {}
                                         Err(e) => {
                                             error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
@@ -1843,16 +1870,16 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                 }
                 let curr_whldist_name = format!("./dist/{}-{}-py3-none-any.whl", curr_proj_name, query);
                 let curr_whldist_path = PathBuf::from(curr_whldist_name);
-                trace!("Running \'mv {} {}\'", curr_whldist_path.display(), build_path.display());
+                trace!("Running \'mv {} {}\'", curr_whldist_path.display(), target_path.display());
                 output = Command::new("mv")
                     .arg(curr_whldist_path)
-                    .arg(build_path)
+                    .arg(target_path)
                     .output()
                     .expect("failed to execute process");
             }
             #[cfg(not(feature = "anvilPy"))] {
                 // Handle AnvilPy case when the feature is not enabled
-                error!("AnvilPy kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
+                error!("AnvilPy kern feature is not enabled. Can't build {} to {}", bin, target_path.display());
                 return Err("AnvilPy kern feauture is not enabled".to_string());
             }
         }
@@ -1883,16 +1910,16 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                     }
                 }
                 trace!("TODO: postbuild checks for custom kern");
-                trace!("Running \'mv {} {}\'", bin, bin_path.display());
+                trace!("Running \'mv {} {}\'", build_path.display(), bin_path.display());
                 output = Command::new("mv")
-                    .arg(bin)
+                    .arg(build_path)
                     .arg(bin_path)
                     .output()
                     .expect("failed to execute process");
             }
             #[cfg(not(feature = "anvilCustom"))] {
                 // Handle AnvilCustom case when the feature is not enabled
-                error!("AnvilCustom kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
+                error!("AnvilCustom kern feature is not enabled. Can't build {} to {}", bin, target_path.display());
                 return Err("AnvilCustom kern feauture is not enabled".to_string());
             }
         }

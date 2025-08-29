@@ -37,6 +37,7 @@ use crate::utils::{
 };
 use regex::Regex;
 use std::fmt;
+use std::io;
 
 pub const INVIL_NAME: &str = env!("CARGO_PKG_NAME");
 pub const INVIL_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -47,11 +48,12 @@ pub const ANVIL_BIN_KEYNAME: &str = "bin";
 pub const ANVIL_MAKE_VERS_KEYNAME: &str = "makevers";
 pub const ANVIL_AUTOMAKE_VERS_KEYNAME: &str = "automakevers";
 pub const ANVIL_TESTSDIR_KEYNAME: &str = "tests";
+pub const ANVIL_BUILDS_DIR_KEYNAME: &str = "dir";
 pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.0.12";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.1.0";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -94,6 +96,10 @@ pub struct Args {
     /// Specify the directory to host stego.lock
     #[arg(short = 'O', long, default_value = ".", value_name = "STEGO_DIR")]
     pub stego_dir: Option<PathBuf>,
+
+    /// Specify the directory to host build
+    #[arg(short = 'I', long, default_value = ".", value_name = "BUILDS_DIR")]
+    pub builds_dir: Option<PathBuf>,
 
     /// Specify the directory to host tests
     #[arg(short = 'K', long, value_name = "TESTS_DIR")]
@@ -283,7 +289,10 @@ pub struct AmbosoEnv {
     /// Path to stego.lock dir
     pub stego_dir: Option<PathBuf>,
 
-    /// Path to builds dir from wd
+    /// Path to amboso dir from wd
+    pub amboso_dir: Option<PathBuf>,
+
+    /// Path to builds dir
     pub builds_dir: Option<PathBuf>,
 
     /// Path to tests dir from wd
@@ -377,18 +386,26 @@ pub struct AmbosoConf {
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum Commands {
-    /// does testing things
+    /// Run all tests or the passed TESTNAME
     Test {
         /// lists test values
         #[arg(short, long)]
         list: bool,
+        /// sets record mode
+        #[arg(short, long)]
+        build: bool,
+        query: Option<String>
     },
     /// Tries building latest tag
     Build,
     /// Prepare a new anvil project
     Init {
+        /// picks a specific kern
+        #[arg(short, long)]
+        kern: Option<String>,
         /// Argument to specify directory to init
         init_dir: Option<PathBuf>,
+        template_name: Option<String>,
     },
     /// Prints invil version
     Version,
@@ -407,11 +424,11 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                         } else {
                             info!("Supported tests: {}", env.bonetests_table.len() + env.kulpotests_table.len());
                             for (k,v) in env.bonetests_table.iter() {
-                                info!("Test: {k}");
+                                debug!("Test: {k}");
                                 debug!("Path: {}", v.display());
                             }
                             for (k,v) in env.kulpotests_table.iter() {
-                                info!("Error Test: {k}");
+                                debug!("Error Test: {k}");
                                 debug!("Path: {}", v.display());
                             }
                         }
@@ -430,6 +447,9 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                             info!("Tag: {{{}}}, Desc: {{{}}}", k, v);
                         }
                     },
+                    AmbosoMode::TestMacro => {
+                        // Listing all tag names is done later, in do_query
+                    }
                     _ => todo!("List flag for {:?} mode", env.run_mode),
                 }
             } else if args.list_all {
@@ -586,8 +606,33 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
 
 fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
     match &args.command {
-        Some(Commands::Test { list: _}) => {
-            todo!("Test command")
+        Some(Commands::Test { list, query, build}) => {
+            if *build {
+                env.do_build = true;
+            }
+            if *list {
+                args.list = true;
+            }
+            if let Some(q) = query {
+                println!("query: {}", q);
+                args.test = true;
+                args.tag = Some(q.to_string());
+                env.run_mode = Some(AmbosoMode::TestMode);
+            } else {
+                args.testmacro = true;
+                env.run_mode = Some(AmbosoMode::TestMacro);
+            }
+            let query_res = do_query(env,args);
+            match query_res {
+                Ok(s) => {
+                    trace!("{}", s);
+                    exit(1);
+                }
+                Err(e) => {
+                    error!("do_query() failed in handle_amboso_env(). Err: {}", e);
+                    exit(1);
+                }
+            }
         }
         Some(Commands::Build) => {
             match env.run_mode {
@@ -764,11 +809,11 @@ pub fn is_git_repo_clean(path: &PathBuf, args: &Args) -> Result<bool, String> {
 }
 
 
-fn check_stego_file(stego_path: &PathBuf, builds_path: &Path, format: StegoFormat) -> Result<AmbosoEnv,String> {
+fn check_stego_file(stego_path: &PathBuf, amboso_bin_path: &Path, builds_dir: &PathBuf, format: StegoFormat) -> Result<AmbosoEnv,String> {
     if stego_path.exists() {
         trace!("Found {}", stego_path.display());
         let res = match format {
-            StegoFormat::Toml => parse_stego_toml(stego_path, builds_path),
+            StegoFormat::Toml => parse_stego_toml(stego_path, amboso_bin_path, builds_dir),
             StegoFormat::Legacy => parse_legacy_stego(stego_path)
         };
         match res {
@@ -884,6 +929,16 @@ fn check_stego_file(stego_path: &PathBuf, builds_path: &Path, format: StegoForma
                         }
                     }
                 }
+                match a.builds_dir {
+                    Some(ref b) => {
+                        trace!("Have builds_dir, value: {{{}}}", b.display());
+                    }
+                    None => {
+                        error!("Missing builds_dir value");
+                        return Err("Missing builds_dir value".to_string());
+                    }
+
+                };
                 Ok(a)
             }
             Err(e) => {
@@ -924,10 +979,10 @@ pub fn check_amboso_dir(dir: &Path, args: &Args) -> Result<AmbosoEnv,String> {
             match semver_compare(&args.anvil_version.clone().unwrap(), MIN_AMBOSO_V_LEGACYPARSE) {
                 Ordering::Less => {
                     warn!("Trying to parse a legacy format stego.lock at {{{}}}", stego_path.display());
-                    check_stego_file(&stego_path, dir, StegoFormat::Legacy)
+                    check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initialising anvil_builds_dir"), StegoFormat::Legacy)
                 }
                 Ordering::Greater | Ordering::Equal => {
-                    check_stego_file(&stego_path, dir, StegoFormat::Toml)
+                    check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initilising anvil_builds_dir"), StegoFormat::Toml)
                 }
             }
         }
@@ -939,7 +994,7 @@ pub fn check_amboso_dir(dir: &Path, args: &Args) -> Result<AmbosoEnv,String> {
                     // We use the provided dir
                     stego_path = query_dir.clone();
                     stego_path.push("stego.lock");
-                    let amb_env = check_stego_file(&stego_path, dir, StegoFormat::Toml);
+                    let amb_env = check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initialising anvil_builds_dir"), StegoFormat::Toml);
                     match amb_env {
                         Ok(a) => {
                             return Ok(a);
@@ -966,7 +1021,7 @@ pub fn check_amboso_dir(dir: &Path, args: &Args) -> Result<AmbosoEnv,String> {
                     stego_path.push("stego.lock");
                 }
             }
-            check_stego_file(&stego_path, dir, StegoFormat::Toml)
+            check_stego_file(&stego_path, dir, &args.builds_dir.clone().expect("Failed initialing anvil_builds_dir"), StegoFormat::Toml)
         }
     }
 }
@@ -1023,7 +1078,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
                                 "2.1.0" => {
-                                    info!("Running as 2.1 preview");
+                                    info!("Running as {{{}}}", anvil_v_str);
                                 }
                                 _ => {
                                     error!("Invalid anvil_version: {{{anvil_version}}}");
@@ -1118,7 +1173,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
     }
 }
 
-pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &Path) -> Result<AmbosoEnv,String> {
+pub fn parse_stego_toml(stego_path: &PathBuf, amboso_dir_path: &Path, builds_dir: &PathBuf) -> Result<AmbosoEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Stego contents: {{{}}}", stego);
@@ -1136,17 +1191,18 @@ pub fn parse_stego_toml(stego_path: &PathBuf, builds_path: &Path) -> Result<Ambo
         error!("Failed setting ANVIL_BINDIR from passed stego_path: {{{}}}", stego_path.display());
         return Err(format!("Could not get stego_dir from {{{}}}", stego_path.display()));
     }
-    parse_stego_tomlvalue(&stego, builds_path, stego_dir, start_time)
+    parse_stego_tomlvalue(&stego, amboso_dir_path, stego_dir, builds_dir.to_path_buf(), start_time)
 }
 
-fn parse_stego_tomlvalue(stego_str: &str, builds_path: &Path, stego_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
+fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: PathBuf, builds_dir: PathBuf, start_time: Instant) -> Result<AmbosoEnv, String> {
     let toml_value = stego_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
             let mut anvil_env: AmbosoEnv = AmbosoEnv {
                 run_mode : None,
-                builds_dir: Some(builds_path.to_path_buf()),
+                amboso_dir: Some(amboso_dir_path.to_path_buf()),
                 stego_dir: Some(stego_dir),
+                builds_dir: Some(builds_dir),
                 source : None,
                 bin : None,
                 mintag_make : None,
@@ -1209,7 +1265,7 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &Path, stego_dir: PathBuf
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
                                 "2.1.0" => {
-                                    info!("Running as 2.1 preview");
+                                    info!("Running as {{{}}}", anvil_v_str);
                                 }
                                 _ => {
                                     error!("Invalid anvil_version: {{{anvil_version}}}");
@@ -1332,6 +1388,10 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &Path, stego_dir: PathBuf
                 } else {
                     warn!("Missing ANVIL_AUTOMAKE_VERS definition.");
                 }
+                if let Some(anvil_builds_dir) = build_table.get(ANVIL_BUILDS_DIR_KEYNAME) {
+                    trace!("ANVIL_BUILDS_DIR: {{{anvil_builds_dir}}}");
+                    anvil_env.builds_dir = Some(anvil_builds_dir.as_str().expect("toml conversion failed").into());
+                }
                 if let Some(anvil_testsdir) = build_table.get(ANVIL_TESTSDIR_KEYNAME) {
                     trace!("ANVIL_TESTDIR: {{{anvil_testsdir}}}");
                     let mut path = PathBuf::new();
@@ -1426,7 +1486,97 @@ fn parse_stego_tomlvalue(stego_str: &str, builds_path: &Path, stego_dir: PathBuf
     }
 }
 
-pub fn handle_init_subcommand(init_dir: Option<PathBuf>, strict: bool) -> ExitCode {
+fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
+    // Create the destination directory if it doesn't exist
+    fs::create_dir_all(dst)?;
+
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let file_type = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if file_type.is_dir() {
+            // Recurse into subdirectory
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else if file_type.is_file() {
+            // Copy file
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, template_name: Option<String>, strict: bool) -> ExitCode {
+    let anvil_kern;
+    match kern.clone().expect("Unset kern").as_str() {
+        "amboso-C" => {
+            anvil_kern = AnvilKern::AmbosoC;
+        }
+        "anvilPy" => {
+            anvil_kern = AnvilKern::AnvilPy;
+        }
+        "custom" => {
+            anvil_kern = AnvilKern::Custom;
+            if template_name.is_none() {
+                error!("Missing template name");
+                match init_dir {
+                    Some(ref d) => {
+                        error!("Usage: invil init -k custom {} <TEMPLATE>", d.display());
+                    }
+                    None => {
+                        error!("Missing init_dir argument");
+                        return ExitCode::FAILURE;
+                    }
+                }
+            } else {
+                let user_home_dir = dirs::home_dir();
+                match user_home_dir {
+                    Some(_) => {},
+                    None => {
+                        error!("Could not retrieve user's home directory");
+                        return ExitCode::FAILURE;
+                    }
+                }
+                let path = PathBuf::from(format!("{}/.anvil/templates/", user_home_dir.expect("Missing user home dir").display()));
+
+                let mut matched = false;
+                let template_paths = fs::read_dir(path);
+                match template_paths {
+                    Ok(p) => {
+                        p.for_each(|x| {
+                            match x {
+                                Ok(d) => {
+                                    let curr_path = d.path();
+                                    let file_name = curr_path.file_name().expect("Could not get file name");
+                                    info!("Found {}", file_name.display());
+                                    if let Some(s) = file_name.to_str() {
+                                        let s = s.to_string();
+                                        if s == template_name.clone().expect("Missing template name") {
+                                            matched = true;
+                                        }
+                                    } else {
+                                        error!("Path is not valid UTF-8!");
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+                        });
+                    }
+                    Err(_) => {}
+                }
+                if !matched {
+                    error!("Could not find a matching template for {}", template_name.expect("Missing template name"));
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        _ => {
+            eprintln!("Unexpected kern in handle_init_subcommand(): {}", kern.expect("Unset kern"));
+            return ExitCode::FAILURE;
+        }
+    }
     match init_dir {
         Some(target) => {
             debug!("Passed dir to init: {}", target.display());
@@ -1466,7 +1616,34 @@ pub fn handle_init_subcommand(init_dir: Option<PathBuf>, strict: bool) -> ExitCo
                     }
 
                     let mut src = target.clone();
-                    src.push("src");
+                    match anvil_kern {
+                        AnvilKern::AmbosoC => {
+                            src.push("src");
+                        }
+                        AnvilKern::AnvilPy => {
+                            src.push(dir_basename);
+                        }
+                        AnvilKern::Custom => {
+                            let user_home_dir = dirs::home_dir();
+                            match user_home_dir {
+                                Some(_) => {},
+                                None => {
+                                    error!("Could not retrieve user's home directory");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            let src = PathBuf::from(format!("{}/.anvil/templates/{}/", user_home_dir.expect("Missing user home dir").display(), template_name.expect("Missing template name")));
+                            let dst = PathBuf::from(format!("{}", dir_basename));
+                            match copy_dir_recursive(&src, &dst) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    error!("Could not copy {} to {}, error: {}", src.display(), dst.display(), e);
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            return ExitCode::SUCCESS;
+                        }
+                    }
                     let mut bin = target.clone();
                     bin.push("bin");
                     let mut stub_vers = bin.clone();
@@ -1535,7 +1712,10 @@ pub fn handle_init_subcommand(init_dir: Option<PathBuf>, strict: bool) -> ExitCo
                     let stego_path = format!("{}/stego.lock", target.display());
                     trace!("Generating stego.lock -  Target path: {{{}}}", stego_path);
                     let output = File::create(stego_path.clone());
-                    let stego_string = format!("[build]\n
+                    let stego_string;
+                    match anvil_kern {
+                        AnvilKern::AmbosoC => {
+                            stego_string = format!("[build]\n
 source = \"main.c\"\n
 bin = \"{}\"\n
 makevers = \"0.1.0\"\n
@@ -1546,6 +1726,27 @@ testsdir = \"ok\"\n
 errortestsdir = \"errors\"\n
 [versions]\n
 \"0.1.0\" = \"{}\"\n", dir_basename, dir_basename);
+                        }
+                        AnvilKern::AnvilPy => {
+                            stego_string = format!("[anvil]\n
+kern = \"anvilPy\"\n
+version = \"{}\"\n
+[build]\n
+source = \"main.py\"\n
+bin = \"{}\"\n
+makevers = \"0.1.0\"\n
+automakevers = \"0.1.0\"\n
+tests = \"tests\"\n
+[tests]\n
+testsdir = \"ok\"\n
+errortestsdir = \"errors\"\n
+[versions]\n
+\"0.1.0\" = \"{}\"\n", EXPECTED_AMBOSO_API_LEVEL, dir_basename, dir_basename);
+                        }
+                        AnvilKern::Custom => {
+                            todo!("custom kern in stego string gen");
+                        }
+                    }
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", stego_string);
@@ -1564,32 +1765,75 @@ errortestsdir = \"errors\"\n
                             return ExitCode::FAILURE;
                         }
                     }
-                    let cmain_path = format!("{}/main.c", src.display());
-                    trace!("Generating main.c - Target path: {{{}}}", cmain_path);
-                    let output = File::create(cmain_path);
-                    let main_string = "#include <stdio.h>\nint main(void) {{\n    printf(\"Hello, World!\\n\");\n    return 0;\n}}\n".to_string();
-                    match output {
-                        Ok(mut f) => {
-                            let res = write!(f, "{}", main_string);
-                            match res {
-                                Ok(_) => {
-                                    debug!("Done generating main.c file");
+                    match anvil_kern {
+                        AnvilKern::AmbosoC => {
+                            let cmain_path = format!("{}/main.c", src.display());
+                            trace!("Generating main.c - Target path: {{{}}}", cmain_path);
+                            let output = File::create(cmain_path);
+                            let main_string = "#include <stdio.h>\nint main(void) {{\n    printf(\"Hello, World!\\n\");\n    return 0;\n}}\n".to_string();
+                            match output {
+                                Ok(mut f) => {
+                                    let res = write!(f, "{}", main_string);
+                                    match res {
+                                        Ok(_) => {
+                                            debug!("Done generating main.c file");
+                                        }
+                                        Err(e) => {
+                                            error!("Failed writing main.c Err: {e}");
+                                            return ExitCode::FAILURE;
+                                        }
+                                    }
                                 }
                                 Err(e) => {
-                                    error!("Failed writing main.c Err: {e}");
+                                    error!("Failed opening main.c file. Err: {e}");
                                     return ExitCode::FAILURE;
                                 }
                             }
                         }
-                        Err(e) => {
-                            error!("Failed opening main.c file. Err: {e}");
-                            return ExitCode::FAILURE;
+                        AnvilKern::AnvilPy => {
+                            let main_path = format!("{}/main.py", src.display());
+                            trace!("Generating main.py - Target path: {{{}}}", main_path);
+                            let output = File::create(main_path);
+                            let main_string = "#!/bin/python3\ndef main():\n    print(\"Hello, World!\");\n".to_string();
+                            match output {
+                                Ok(mut f) => {
+                                    let res = write!(f, "{}", main_string);
+                                    match res {
+                                        Ok(_) => {
+                                            debug!("Done generating main.py file");
+                                        }
+                                        Err(e) => {
+                                            error!("Failed writing main.py Err: {e}");
+                                            return ExitCode::FAILURE;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Failed opening main.py file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                        }
+                        AnvilKern::Custom => {
+                            todo!("custom kern in main gen");
                         }
                     }
                     let gitignore_path = format!("{}/.gitignore", target.display());
                     trace!("Generating .gitignore Target path: {{{}}}", gitignore_path);
                     let output = File::create(gitignore_path);
-                    let gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\n{}\n# also explicitly ignore our windows executable for good measure\n{}.exe\n# also explicitly ignore our debug executable for good measure\n{}_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore anvil log file\nanvil.log\n#We want to ignore default anvil build dir\nbin\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n", dir_basename, dir_basename, dir_basename);
+                    let gitignore_string;
+                    match anvil_kern {
+                        AnvilKern::AmbosoC => {
+                            gitignore_string = format!("# ignore object files\n*.o\n# also explicitly ignore our executable for good measure\n{}\n# also explicitly ignore our windows executable for good measure\n{}.exe\n# also explicitly ignore our debug executable for good measure\n{}_debug\n#We also want to ignore the dotfile dump if we ever use anvil with -c flag\namboso_cfg.dot\n#We want to ignore anvil log file\nanvil.log\n#We want to ignore default anvil build dir\nbin\n# MacOS DS_Store ignoring\n.DS_Store\n# ignore debug log file\ndebug_log.txt\n# ignore files generated by Autotools\nautom4te.cache/\ncompile\nconfig.guess\nconfig.log\nconfig.status\nconfig.sub\nconfigure\ninstall-sh\nmissing\naclocal.m4\nconfigure~\nMakefile\nMakefile.in\n", dir_basename, dir_basename, dir_basename);
+                        }
+                        AnvilKern::AnvilPy => {
+                            gitignore_string = format!("#Generated by amboso v{}\n# ignore dist dir\ndist\n# ignore __pycache__\n__pycache__\n# ignore build dir\nbuild\n# ignore egg info dir\n{}.egg-info\n", EXPECTED_AMBOSO_API_LEVEL, dir_basename);
+                        }
+                        AnvilKern::Custom => {
+                            todo!("custom kern in .gitignore gen");
+                        }
+                    }
+
                     match output {
                         Ok(mut f) => {
                             let res = write!(f, "{}", gitignore_string);
@@ -1608,124 +1852,156 @@ errortestsdir = \"errors\"\n
                             return ExitCode::FAILURE;
                         }
                     }
-                    let makefileam_path = format!("{}/Makefile.am", target.display());
-                    trace!("Generating Makefile.am - Target path: {{{}}}", makefileam_path);
-                    let output = File::create(makefileam_path);
-                    let makefileam_string = format!("AUTOMAKE_OPTIONS = foreign\nCFLAGS = @CFLAGS@\nSHELL := /bin/bash\n.ONESHELL:\nMACHINE := $$(uname -m)\nPACK_NAME = $(TARGET)-$(VERSION)-$(OS)-$(MACHINE)\n{}_SOURCES = src/main.c\nLDADD = $({caps_dir_basename}_LDFLAGS)\nAM_LDFLAGS = -O2\nAM_CFLAGS = $({caps_dir_basename}_CFLAGS) -O2 -Werror -Wpedantic -Wall\nif DEBUG_BUILD\nAM_LDFLAGS += -ggdb -O0\nAM_CFLAGS += \nelse\nAM_LDFLAGS += -s\nendif\n%.o: %.c\n	$(CCOMP) -c $(CFLAGS) $(AM_CFLAGS) $< -o $@\n$(TARGET): $({}_SOURCES:.c=.o)\n	@echo -e \"    AM_CFLAGS: [ $(AM_CFLAGS) ]\"\n	@echo -e \"    LDADD: [ $(LDADD) ]\"\n	$(CCOMP) $(CFLAGS) $(AM_CFLAGS) $({}_SOURCES:.c=.o) -o $@ $(LDADD) $(AM_LDFLAGS)\nclean:\n	@echo -en \"Cleaning build artifacts:  \"\n	-rm $(TARGET)\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\ncleanob:\n	@echo -en \"Cleaning object build artifacts:  \"\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\nanviltest:\n	@echo -en \"Running anvil tests.\"\n	./anvil -tX\n	@echo -e \"Done.\"\nall: $(TARGET)\nrebuild: clean all\n.DEFAULT_GOAL := all\n", dir_basename, dir_basename, dir_basename);
-                    match output {
-                        Ok(mut f) => {
-                            let res = write!(f, "{}", makefileam_string);
-                            match res {
-                                Ok(_) => {
-                                    debug!("Done generating Makefile.am file");
-                                }
-                                Err(e) => {
-                                    error!("Failed writing Makefile.am file. Err: {e}");
-                                    return ExitCode::FAILURE;
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed opening Makefile.am file. Err: {e}");
-                            return ExitCode::FAILURE;
-                        }
-                    }
-                    let configureac_path = format!("{}/configure.ac", target.display());
-                    trace!("Generating configure.ac - Target path: {{{}}}", configureac_path);
-                    let output = File::create(configureac_path);
-                    let configureac_string = format!("# Generated by invil v{INVIL_VERSION}\nAC_INIT([{}], [0.1.0], [email@example.com])\nAM_INIT_AUTOMAKE([foreign -Wall])\nAC_CANONICAL_HOST\nbuild_linux=no\nbuild_windows=no\nbuild_mac=no\necho \"Host os:  $host_os\"\n\nAC_ARG_ENABLE([debug],  [AS_HELP_STRING([--enable-debug], [Enable debug build])],  [enable_debug=$enableval],  [enable_debug=no])\nAM_CONDITIONAL([DEBUG_BUILD], [test \"$enable_debug\" = \"yes\"])\ncase \"${{host_os}}\" in\n\tmingw*)\n\t\techo \"Building for mingw32: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_windows=yes\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"-I/usr/x86_64-w64-mingw32/include -static -fstack-protector\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"-L/usr/x86_64-w64-mingw32/lib\"])\n\t\tAC_SUBST([CCOMP], [\"/usr/bin/x86_64-w64-mingw32-gcc\"])\n\t\tAC_SUBST([OS], [\"w64-mingw32\"])\n\t\tAC_SUBST([TARGET], [\"{}.exe\"])\n\t;;\n\tdarwin*)\n\t\tbuild_mac=yes\n\t\techo \"Building for macos: [$host_cpu-$host_vendor-$host_os]\"\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"-I/opt/homebrew/opt/ncurses/include\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"-L/opt/homebrew/opt/ncurses/lib\"])\n\t\tAC_SUBST([OS], [\"darwin\"])\n\t\tAC_SUBST([TARGET], [\"{}\"])\n\t;;\n\tlinux*)\n\t\techo \"Building for Linux: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_linux=yes\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"\"])\n\t\tAC_SUBST([OS], [\"Linux\"])\n\t\tAC_SUBST([TARGET], [\"{}\"])\n\t;;\nesac\n\nAM_CONDITIONAL([DARWIN_BUILD], [test \"$build_mac\" = \"yes\"])\nAM_CONDITIONAL([WINDOWS_BUILD], [test \"$build_windows\" = \"yes\"])\nAM_CONDITIONAL([LINUX_BUILD], [test \"$build_linux\" = \"yes\"])\n\nAC_ARG_VAR([VERSION], [Version number])\nif test -z \"$VERSION\"; then\n  VERSION=\"0.1.0\"\nfi\nAC_DEFINE_UNQUOTED([VERSION], [\"$VERSION\"], [Version number])\nAC_CHECK_PROGS([CCOMP], [gcc clang])\nAC_CHECK_HEADERS([stdio.h])\nAC_CHECK_FUNCS([malloc calloc])\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n", dir_basename, dir_basename, dir_basename, dir_basename);
-                    match output {
-                        Ok(mut f) => {
-                            let res = write!(f, "{}", configureac_string);
-                            match res {
-                                Ok(_) => {
-                                    debug!("Done generating configure.ac file");
-                                }
-                                Err(e) => {
-                                    error!("Failed writing configure.ac file. Err: {e}");
-                                    return ExitCode::FAILURE;
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            error!("Failed opening configure.ac file. Err: {e}");
-                            return ExitCode::FAILURE;
-                        }
-                    }
-                    let amboso_path = PathBuf::from("amboso");
-                    let amboso_submodule = repo.submodule(
-                        "https://github.com/jgabaut/amboso.git",
-                        &amboso_path,
-                        false
-                    );
-                    match amboso_submodule {
-                        Ok(mut subm) => {
-                            debug!("Success on repo.submodule()");
-                            let subm_repo = subm.open();
-                            match subm_repo {
-                                Ok(_) => {
-                                    let clone_res = subm.clone(None);
-                                    match clone_res {
-                                        Ok(sr) => {
-                                            info!("Cloned amboso submodule at {{{}}}", sr.workdir().expect("Repo should not be bare").display());
-                                            match subm.add_finalize() {
-                                                Ok(_) => {
-                                                    debug!("Finalised amboso submodule add");
-                                                }
-                                                Err(e) => {
-                                                    error!("Failed finalising amboso submodule. Err: {e}");
-                                                    return ExitCode::FAILURE;
-                                                }
-                                            }
+                    match anvil_kern {
+                        AnvilKern::AmbosoC => {
+                            let makefileam_path = format!("{}/Makefile.am", target.display());
+                            trace!("Generating Makefile.am - Target path: {{{}}}", makefileam_path);
+                            let output = File::create(makefileam_path);
+                            let makefileam_string = format!("AUTOMAKE_OPTIONS = foreign\nCFLAGS = @CFLAGS@\nSHELL := /bin/bash\n.ONESHELL:\nMACHINE := $$(uname -m)\nPACK_NAME = $(TARGET)-$(VERSION)-$(OS)-$(MACHINE)\n{}_SOURCES = src/main.c\nLDADD = $({caps_dir_basename}_LDFLAGS)\nAM_LDFLAGS = -O2\nAM_CFLAGS = $({caps_dir_basename}_CFLAGS) -O2 -Werror -Wpedantic -Wall\nif DEBUG_BUILD\nAM_LDFLAGS += -ggdb -O0\nAM_CFLAGS += \nelse\nAM_LDFLAGS += -s\nendif\n%.o: %.c\n	$(CCOMP) -c $(CFLAGS) $(AM_CFLAGS) $< -o $@\n$(TARGET): $({}_SOURCES:.c=.o)\n	@echo -e \"    AM_CFLAGS: [ $(AM_CFLAGS) ]\"\n	@echo -e \"    LDADD: [ $(LDADD) ]\"\n	$(CCOMP) $(CFLAGS) $(AM_CFLAGS) $({}_SOURCES:.c=.o) -o $@ $(LDADD) $(AM_LDFLAGS)\nclean:\n	@echo -en \"Cleaning build artifacts:  \"\n	-rm $(TARGET)\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\ncleanob:\n	@echo -en \"Cleaning object build artifacts:  \"\n	-rm src/*.o\n	-rm static/*.o\n	@echo -e \"Done.\"\nanviltest:\n	@echo -en \"Running anvil tests.\"\n	./anvil -tX\n	@echo -e \"Done.\"\nall: $(TARGET)\nrebuild: clean all\n.DEFAULT_GOAL := all\n", dir_basename, dir_basename, dir_basename);
+                            match output {
+                                Ok(mut f) => {
+                                    let res = write!(f, "{}", makefileam_string);
+                                    match res {
+                                        Ok(_) => {
+                                            debug!("Done generating Makefile.am file");
                                         }
                                         Err(e) => {
-                                            error!("Failed cloning amboso submodule. Err: {e}");
+                                            error!("Failed writing Makefile.am file. Err: {e}");
                                             return ExitCode::FAILURE;
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    error!("Failed opening amboso submodule repo. Err: {e}");
+                                    error!("Failed opening Makefile.am file. Err: {e}");
                                     return ExitCode::FAILURE;
                                 }
                             }
-
-                            let mut anvil_path = target.clone();
-                            anvil_path.push("anvil");
-                            let amboso_prog_path = PathBuf::from("amboso/amboso");
-
-                            if cfg!(target_os = "windows") {
-                                todo!("Support windows symlink");
-                                /*
-                                 *let ln_res = std::os::windows::fs::symlink_file(amboso_prog_path.clone(), anvil_path.clone());
-                                 *match ln_res {
-                                 *    Ok(_) => {
-                                 *        info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
-                                 *        return ExitCode::SUCCESS;
-                                 *    }
-                                 *    Err(e) => {
-                                 *        error!("Failed symlink for anvil. Err: {e}");
-                                 *        return ExitCode::FAILURE;
-                                 *    }
-                                 *}
-                                 */
-                            } else {
-                                let ln_res = std::os::unix::fs::symlink(amboso_prog_path.clone(), anvil_path.clone());
-                                match ln_res {
-                                    Ok(_) => {
-                                        info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
-                                        ExitCode::SUCCESS
+                            let configureac_path = format!("{}/configure.ac", target.display());
+                            trace!("Generating configure.ac - Target path: {{{}}}", configureac_path);
+                            let output = File::create(configureac_path);
+                            let configureac_string = format!("# Generated by invil v{INVIL_VERSION}\nAC_INIT([{}], [0.1.0], [email@example.com])\nAM_INIT_AUTOMAKE([foreign -Wall])\nAC_CANONICAL_HOST\nbuild_linux=no\nbuild_windows=no\nbuild_mac=no\necho \"Host os:  $host_os\"\n\nAC_ARG_ENABLE([debug],  [AS_HELP_STRING([--enable-debug], [Enable debug build])],  [enable_debug=$enableval],  [enable_debug=no])\nAM_CONDITIONAL([DEBUG_BUILD], [test \"$enable_debug\" = \"yes\"])\ncase \"${{host_os}}\" in\n\tmingw*)\n\t\techo \"Building for mingw32: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_windows=yes\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"-I/usr/x86_64-w64-mingw32/include -static -fstack-protector\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"-L/usr/x86_64-w64-mingw32/lib\"])\n\t\tAC_SUBST([CCOMP], [\"/usr/bin/x86_64-w64-mingw32-gcc\"])\n\t\tAC_SUBST([OS], [\"w64-mingw32\"])\n\t\tAC_SUBST([TARGET], [\"{}.exe\"])\n\t;;\n\tdarwin*)\n\t\tbuild_mac=yes\n\t\techo \"Building for macos: [$host_cpu-$host_vendor-$host_os]\"\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"-I/opt/homebrew/opt/ncurses/include\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"-L/opt/homebrew/opt/ncurses/lib\"])\n\t\tAC_SUBST([OS], [\"darwin\"])\n\t\tAC_SUBST([TARGET], [\"{}\"])\n\t;;\n\tlinux*)\n\t\techo \"Building for Linux: [$host_cpu-$host_vendor-$host_os]\"\n\t\tbuild_linux=yes\n\t\tAC_SUBST([{caps_dir_basename}_CFLAGS], [\"\"])\n\t\tAC_SUBST([{caps_dir_basename}_LDFLAGS], [\"\"])\n\t\tAC_SUBST([OS], [\"Linux\"])\n\t\tAC_SUBST([TARGET], [\"{}\"])\n\t;;\nesac\n\nAM_CONDITIONAL([DARWIN_BUILD], [test \"$build_mac\" = \"yes\"])\nAM_CONDITIONAL([WINDOWS_BUILD], [test \"$build_windows\" = \"yes\"])\nAM_CONDITIONAL([LINUX_BUILD], [test \"$build_linux\" = \"yes\"])\n\nAC_ARG_VAR([VERSION], [Version number])\nif test -z \"$VERSION\"; then\n  VERSION=\"0.1.0\"\nfi\nAC_DEFINE_UNQUOTED([VERSION], [\"$VERSION\"], [Version number])\nAC_CHECK_PROGS([CCOMP], [gcc clang])\nAC_CHECK_HEADERS([stdio.h])\nAC_CHECK_FUNCS([malloc calloc])\nAC_CONFIG_FILES([Makefile])\nAC_OUTPUT\n", dir_basename, dir_basename, dir_basename, dir_basename);
+                            match output {
+                                Ok(mut f) => {
+                                    let res = write!(f, "{}", configureac_string);
+                                    match res {
+                                        Ok(_) => {
+                                            debug!("Done generating configure.ac file");
+                                        }
+                                        Err(e) => {
+                                            error!("Failed writing configure.ac file. Err: {e}");
+                                            return ExitCode::FAILURE;
+                                        }
                                     }
-                                    Err(e) => {
-                                        error!("Failed symlink for anvil. Err: {e}");
-                                        ExitCode::FAILURE
+                                }
+                                Err(e) => {
+                                    error!("Failed opening configure.ac file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            let amboso_path = PathBuf::from("amboso");
+                            let amboso_submodule = repo.submodule(
+                                "https://github.com/jgabaut/amboso.git",
+                                &amboso_path,
+                                false
+                            );
+                            match amboso_submodule {
+                                Ok(mut subm) => {
+                                    debug!("Success on repo.submodule()");
+                                    let subm_repo = subm.open();
+                                    match subm_repo {
+                                        Ok(_) => {
+                                            let clone_res = subm.clone(None);
+                                            match clone_res {
+                                                Ok(sr) => {
+                                                    info!("Cloned amboso submodule at {{{}}}", sr.workdir().expect("Repo should not be bare").display());
+                                                    match subm.add_finalize() {
+                                                        Ok(_) => {
+                                                            debug!("Finalised amboso submodule add");
+                                                        }
+                                                        Err(e) => {
+                                                            error!("Failed finalising amboso submodule. Err: {e}");
+                                                            return ExitCode::FAILURE;
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    error!("Failed cloning amboso submodule. Err: {e}");
+                                                    return ExitCode::FAILURE;
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            error!("Failed opening amboso submodule repo. Err: {e}");
+                                            return ExitCode::FAILURE;
+                                        }
                                     }
+
+                                    let mut anvil_path = target.clone();
+                                    anvil_path.push("anvil");
+                                    let amboso_prog_path = PathBuf::from("amboso/amboso");
+
+                                    if cfg!(target_os = "windows") {
+                                        todo!("Support windows symlink");
+                                        /*
+                                         *let ln_res = std::os::windows::fs::symlink_file(amboso_prog_path.clone(), anvil_path.clone());
+                                         *match ln_res {
+                                         *    Ok(_) => {
+                                         *        info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
+                                         *        return ExitCode::SUCCESS;
+                                         *    }
+                                         *    Err(e) => {
+                                         *        error!("Failed symlink for anvil. Err: {e}");
+                                         *        return ExitCode::FAILURE;
+                                         *    }
+                                         *}
+                                         */
+                                    } else {
+                                        let ln_res = std::os::unix::fs::symlink(amboso_prog_path.clone(), anvil_path.clone());
+                                        match ln_res {
+                                            Ok(_) => {
+                                                info!("Symlinked {{{}}} -> {{{}}}", amboso_prog_path.display(), anvil_path.display());
+                                                ExitCode::SUCCESS
+                                            }
+                                            Err(e) => {
+                                                error!("Failed symlink for anvil. Err: {e}");
+                                                ExitCode::FAILURE
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Failed repo.submodule() call. Err: {e}");
+                                    ExitCode::FAILURE
                                 }
                             }
                         }
-                        Err(e) => {
-                            error!("Failed repo.submodule() call. Err: {e}");
-                            ExitCode::FAILURE
+                        AnvilKern::AnvilPy => {
+                            let pyproj_path = format!("{}/pyproject.toml", target.display());
+                            trace!("Generating pyproject.toml - Target path: {{{}}}", pyproj_path);
+                            let output = File::create(pyproj_path);
+                            let pyproj_string = format!("[project]\nname = \"{}\"\nversion = \"0.1.0\"\n[project.scripts]\n{} = \"{}.main:main\"\n[build-system]\nrequires = [\"setuptools>=61.0\"]\nbuild-backend = \"setuptools.build_meta\"", dir_basename, dir_basename, dir_basename);
+                            match output {
+                                Ok(mut f) => {
+                                    let res = write!(f, "{}", pyproj_string);
+                                    match res {
+                                        Ok(_) => {
+                                            debug!("Done generating pyproject.toml file");
+                                        }
+                                        Err(e) => {
+                                            error!("Failed writing pyproject.toml file. Err: {e}");
+                                            return ExitCode::FAILURE;
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Failed opening pyproject.toml file. Err: {e}");
+                                    return ExitCode::FAILURE;
+                                }
+                            }
+                            ExitCode::SUCCESS
+                        }
+                        AnvilKern::Custom => {
+                            todo!("custom kern for project info file");
                         }
                     }
                 }
@@ -1757,8 +2033,9 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
 
     let mut anvil_env: AmbosoEnv = AmbosoEnv {
         run_mode : None,
-        builds_dir: None,
+        amboso_dir: None,
         stego_dir: None,
+        builds_dir: None,
         source : None,
         bin : None,
         mintag_make : None,
@@ -1827,6 +2104,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                         override_stego_anvil_version = false;
                     }
                 }
+            } else if x.starts_with("2.1") {
+                match x.as_str() {
+                    "2.1.0" => {
+                        info!("Running as {}", x.as_str());
+                    }
+                    _ => {
+                        error!("Invalid anvil_version: {{{}}}", x);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                }
+                trace!("ANVIL_VERSION: {{{x}}}");
             } else {
                 match semver_compare(x, MIN_AMBOSO_V_LEGACYPARSE) {
                     Ordering::Less => {
@@ -1927,6 +2215,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         }
     }
 
+    match &args.builds_dir {
+        Some(x) => {
+            debug!("Builds dir {{{}}}", x.display());
+            anvil_env.builds_dir = Some(x.to_path_buf());
+        }
+        None => {
+            debug!("Using default builds_dir: .");
+            anvil_env.builds_dir = Some(PathBuf::from("."));
+        }
+    }
+
     //Check amboso_dir arg
     match args.amboso_dir {
         Some(ref x) => {
@@ -1991,6 +2290,10 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                             }
                             for url in &anvilpy_env.urls {
                                 debug!("{{{}}}: {{{}}}", url.name, url.link);
+                            }
+                            if anvilpy_env.build_sys.backend != "setuptools.build_meta" {
+                                error!("Unexpected build system: {{{}}}", anvilpy_env.build_sys.backend);
+                                return Err("Unexpected build system".to_string());
                             }
                             anvil_env.anvilpy_env = Some(anvilpy_env);
                         }
@@ -2083,14 +2386,14 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
         }
     }
 
-    match anvil_env.builds_dir {
+    match anvil_env.amboso_dir {
         Some(ref x) => {
-            trace!("Anvil_env builds_dir: {{{}}}", x.display());
+            trace!("Anvil_env amboso_dir: {{{}}}", x.display());
             debug!("TODO:    Validate amboso_env and use it to set missing arguments");
         }
         None => {
-            error!("Missing builds_dir. Quitting.");
-            return Err("anvil_env.builds_dir was empty".to_string());
+            error!("Missing amboso_dir. Quitting.");
+            return Err("anvil_env.amboso_dir was empty".to_string());
         }
     }
 
@@ -2490,8 +2793,9 @@ pub fn parse_legacy_stego(stego_path: &PathBuf) -> Result<AmbosoEnv,String> {
         let mut cur_line = 0;
         let mut anvil_env: AmbosoEnv = AmbosoEnv {
             run_mode : None,
-            builds_dir: Some(stego_dir),
+            amboso_dir: Some(stego_dir),
             stego_dir: None,
+            builds_dir: None,
             source : None,
             bin : None,
             mintag_make : None,
