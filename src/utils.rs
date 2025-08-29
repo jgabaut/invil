@@ -121,7 +121,7 @@ pub fn print_subcommand_args(args: &Args) {
         Some(Commands::Build) => {
             debug!("Doing quick build command")
         }
-        Some(Commands::Init { kern, init_dir }) => {
+        Some(Commands::Init { kern, init_dir, template_name }) => {
             if kern.is_some() {
                 debug!("Passed kern: {}", kern.as_ref().expect("Missing kern"));
             }
@@ -129,6 +129,13 @@ pub fn print_subcommand_args(args: &Args) {
                 debug!("Passed dir to init: {}", init_dir.as_ref().expect("Missing init_dir").display());
             } else {
                 warn!("Missing init_dir arg for init command.");
+            }
+            if kern.is_some() && kern.clone().expect("Missing kern").as_str() == "custom" {
+                if template_name.is_some() {
+                    debug!("Passed template_name to init: {}", template_name.clone().expect("Missing template_name"));
+                } else {
+                    warn!("Missing template_name arg for init command.");
+                }
             }
         }
         Some(Commands::Version) => {
