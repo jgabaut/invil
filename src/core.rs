@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
-use crate::ops::{do_build, do_run, do_delete, do_query, gen_c_header};
+use crate::ops::{do_build, do_run, do_delete, do_query, gen_header};
 
 #[cfg(feature = "anvilPy")]
 use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
@@ -2357,7 +2357,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     match anvil_env.bin {
                         Some (ref binname) => {
                            info!("Generating C header for {{{}}} to dir: {{{}}}", query, x.display());
-                           let res = gen_c_header(x, query, binname);
+                           let res = gen_header(x, anvil_env.anvil_kern, query, binname);
                             match res {
                                 Ok(_) => {
                                     info!("C header gen successful for {{{}}}.", query);
