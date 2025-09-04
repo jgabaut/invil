@@ -1586,11 +1586,11 @@ pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, t
                     let repo_workdir = repo.workdir().expect("Repo should not be bare");
                     info!("Created git repo at {{{}}}", repo_workdir.display());
 
-                    let dir_basename;
+                    let mut dir_basename: String;
                     let caps_dir_basename;
                     if strict {
                         debug!("Doing string init, using \"hello_world\" as target bin name");
-                        dir_basename = "hello_world";
+                        dir_basename = "hello_world".to_string();
                         caps_dir_basename = "HW_".to_string();
                     } else {
                         let dir_basename_osstr = match repo_workdir.file_name() {
@@ -1605,13 +1605,15 @@ pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, t
 
                         match dir_basename_osstr.to_str() {
                             Some(s) => {
-                                dir_basename = s;
+                                dir_basename = s.to_string();
                             }
                             None => {
                                 error!("Failed converting {{{}}} to string. May contain invalid Unicode.", repo_workdir.display());
                                 return ExitCode::FAILURE;
                             }
                         }
+                        let dir_basename_nodashes = dir_basename.replace("-", "_");
+                        dir_basename = dir_basename_nodashes;
                         caps_dir_basename = dir_basename.to_uppercase();
                     }
 
@@ -1621,7 +1623,7 @@ pub fn handle_init_subcommand(kern: Option<String>, init_dir: Option<PathBuf>, t
                             src.push("src");
                         }
                         AnvilKern::AnvilPy => {
-                            src.push(dir_basename);
+                            src.push(&dir_basename);
                         }
                         AnvilKern::Custom => {
                             let user_home_dir = dirs::home_dir();

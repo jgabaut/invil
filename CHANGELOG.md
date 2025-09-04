@@ -22,6 +22,7 @@
 - Pass builds_dir to custom builder in build_step()
 - Turn on anvilPy, anvilCustom by default
 - Bump deps
+- Handle dashes in dir name for init subcommand
 
 ## [0.2.26] - 2025-07-17
 
