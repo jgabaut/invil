@@ -29,7 +29,7 @@ clap = { version = "4.5.42", features = ["derive"] }
 dirs = "6.0.0"
 flate2 = { version = "1.1.2", optional = true }
 git2 = "0.20.2"
-is_executable = "1.0.4"
+is_executable = "1.0.5"
 log = "0.4.27"
 regex = "1.11.2"
 simplelog = "0.12.2"
