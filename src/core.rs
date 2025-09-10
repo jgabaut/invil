@@ -241,6 +241,10 @@ pub struct Args {
     /// Subcommand
     #[command(subcommand)]
     pub command: Option<Commands>,
+
+    /// Everything after `--` gets captured here
+    #[arg(trailing_var_arg = true)]
+    pub extra_args: Vec<String>,
 }
 
 #[derive(Debug)]
