@@ -1670,18 +1670,24 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
             if args.no_rebuild {
-                debug!("Running \'{build_step_command}\'");
-                output = Command::new(build_step_command)
-                    .arg(cflg_str)
-                    .output()
-                    .expect("failed to execute process");
+                let mut cmd = Command::new(build_step_command);
+                for arg in &args.extra_args {
+                    cmd.arg(arg);
+                }
+                cmd.arg(cflg_str);
+                debug!("Running \'{:?}\'", cmd);
+                output = cmd.output()
+                            .expect("failed to execute process");
             } else {
-                debug!("Running \'make rebuild\'");
-                output = Command::new("make")
-                    .arg("rebuild")
-                    .arg(cflg_str)
-                    .output()
-                    .expect("failed to execute process");
+                let mut cmd = Command::new("make");
+                for arg in &args.extra_args {
+                    cmd.arg(arg);
+                }
+                cmd.arg("rebuild")
+                   .arg(cflg_str);
+                debug!("Running \'{:?}\'", cmd);
+                output = cmd.output()
+                            .expect("failed to execute process");
             }
         }
         AnvilKern::AnvilPy => {
@@ -1694,21 +1700,20 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         }
         AnvilKern::Custom => {
             // "custom_builder" "target_d" "builds_dir" "bin_name" "q_tag" "stego_dir"
-            let custom_call = format!("{} {} {} {} {} {}", build_step_command,
-                target_path.display(),
-                env.builds_dir.clone().expect("failed initialising builds_dir").display(),
-                bin,
-                query,
-                env.stego_dir.clone().expect("failed initialising stego_dir").display()
-            );
-            debug!("Running \'{custom_call}\'");
-            output = Command::new(build_step_command)
-                .arg(target_path.clone())
-                .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
-                .arg(bin.clone())
-                .arg(query)
-                .arg(env.stego_dir.clone().expect("failed initialising stego_dir"))
-                .output()
+            let mut cmd = Command::new(build_step_command);
+
+            cmd.arg(target_path.clone())
+            .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
+            .arg(bin.clone())
+            .arg(query)
+            .arg(env.stego_dir.clone().expect("failed initialising stego_dir"));
+
+            for arg in &args.extra_args {
+                cmd.arg(arg);
+            }
+
+            debug!("Running \'{:?}\'", cmd);
+            output = cmd.output()
                 .expect("failed to execute process");
         }
     }
