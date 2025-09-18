@@ -24,6 +24,7 @@
 - Turn on anvilPy, anvilCustom by default
 - Bump deps
 - Handle dashes in dir name for init subcommand
+- Handle no op specified for anvilPy, custom kern
 
 ## [0.2.26] - 2025-07-17
 
