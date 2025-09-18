@@ -580,8 +580,10 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
             }
 
+            /*
             match env.anvil_kern {
                 AnvilKern::AmbosoC => {
+            */
                     //By default, run do_query()
                     let query_res = do_query(env,args);
                     match query_res {
@@ -593,6 +595,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                             exit(1);
                         }
                     }
+            /*
                 }
                 AnvilKern::AnvilPy => {
                     trace!("Skipping do_query() since anvil_kern is anvilPy");
@@ -601,6 +604,7 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                     trace!("Skipping do_query() since anvil_kern is custom");
                 }
             }
+            */
         }
         None => {
             error!("Invalid: None env.run_mode");

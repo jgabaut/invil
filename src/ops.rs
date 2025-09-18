@@ -194,6 +194,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         AmbosoMode::BaseMode => {
                             let head_was_detached = false; // We don't worry about HEAD if we're not in git
                                                            // mode
+                            let do_postbuild = true; // We try to do postbuild
                             let build_path = PathBuf::from(format!("./{}/v{}/",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
@@ -234,7 +235,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                         let current_dir = env::current_dir().expect("failed getting current directory");
                                         let cd_output = env::set_current_dir(&build_path);
                                         if cd_output.is_ok() {
-                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
+                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild) {
                                                 Ok(s) => {
                                                     trace!("{s}");
                                                     let cdback_output = env::set_current_dir(&current_dir);
@@ -270,7 +271,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     let current_dir = env::current_dir().expect("failed getting current directory");
                                     let cd_output = env::set_current_dir(&build_path);
                                     if cd_output.is_ok() {
-                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
+                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild) {
                                             Ok(s) => {
                                                 trace!("{s}");
                                                 let cdback_output = env::set_current_dir(&current_dir);
@@ -329,6 +330,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     }
                                 }
                             };
+                            let do_postbuild = true;
 
                             trace!("Git mode, checking out {}",query);
                             trace!("Running \'git checkout {}\'", query);
@@ -359,7 +361,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                     trace!("Build step");
                                                     trace!("cflg_str: {{{cflg_str}}}");
                                                     trace!("bin_path: {{{}}}", bin_path.display());
-                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
+                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild) {
                                                         Ok(s) => {
                                                             trace!("{s}");
                                                         }
@@ -814,7 +816,39 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
                 AmbosoMode::GitMode | AmbosoMode::BaseMode => {
                     if ! env.do_init && ! env.do_purge && ! args.list && ! args.list_all {
-                        handle_running_make();
+                        match env.anvil_kern {
+                            AnvilKern::AmbosoC => {
+                                handle_running_make();
+                            }
+                            AnvilKern::AnvilPy | AnvilKern::Custom => {
+                                let head_was_detached = false;
+                                let do_postbuild = false;
+                                let cflg_str;
+                                if !env.cflags_arg.is_empty() { //We have the arg from --config/-Z
+                                    debug!("Using passed CFLAGS {{{}}}", env.cflags_arg);
+                                    cflg_str = env.cflags_arg.clone();
+                                } else { //Backcomp reading env CFLAGS
+                                    let cflags = "CFLAGS";
+                                    match env::var(cflags) {
+                                        Ok(val) => {
+                                            debug!("Using {{{}: {}}}", cflags, val);
+                                            cflg_str = val.to_string();
+                                        },
+                                        Err(e) => {
+                                            error!("Failed reading {{{}: {}}}", cflags, e);
+                                            cflg_str = "".to_string()
+                                        }
+                                    }
+                                }
+                                let build_path = PathBuf::from(format!("."));
+                                let mut source_path = build_path.clone();
+                                source_path.push(env.source.clone().unwrap());
+                                let mut bin_path = build_path.clone();
+                                bin_path.push(env.bin.clone().unwrap());
+
+                                return build_step(args, env, cflg_str, "", bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild)
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -1623,7 +1657,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     Ok(tot_warns)
 }
 
-fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, target_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
+fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, target_path: PathBuf, bin: String, head_was_detached: bool, do_postbuild: bool) -> Result<String,String> {
     let output;
     let build_step_command;
     match env.anvil_kern {
@@ -1721,14 +1755,19 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         Some(make_ec) => {
             if make_ec == 0 {
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
-               match env.run_mode.as_ref().unwrap() {
-                   AmbosoMode::GitMode => {
-                       postbuild_step(env, query, bin_path, target_path, bin, head_was_detached)
+               if do_postbuild {
+                   match env.run_mode.as_ref().unwrap() {
+                       AmbosoMode::GitMode => {
+                           postbuild_step(env, query, bin_path, target_path, bin, head_was_detached)
+                       }
+                       _ => {
+                           trace!("Avoiding postbuild_step outside of GitMode");
+                           Ok(format!("{{{build_step_command}}} succeded"))
+                       }
                    }
-                   _ => {
-                       trace!("Avoiding postbuild_step outside of GitMode");
-                       Ok(format!("{{{build_step_command}}} succeded"))
-                   }
+               } else {
+                   trace!("Skipping postbuild_step()");
+                   Ok(format!("{{{build_step_command}}} succeded"))
                }
             } else {
                 warn!("{{{}}} failed with status: {}", build_step_command, make_ec.to_string());
