@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.27] - 2025-08-26
+## [0.2.28] - Unreleased
 
 ### Added
 
@@ -16,8 +16,6 @@
 
 ### Changed
 
-- Fix anvilCustom build
-- Fix anvilPy build_step()
 - Handle -tl to list all test names
 - Check anvilpy build backend
 - Pass builds_dir to custom builder in build_step()
@@ -25,6 +23,14 @@
 - Bump deps
 - Handle dashes in dir name for init subcommand
 - Handle no op specified for anvilPy, custom kern
+
+## [0.2.27] - 2025-08-26
+
+### Changed
+
+- Fix anvilCustom build
+- Fix anvilPy build_step()
+- Bump deps
 
 ## [0.2.26] - 2025-07-17
 
