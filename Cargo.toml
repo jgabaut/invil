@@ -31,7 +31,7 @@ flate2 = { version = "1.1.2", optional = true }
 git2 = "0.20.2"
 is_executable = "1.0.4"
 log = "0.4.27"
-regex = "1.11.2"
+regex = "1.11.3"
 simplelog = "0.12.2"
 tar = { version = "0.4.44", optional = true }
 toml = "0.9.7"
