@@ -54,12 +54,12 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to build {{{:?}}}", query);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", query);
             queried_path.push(tagdir_name);
 
             trace!("Looking for {{{}}}", queried_path.display());
-            trace!("Builds dir: {{{}}}", env.builds_dir.clone().unwrap().display());
+            trace!("Amboso dir: {{{}}}", env.amboso_dir.clone().unwrap().display());
 
             if ! queried_path.exists() {
                 match fs::create_dir_all(queried_path.clone()) {
@@ -194,7 +194,8 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         AmbosoMode::BaseMode => {
                             let head_was_detached = false; // We don't worry about HEAD if we're not in git
                                                            // mode
-                            let build_path = PathBuf::from(format!("./{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let do_postbuild = true; // We try to do postbuild
+                            let build_path = PathBuf::from(format!("./{}/v{}/",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -234,7 +235,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                         let current_dir = env::current_dir().expect("failed getting current directory");
                                         let cd_output = env::set_current_dir(&build_path);
                                         if cd_output.is_ok() {
-                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
+                                            match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild) {
                                                 Ok(s) => {
                                                     trace!("{s}");
                                                     let cdback_output = env::set_current_dir(&current_dir);
@@ -270,7 +271,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     let current_dir = env::current_dir().expect("failed getting current directory");
                                     let cd_output = env::set_current_dir(&build_path);
                                     if cd_output.is_ok() {
-                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
+                                        match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild) {
                                             Ok(s) => {
                                                 trace!("{s}");
                                                 let cdback_output = env::set_current_dir(&current_dir);
@@ -292,7 +293,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                             }
                         }
                         AmbosoMode::GitMode => {
-                            let build_path = PathBuf::from(format!("{}/v{}/",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
+                            let build_path = PathBuf::from(format!("{}/v{}/",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap()));
                             let mut source_path = build_path.clone();
                             source_path.push(env.source.clone().unwrap());
                             let mut bin_path = build_path.clone();
@@ -329,6 +330,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                     }
                                 }
                             };
+                            let do_postbuild = true;
 
                             trace!("Git mode, checking out {}",query);
                             trace!("Running \'git checkout {}\'", query);
@@ -359,7 +361,7 @@ pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                                                     trace!("Build step");
                                                     trace!("cflg_str: {{{cflg_str}}}");
                                                     trace!("bin_path: {{{}}}", bin_path.display());
-                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached) {
+                                                    match build_step(args, env, cflg_str, query, bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild) {
                                                         Ok(s) => {
                                                             trace!("{s}");
                                                         }
@@ -458,7 +460,7 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to run {{{:?}}}", q);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -490,7 +492,7 @@ pub fn do_run(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      *   .expect("failed to execute process")
                      */
                 } else {
-                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
+                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
                     trace!("Running \'{}\'", bin_path.display());
                     Command::new(bin_path)
                     .output()
@@ -550,7 +552,7 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
             }
             info!("Trying to delete {{{:?}}}", q);
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -579,7 +581,7 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                      *   .expect("failed to execute process")
                      */
                 } else {
-                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.builds_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
+                    let bin_path = PathBuf::from(format!("./{}/v{}/{}",env.amboso_dir.as_ref().unwrap().display(), args.tag.as_ref().unwrap(), env.bin.clone().unwrap()));
                     trace!("Running \'rm -f {}\'", bin_path.display());
                     Command::new("rm")
                     .arg("-f")
@@ -698,7 +700,7 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
             }
             info!("Querying info for {{{:?}}}", q);
 
-            let mut queried_path = env.builds_dir.clone().unwrap();
+            let mut queried_path = env.amboso_dir.clone().unwrap();
             let tagdir_name = format!("v{}", q);
             queried_path.push(tagdir_name);
 
@@ -736,11 +738,21 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                     if ! env.support_testmode {
                         return Err("Missing testmode support".to_string());
                     } else {
-                        let do_record = if env.do_build {
-                            info!("Recording all tests");
+                        let do_list = if args.list {
+                            info!("Listing test names");
                             true
                         } else {
-                            info!("Running all tests");
+                            false
+                        };
+                        let do_record = if env.do_build {
+                            if !do_list {
+                                info!("Recording all tests");
+                            }
+                            true
+                        } else {
+                            if !do_list {
+                                info!("Running all tests");
+                            }
                             false
                         };
                         let mut alltests_map: BTreeMap<String, PathBuf> = BTreeMap::new();
@@ -750,6 +762,12 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                         alltests_map.append(&mut kulpotests_map);
                         let mut tot_successes = 0;
                         let mut tot_failures = 0;
+                        if do_list {
+                            for test in alltests_map.keys() {
+                                info!("{}", test);
+                            }
+                            return Ok("Done listing all tests".to_string());
+                        }
                         for test in alltests_map.values() {
                             if test.exists() {
                                 trace!("Found {{{}}}", test.display());
@@ -798,7 +816,39 @@ pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
                 }
                 AmbosoMode::GitMode | AmbosoMode::BaseMode => {
                     if ! env.do_init && ! env.do_purge && ! args.list && ! args.list_all {
-                        handle_running_make();
+                        match env.anvil_kern {
+                            AnvilKern::AmbosoC => {
+                                handle_running_make();
+                            }
+                            AnvilKern::AnvilPy | AnvilKern::Custom => {
+                                let head_was_detached = false;
+                                let do_postbuild = false;
+                                let cflg_str;
+                                if !env.cflags_arg.is_empty() { //We have the arg from --config/-Z
+                                    debug!("Using passed CFLAGS {{{}}}", env.cflags_arg);
+                                    cflg_str = env.cflags_arg.clone();
+                                } else { //Backcomp reading env CFLAGS
+                                    let cflags = "CFLAGS";
+                                    match env::var(cflags) {
+                                        Ok(val) => {
+                                            debug!("Using {{{}: {}}}", cflags, val);
+                                            cflg_str = val.to_string();
+                                        },
+                                        Err(e) => {
+                                            error!("Failed reading {{{}: {}}}", cflags, e);
+                                            cflg_str = "".to_string()
+                                        }
+                                    }
+                                }
+                                let build_path = PathBuf::from(format!("."));
+                                let mut source_path = build_path.clone();
+                                source_path.push(env.source.clone().unwrap());
+                                let mut bin_path = build_path.clone();
+                                bin_path.push(env.bin.clone().unwrap());
+
+                                return build_step(args, env, cflg_str, "", bin_path, build_path, env.bin.clone().unwrap(), head_was_detached, do_postbuild)
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -941,7 +991,7 @@ pub fn run_test(test_path: &PathBuf, record: bool) -> Result<String,String> {
     }
 }
 
-pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &String) -> Result<String,String> {
+pub fn gen_header(target_path: &PathBuf, anvil_kern: AnvilKern, target_tag: &String, bin_name: &String) -> Result<String,String> {
     let repo = Repository::discover(target_path);
     let mut head_author_name = "".to_string();
     let id;
@@ -1049,10 +1099,12 @@ pub fn gen_c_header(target_path: &PathBuf, target_tag: &String, bin_name: &Strin
             return Err("Failed discover of repo".to_string());
         }
     }
-    let header_path = format!("{}/anvil__{}.h", target_path.display(), bin_name);
-    trace!("Generating C header. Target path: {{{}}} Tag: {{{}}}", header_path, target_tag);
-    let output = File::create(header_path);
-    let header_string = format!("//Generated by invil v{INVIL_VERSION}\n
+    match anvil_kern {
+        AnvilKern::AmbosoC => {
+            let header_path = format!("{}/anvil__{}.h", target_path.display(), bin_name);
+            trace!("Generating C header. Target path: {{{}}} Tag: {{{}}}", header_path, target_tag);
+            let output = File::create(header_path);
+            let header_string = format!("//Generated by invil v{INVIL_VERSION}\n
 //Repo at https://github.com/jgabaut/invil\n
 #ifndef ANVIL__{bin_name}__\n
 #define ANVIL__{bin_name}__\n
@@ -1078,26 +1130,26 @@ const char *get_INVIL__OS__(void); /**< Returns a version string for os used for
 const char *get_INVIL__COMMIT__DESC__(void); /**< Returns a string for HEAD commit message used for [anvil__{bin_name}.h] generated header.*/\n
 #endif // INVIL__{bin_name}__HEADER__
 #endif\n");
-    match output {
-        Ok(mut f) => {
-            let res = write!(f, "{}", header_string);
-            match res {
-                Ok(_) => {
-                    debug!("Done generating header file");
+            match output {
+                Ok(mut f) => {
+                    let res = write!(f, "{}", header_string);
+                    match res {
+                        Ok(_) => {
+                            debug!("Done generating header file");
+                        }
+                        Err(e) => {
+                            error!("Failed printing header file");
+                            return Err(e.to_string());
+                        }
+                    }
                 }
-                Err(e) => {
-                    error!("Failed printing header file");
-                    return Err(e.to_string());
+                Err(_) => {
+                    return Err("Failed gen of header file".to_string());
                 }
             }
-        }
-        Err(_) => {
-            return Err("Failed gen of header file".to_string());
-        }
-    }
-    let c_impl_path = format!("{}/anvil__{}.c", target_path.display(), bin_name);
-    let output = File::create(c_impl_path);
-    let c_impl_string = format!("//Generated by invil v{INVIL_VERSION}\n
+            let c_impl_path = format!("{}/anvil__{}.c", target_path.display(), bin_name);
+            let output = File::create(c_impl_path);
+            let c_impl_string = format!("//Generated by invil v{INVIL_VERSION}\n
 #include \"anvil__{bin_name}.h\"\n
 const char *get_ANVIL__VERSION__(void)
 {{
@@ -1137,24 +1189,66 @@ const char *get_INVIL__OS__(void)
     return INVIL__OS__STRING;
 }}
 #endif\n");
-    match output {
-        Ok(mut f) => {
-            let res = write!(f, "{}", c_impl_string);
-            match res {
-                Ok(_) => {
-                    debug!("Done generating c impl file");
+            match output {
+                Ok(mut f) => {
+                    let res = write!(f, "{}", c_impl_string);
+                    match res {
+                        Ok(_) => {
+                            debug!("Done generating c impl file");
+                        }
+                        Err(e) => {
+                            error!("Failed printing c impl file");
+                            return Err(e.to_string());
+                        }
+                    }
                 }
-                Err(e) => {
-                    error!("Failed printing c impl file");
-                    return Err(e.to_string());
+                Err(_) => {
+                    return Err("Failed gen of c impl file".to_string());
+                }
+            }
+            Ok("Done C generation".to_string())
+        }
+        AnvilKern::AnvilPy => {
+            let header_path = format!("{}/anvil__{}.py", target_path.display(), bin_name);
+            trace!("Generating python header. Target path: {{{}}} Tag: {{{}}}", header_path, target_tag);
+            let output = File::create(header_path);
+            let header_string = format!("# Generated by invil v{INVIL_VERSION}\n
+# Repo at https://github.com/jgabaut/invil\n
+ANVIL__API_LEVEL__STRING = \"{EXPECTED_AMBOSO_API_LEVEL}\"\n
+ANVIL__{bin_name}__VERSION_STRING = \"{target_tag}\"\n
+ANVIL__{bin_name}__VERSION_DESC = \"{id}\"\n
+ANVIL__{bin_name}__VERSION_DATE = \"{commit_time}\"\n
+ANVIL__{bin_name}__VERSION_AUTHOR = \"{head_author_name}\"\n
+ANVIL__{bin_name}__HEADER_GENTIME = \"{fgen_time}\"\n
+def get_ANVIL_API_LEVEL__() -> str:\n    return ANVIL__API_LEVEL_STRING\n
+def get_ANVIL__VERSION__() -> str:\n    return ANVIL__{bin_name}__VERSION_STRING\n
+def get_ANVIL__VERSION__DESC__() -> str:\n    return ANVIL__{bin_name}__VERSION_DESC\n
+def get_ANVIL__VERSION__DATE__() -> str:\n    return ANVIL__{bin_name}__VERSION_DATE\n
+def get_ANVIL__VERSION__AUTHOR__() -> str:\n    return ANVIL__{bin_name}__VERSION_AUTHOR\n
+def get_ANVIL__VERSION__HEADER_GENTIME__() -> str:\n    return ANVIL__{bin_name}__HEADER_GENTIME\n");
+            match output {
+                Ok(mut f) => {
+                    let res = write!(f, "{}", header_string);
+                    match res {
+                        Ok(_) => {
+                            debug!("Done generating header file");
+                            Ok("Done python generation".to_string())
+                        }
+                        Err(e) => {
+                            error!("Failed printing header file");
+                            return Err(e.to_string());
+                        }
+                    }
+                }
+                Err(_) => {
+                    return Err("Failed gen of header file".to_string());
                 }
             }
         }
-        Err(_) => {
-            return Err("Failed gen of c impl file".to_string());
+        AnvilKern::Custom => {
+            Err("TODO: implement header gen for custom kern".to_string())
         }
     }
-    Ok("Done C generationg".to_string())
 }
 
 fn try_lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bool, report_warns: bool) -> Result<String,String> {
@@ -1205,7 +1299,7 @@ pub fn handle_linter_flag(stego_path: &PathBuf, lint_mode: &AmbosoLintMode) -> R
                 }
             }
             AmbosoLintMode::FullCheck => {
-                let res = parse_stego_toml(stego_path, &PathBuf::from(""));
+                let res = parse_stego_toml(stego_path, &PathBuf::from(""), &PathBuf::from("."));
                 match res {
                     Ok(r) => {
                         info!("Lint successful for {{{}}}.", stego_path.display());
@@ -1563,7 +1657,7 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
     Ok(tot_warns)
 }
 
-fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
+fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, target_path: PathBuf, bin: String, head_was_detached: bool, do_postbuild: bool) -> Result<String,String> {
     let output;
     let build_step_command;
     match env.anvil_kern {
@@ -1610,18 +1704,24 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
             if args.no_rebuild {
-                debug!("Running \'{build_step_command}\'");
-                output = Command::new(build_step_command)
-                    .arg(cflg_str)
-                    .output()
-                    .expect("failed to execute process");
+                let mut cmd = Command::new(build_step_command);
+                for arg in &args.extra_args {
+                    cmd.arg(arg);
+                }
+                cmd.arg(cflg_str);
+                debug!("Running \'{:?}\'", cmd);
+                output = cmd.output()
+                            .expect("failed to execute process");
             } else {
-                debug!("Running \'make rebuild\'");
-                output = Command::new("make")
-                    .arg("rebuild")
-                    .arg(cflg_str)
-                    .output()
-                    .expect("failed to execute process");
+                let mut cmd = Command::new("make");
+                for arg in &args.extra_args {
+                    cmd.arg(arg);
+                }
+                cmd.arg("rebuild")
+                   .arg(cflg_str);
+                debug!("Running \'{:?}\'", cmd);
+                output = cmd.output()
+                            .expect("failed to execute process");
             }
         }
         AnvilKern::AnvilPy => {
@@ -1633,20 +1733,21 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 .expect("failed to execute process");
         }
         AnvilKern::Custom => {
-            // "custom_builder" "target_d" "bin_name" "q_tag" "stego_dir"
-            let custom_call = format!("{} {} {} {} {}", build_step_command,
-                build_path.display(),
-                bin,
-                query,
-                env.stego_dir.clone().expect("failed initialising stego_dir").display()
-            );
-            debug!("Running \'{custom_call}\'");
-            output = Command::new(build_step_command)
-                .arg(build_path.clone())
-                .arg(bin.clone())
-                .arg(query)
-                .arg(env.stego_dir.clone().expect("failed initialising stego_dir"))
-                .output()
+            // "custom_builder" "target_d" "builds_dir" "bin_name" "q_tag" "stego_dir"
+            let mut cmd = Command::new(build_step_command);
+
+            cmd.arg(target_path.clone())
+            .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
+            .arg(bin.clone())
+            .arg(query)
+            .arg(env.stego_dir.clone().expect("failed initialising stego_dir"));
+
+            for arg in &args.extra_args {
+                cmd.arg(arg);
+            }
+
+            debug!("Running \'{:?}\'", cmd);
+            output = cmd.output()
                 .expect("failed to execute process");
         }
     }
@@ -1654,14 +1755,19 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         Some(make_ec) => {
             if make_ec == 0 {
                debug!("{{{}}} succeded with status: {}", build_step_command, make_ec.to_string());
-               match env.run_mode.as_ref().unwrap() {
-                   AmbosoMode::GitMode => {
-                       postbuild_step(env, query, bin_path, build_path, bin, head_was_detached)
+               if do_postbuild {
+                   match env.run_mode.as_ref().unwrap() {
+                       AmbosoMode::GitMode => {
+                           postbuild_step(env, query, bin_path, target_path, bin, head_was_detached)
+                       }
+                       _ => {
+                           trace!("Avoiding postbuild_step outside of GitMode");
+                           Ok(format!("{{{build_step_command}}} succeded"))
+                       }
                    }
-                   _ => {
-                       trace!("Avoiding postbuild_step outside of GitMode");
-                       Ok(format!("{{{build_step_command}}} succeded"))
-                   }
+               } else {
+                   trace!("Skipping postbuild_step()");
+                   Ok(format!("{{{build_step_command}}} succeded"))
                }
             } else {
                 warn!("{{{}}} failed with status: {}", build_step_command, make_ec.to_string());
@@ -1749,14 +1855,23 @@ fn git_switch_and_submodule_init_re(query: &str, head_was_detached: bool) -> Res
     }
 }
 
-fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
+fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, target_path: PathBuf, bin: String, head_was_detached: bool) -> Result<String,String> {
 
     let output;
+    let builds_path = match env.builds_dir.clone() {
+        Some(x) => x,
+        None => {
+            debug!("Using . for default builds_dir");
+            PathBuf::from(".")
+        }
+    };
+    let mut build_path = builds_path;
+    build_path.push(&bin);
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
-            trace!("Running \'mv {} {}\'", bin, bin_path.display());
+            trace!("Running \'mv {} {}\'", build_path.display(), bin_path.display());
             output = Command::new("mv")
-                .arg(bin)
+                .arg(build_path)
                 .arg(bin_path)
                 .output()
                 .expect("failed to execute process");
@@ -1768,17 +1883,17 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                 let mut srcdist_path = PathBuf::from("./dist/");
                 srcdist_path.push(srcdist_name.clone());
                 info!("curr_proj_name {} srcdist_name {}", curr_proj_name, srcdist_name);
-                trace!("Running \'mv {} {}\'", srcdist_path.display(), build_path.display());
+                trace!("Running \'mv {} {}\'", srcdist_path.display(), target_path.display());
                 let output_srcdist = Command::new("mv")
                     .arg(srcdist_path)
-                    .arg(build_path.clone())
+                    .arg(target_path.clone())
                     .output()
                     .expect("failed to execute process");
                 match output_srcdist.status.code() {
                     Some(mv_ec) => {
                         if mv_ec == 0 {
                             debug!("mv srcdist succeded with status: {}", mv_ec.to_string());
-                            let mut srcdist_pack_path = PathBuf::from(build_path.clone());
+                            let mut srcdist_pack_path = PathBuf::from(target_path.clone());
                             srcdist_pack_path.push(srcdist_name);
                             let unpack_res = unpack_srcdist(&srcdist_pack_path);
                             match unpack_res {
@@ -1815,7 +1930,7 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                                     }
                                     let mut unpack_initpy_path = target_unpack_path.clone();
                                     unpack_initpy_path.push("__init__.py");
-                                    match post_unpack(&unpack_initpy_path, &build_path, &env) {
+                                    match post_unpack(&unpack_initpy_path, &target_path, &env) {
                                         Ok(_) => {}
                                         Err(e) => {
                                             error!("Failed post_unpack() for {{{}}}. Err: {e}", target_unpack_path.display());
@@ -1843,16 +1958,16 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                 }
                 let curr_whldist_name = format!("./dist/{}-{}-py3-none-any.whl", curr_proj_name, query);
                 let curr_whldist_path = PathBuf::from(curr_whldist_name);
-                trace!("Running \'mv {} {}\'", curr_whldist_path.display(), build_path.display());
+                trace!("Running \'mv {} {}\'", curr_whldist_path.display(), target_path.display());
                 output = Command::new("mv")
                     .arg(curr_whldist_path)
-                    .arg(build_path)
+                    .arg(target_path)
                     .output()
                     .expect("failed to execute process");
             }
             #[cfg(not(feature = "anvilPy"))] {
                 // Handle AnvilPy case when the feature is not enabled
-                error!("AnvilPy kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
+                error!("AnvilPy kern feature is not enabled. Can't build {} to {}", bin, target_path.display());
                 return Err("AnvilPy kern feauture is not enabled".to_string());
             }
         }
@@ -1883,16 +1998,16 @@ fn postbuild_step(env: &AmbosoEnv, query: &str, bin_path: PathBuf, build_path: P
                     }
                 }
                 trace!("TODO: postbuild checks for custom kern");
-                trace!("Running \'mv {} {}\'", bin, bin_path.display());
+                trace!("Running \'mv {} {}\'", build_path.display(), bin_path.display());
                 output = Command::new("mv")
-                    .arg(bin)
+                    .arg(build_path)
                     .arg(bin_path)
                     .output()
                     .expect("failed to execute process");
             }
             #[cfg(not(feature = "anvilCustom"))] {
                 // Handle AnvilCustom case when the feature is not enabled
-                error!("AnvilCustom kern feature is not enabled. Can't build {} to {}", bin, build_path.display());
+                error!("AnvilCustom kern feature is not enabled. Can't build {} to {}", bin, target_path.display());
                 return Err("AnvilCustom kern feauture is not enabled".to_string());
             }
         }

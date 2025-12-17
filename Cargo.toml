@@ -1,7 +1,7 @@
 [package]
 name = "invil"
 description = "A port of amboso to Rust"
-version = "0.2.27"
+version = "0.2.28"
 edition = "2021"
 license = "GPL-3.0-only"
 homepage = "https://github.com/jgabaut/invil"
@@ -19,7 +19,7 @@ exclude = [
 ]
 
 [features]
-
+default = ["anvilPy", "anvilCustom"]
 anvilPy = ["dep:flate2", "dep:tar", "dep:url"]
 anvilCustom = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -31,8 +31,8 @@ flate2 = { version = "1.1.2", optional = true }
 git2 = "0.20.2"
 is_executable = "1.0.4"
 log = "0.4.27"
-regex = "1.11.2"
+regex = "1.12.2"
 simplelog = "0.12.2"
 tar = { version = "0.4.44", optional = true }
-toml = "0.9.5"
+toml = "0.9.8"
 url = { version = "2.5.7", optional = true }

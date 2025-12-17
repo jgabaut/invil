@@ -153,8 +153,11 @@ fn main() -> ExitCode {
     }
 
     match args.command {
-        Some(Commands::Init { init_dir }) => {
-            return handle_init_subcommand(init_dir, args.strict);
+        Some(Commands::Init { mut kern, init_dir, template_name }) => {
+            if kern.is_none() {
+                kern = Some("amboso-C".to_string());
+            }
+            return handle_init_subcommand(kern, init_dir, template_name, args.strict);
         }
         Some(Commands::Version) => {
             println!("{INVIL_VERSION}\n");
