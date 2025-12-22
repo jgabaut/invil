@@ -30,7 +30,7 @@ dirs = "6.0.0"
 flate2 = { version = "1.1.2", optional = true }
 git2 = "0.20.2"
 is_executable = "1.0.4"
-log = "0.4.27"
+log = "0.4.29"
 regex = "1.12.2"
 simplelog = "0.12.2"
 tar = { version = "0.4.44", optional = true }
