@@ -23,12 +23,12 @@
   - Generate new projects supporting the build tool using `invil init <DIR>`
   - Generate a basic header+impl containing project info, such as time of current commit
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.0.11`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.1.1`.
   Check the [next section](#supported_amboso) for more support info.
   Check [this section](#extended_amboso) for info about extensions to `amboso 2.0.4`.
 
-  At the moment, only C projects are supported.
-    - Check [this section](#extended_amboso) for info about the WIP `python` support.
+  At the moment, different type of projects are supported.
+    - Check [this section](#extended_amboso) for info about the `python` and `custom` support.
     - The README still mostly refers only to the ambosoC kern usage.
   Different build modes are provided internally, depending on how full your autotool build support is:
   - Basic mode: a single `gcc` call. This may be expanded in a future version, to at least provide support for passing arguments to the compiler.
@@ -105,22 +105,19 @@
 
 ## Extended amboso features <a name = "extended_amboso"></a>
 
-## Experimental 2.1 version
+## Different project types
 
+  You can select a project type with the `kern` argument.
   These features are experimental and subject to change.
 
   - [x] Use "anvilPy" kern to support python projects
     - Expects a suitable `pyproject.toml` is present alongside `stego.lock`
-    - Experimental support for almost all flags
-    - Only supported when provided from `stego.lock` itself
     - Example usage (make sure this is in your `stego.lock`):
       ```toml
       [ anvil ]
       version = "2.1.0"
       kern = "anvilPy"
       ```
-  - [x] Refuse the experimental kern when running with `--strict`
-    - The original implementation is not ready to support this extension.
   - [x] Use "custom" kern to support project with arbitrary build scripts
     - Example usage (make sure this is in your `stego.lock`):
       ```toml
