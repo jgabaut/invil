@@ -53,7 +53,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.1.1";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.1.2";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -1085,7 +1085,7 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
-                                "2.1.0" | "2.1.1" => {
+                                "2.1.0" | "2.1.1" | "2.1.2" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                 }
                                 _ => {
@@ -1272,7 +1272,7 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
-                                "2.1.0" | "2.1.1" => {
+                                "2.1.0" | "2.1.1" | "2.1.2" => {
                                     info!("Running as {{{}}}", anvil_v_str);
                                 }
                                 _ => {
@@ -2116,7 +2116,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                 }
             } else if x.starts_with("2.1") {
                 match x.as_str() {
-                    "2.1.0" | "2.1.1" => {
+                    "2.1.0" | "2.1.1" | "2.1.2" => {
                         info!("Running as {}", x.as_str());
                     }
                     _ => {
