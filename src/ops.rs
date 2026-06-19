@@ -1021,7 +1021,7 @@ pub fn gen_header(target_path: &PathBuf, anvil_kern: AnvilKern, target_tag: &Str
                         let commit = refr.peel_to_commit();
                         match commit {
                             Ok(commit) => {
-                               if let Some(msg) = commit.message() {
+                               if let Ok(msg) = commit.message() {
                                    info!("Commit message: {{{}}}", msg);
                                    commit_message = msg.escape_default().to_string();
                                }
@@ -1030,12 +1030,12 @@ pub fn gen_header(target_path: &PathBuf, anvil_kern: AnvilKern, target_tag: &Str
                                let author = commit.author();
                                let name = author.name();
                                match name {
-                                  Some(name) => {
+                                   Ok(name) => {
                                        head_author_name = name.to_string();
                                        info!("Commit author: {{{}}}", head_author_name);
                                    }
-                                   None => {
-                                       warn!("Commit author is empty: {}", head_author_name);
+                                   Err(e) => {
+                                       warn!("Commit author is empty: {}, {}", e, head_author_name);
                                    }
                                 }
                                 commit_time = commit.time().seconds().to_string();
@@ -1060,7 +1060,7 @@ pub fn gen_header(target_path: &PathBuf, anvil_kern: AnvilKern, target_tag: &Str
                             let commit = head.peel_to_commit();
                             match commit {
                                 Ok(commit) => {
-                                    if let Some(msg) = commit.message() {
+                                    if let Ok(msg) = commit.message() {
                                         info!("Commit message: {{{}}}", msg);
                                         commit_message = msg.escape_default().to_string();
                                     }
@@ -1069,12 +1069,12 @@ pub fn gen_header(target_path: &PathBuf, anvil_kern: AnvilKern, target_tag: &Str
                                     let author = commit.author();
                                     let name = author.name();
                                     match name {
-                                        Some(name) => {
+                                        Ok(name) => {
                                             head_author_name = name.to_string();
                                             info!("Commit author: {{{}}}", head_author_name);
                                         }
-                                        None => {
-                                            warn!("Commit author is empty: {}", head_author_name);
+                                        Err(e) => {
+                                            warn!("Commit author is empty: {}, {}", e, head_author_name);
                                         }
                                     }
                                     commit_time = commit.time().seconds().to_string();

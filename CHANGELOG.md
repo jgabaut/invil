@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.31] - Unreleased
+
+### Changed
+
+- Bump deps
+
 ## [0.2.30] - 2026-03-11
 
 ### Changed
