@@ -23,7 +23,7 @@
   - Generate new projects supporting the build tool using `invil init <DIR>`
   - Generate a basic header+impl containing project info, such as time of current commit
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.1.1`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.1.3`.
   Check the [next section](#supported_amboso) for more support info.
   Check [this section](#extended_amboso) for info about extensions to `amboso 2.0.4`.
 
