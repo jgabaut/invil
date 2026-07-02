@@ -1,10 +1,11 @@
 # Changelog
 
-## [0.2.31] - Unreleased
+## [0.2.31] - 2026-07-02
 
 ### Changed
 
 - Bump deps
+- Bump expected amboso version to 2.1.3
 
 ## [0.2.30] - 2026-03-11
 
