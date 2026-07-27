@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.32] - Unreleased
+
+### Changed
+
+- Drop simplelog dep, using tracing_subscriber instead
+
 ## [0.2.31] - 2026-07-02
 
 ### Changed

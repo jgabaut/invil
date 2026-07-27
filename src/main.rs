@@ -21,7 +21,7 @@ mod anvil_py;
 mod anvil_custom;
 
 #[macro_use] extern crate log;
-use simplelog::*;
+use tracing_subscriber::{filter::LevelFilter, prelude::*};
 use std::process::{ExitCode, exit};
 use std::fs::File;
 use crate::core::{Args, Commands,
@@ -73,65 +73,53 @@ fn main() -> ExitCode {
 
     match args.silent {
         true => {
-            log_level = LevelFilter::Error;
+            log_level = LevelFilter::ERROR;
         }
         false => {
             match args.verbose {
                 5 => {
-                    log_level = LevelFilter::Trace;
+                    log_level = LevelFilter::TRACE;
                 },
                 4 => {
-                    log_level = LevelFilter::Debug;
+                    log_level = LevelFilter::DEBUG;
                 },
                 3 => {
-                    log_level = LevelFilter::Info;
+                    log_level = LevelFilter::INFO;
                 },
                 2 => {
-                    log_level = LevelFilter::Warn;
+                    log_level = LevelFilter::WARN;
                 },
                 1|0 => {
-                    log_level = LevelFilter::Error;
+                    log_level = LevelFilter::ERROR;
                 },
                 _ => {
-                    log_level = LevelFilter::Debug;
+                    log_level = LevelFilter::DEBUG;
                 },
             }
 
         }
     }
 
-    let config = ConfigBuilder::new()
-        .set_level_color(Level::Error, Some(Color::Red))
-        .set_level_color(Level::Trace, Some(Color::White))
-        .set_level_color(Level::Warn, Some(Color::Yellow))
-        .set_level_color(Level::Debug, Some(Color::Magenta))
-        .set_level_color(Level::Info, Some(Color::Green))
-        .set_time_level(LevelFilter::Debug)
-        .set_thread_level(LevelFilter::Trace)
-        .set_thread_mode(ThreadLogMode::Both)
-        .build();
+    let stdout_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(!args.no_color)
+        .with_thread_ids(false)
+        .with_thread_names(false)
+        .with_target(false)
+        .without_time()
+        .with_filter(log_level);
 
-    let color_choice = if args.no_color {
-        ColorChoice::Never
-    } else {
-        ColorChoice::Always
-    };
-
+    let registry = tracing_subscriber::registry().with(stdout_layer);
     match args.logged {
         false => {
-            CombinedLogger::init(
-                vec![
-                    TermLogger::new(log_level, config, TerminalMode::Mixed, color_choice),
-                ]
-            ).unwrap();
+            registry.init();
         }
         true => {
-            CombinedLogger::init(
-                vec![
-                TermLogger::new(log_level, config.clone(), TerminalMode::Mixed, color_choice),
-                WriteLogger::new(LevelFilter::Trace, config, File::create(INVIL_LOG_FILE).unwrap()),
-                ]
-            ).unwrap();
+            let file = File::create(INVIL_LOG_FILE).expect("Failed to create log file");
+            let file_layer = tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .with_writer(file)
+                .with_filter(LevelFilter::TRACE);
+            registry.with(file_layer).init();
         }
     }
 
