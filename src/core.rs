@@ -22,7 +22,7 @@ use crate::ops::{do_build, do_run, do_delete, do_query, gen_header};
 use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
 
 #[cfg(feature = "anvilCustom")]
-use crate::anvil_custom::{parse_anvilcustom_toml, AnvilCustomEnv};
+use crate::anvil_custom::{parse_anvilcustom_toml, AnvilCustomEnv, sort_anvilcustom_env};
 
 use crate::exit;
 use std::cmp::Ordering;
@@ -2370,9 +2370,11 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     stego_path.push("stego.lock");
                     let anvilcustom_env = parse_anvilcustom_toml(&stego_path, &anvil_env.anvil_version);
                     match anvilcustom_env {
-                        Ok(anvilcustom_env) => {
+                        Ok(mut anvilcustom_env) => {
                             debug!("Done parse_anvilcustom_toml()");
                             debug!("{:?}", anvilcustom_env);
+                            sort_anvilcustom_env(&mut anvilcustom_env);
+                            debug!("Sorted: {:?}", anvilcustom_env);
                             anvil_env.anvilcustom_env = Some(anvilcustom_env);
                         }
                         Err(e) => {
