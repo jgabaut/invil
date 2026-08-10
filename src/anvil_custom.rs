@@ -21,6 +21,9 @@ use crate::core::{SemVerKey, semver_compare, MIN_AMBOSO_V_CUST_RECIPES};
 
 pub const ANVILCUST_CUSTOM_BUILDER_KEYNAME: &str = "custombuilder";
 pub const ANVILCUST_RECIPES_KEYNAME: &str = "recipe";
+pub const ANVILCUST_RECIPE_CONF_KEYNAME: &str = "conf";
+pub const ANVILCUST_RECIPE_BUILD_KEYNAME: &str = "build";
+pub const ANVILCUST_RECIPE_VERS_KEYNAME: &str = "vers";
 
 #[derive(Debug)]
 pub struct AnvilRecipe {
@@ -81,21 +84,40 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_vers
                 if !skip_recipes_parse {
                     if let Some(recipes) = anvil_table.get(ANVILCUST_RECIPES_KEYNAME) {
                         debug!("anvil_recipe: {{{recipes}}}");
-                        for (i, inner_v) in recipes.as_array().expect("Failed parsing array").iter().enumerate() {
-                            if inner_v.is_table() {
-                                let recipe_tab = inner_v.as_table().expect("Failed parsing table");
-                                for inner_k in recipe_tab.keys() {
-                                    if let Some(inner_v) = recipe_tab.get(inner_k) {
-                                        if inner_v.is_str() {
-                                            println!("Recipe: anvil_recipe[{}]_{}, Value: {}", i, inner_k, inner_v);
-                                        }
-                                    } else {
-                                        error!("Could not parse inner key {inner_k} for anvil_recipe[{}] table", i)
+                        if recipes.is_array() {
+                            for (i, inner_v) in recipes.as_array().expect("Failed parsing array").iter().enumerate() {
+                                if inner_v.is_table() {
+                                    let mut recipe = AnvilRecipe {
+                                        conf: None,
+                                        vers: SemVerKey("".to_string()),
+                                        build: "".to_string(),
+                                    };
+                                    let recipe_tab = inner_v.as_table().expect("Failed parsing table");
+                                    if let Some(conf) = recipe_tab.get(ANVILCUST_RECIPE_CONF_KEYNAME) {
+                                        recipe.conf = Some(conf.to_string());
                                     }
+                                    if let Some(build) = recipe_tab.get(ANVILCUST_RECIPE_BUILD_KEYNAME) {
+                                        recipe.build = build.to_string();
+                                    } else {
+                                        error!("Missing anvil_recipe[{}]_build", i);
+                                        return Err(format!("Missing anvil_recipe[{}]_build definition", i));
+                                    }
+                                    if let Some(vers) = recipe_tab.get(ANVILCUST_RECIPE_VERS_KEYNAME) {
+                                        recipe.vers = SemVerKey(vers.to_string());
+                                    } else {
+                                        error!("Missing anvil_recipe[{}]_vers", i);
+                                        return Err(format!("Missing anvil_recipe[{}]_vers definition", i));
+                                    }
+                                    anvilcustom_env.recipes.push(recipe);
+                                } else {
+                                    error!("anvil_recipe[{}] definition is not a table.", i);
+                                    return Err(format!("Wrong definition for anvil_recipe[{}] in {{{}}}", i, stego_path.display()));
                                 }
                             }
+                        } else {
+                            error!("ANVILCUST_RECIPES definition is not an array.");
+                            return Err(format!("Wrong anvil_recipe definition in {{{}}}", stego_path.display()));
                         }
-                        todo!("Implement this");
                     } else {
                         error!("Missing ANVILCUST_RECIPES definition.");
                         return Err(format!("Missing anvil_recipe in {{{}}}", stego_path.display()));
