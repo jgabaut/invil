@@ -70,19 +70,6 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_vers
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
-                if let Some(custom_builder) = anvil_table.get(ANVILCUST_CUSTOM_BUILDER_KEYNAME) {
-                    let anvilcust_builder_str = custom_builder.as_str().expect("toml conversion failed");
-                    if has_reserved_char(anvilcust_builder_str) {
-                        //TODO: warning about the reserved chars?
-                        error!("anvil_custombuilder: --> {{{anvilcust_builder_str}}}");
-                        return Err("Invalid custombuilder arg".to_string());
-                    }
-                    debug!("anvil_custombuilder: {{{anvilcust_builder_str}}}");
-                    anvilcustom_env.custom_builder = anvilcust_builder_str.to_string();
-                } else {
-                    error!("Missing ANVILCUST_CUSTOM_BUILDER definition.");
-                    return Err(format!("Missing anvil_custombuilder in {{{}}}", stego_path.display()));
-                }
                 let mut skip_recipes_parse = false;
                 match semver_compare(anvil_version, MIN_AMBOSO_V_CUST_RECIPES) {
                     Ordering::Less => {
@@ -98,6 +85,20 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_vers
                     } else {
                         error!("Missing ANVILCUST_RECIPES definition.");
                         return Err(format!("Missing anvil_recipe in {{{}}}", stego_path.display()));
+                    }
+                } else {
+                    if let Some(custom_builder) = anvil_table.get(ANVILCUST_CUSTOM_BUILDER_KEYNAME) {
+                        let anvilcust_builder_str = custom_builder.as_str().expect("toml conversion failed");
+                        if has_reserved_char(anvilcust_builder_str) {
+                            //TODO: warning about the reserved chars?
+                            error!("anvil_custombuilder: --> {{{anvilcust_builder_str}}}");
+                            return Err("Invalid custombuilder arg".to_string());
+                        }
+                        debug!("anvil_custombuilder: {{{anvilcust_builder_str}}}");
+                        anvilcustom_env.custom_builder = anvilcust_builder_str.to_string();
+                    } else {
+                        error!("Missing ANVILCUST_CUSTOM_BUILDER definition.");
+                        return Err(format!("Missing anvil_custombuilder in {{{}}}", stego_path.display()));
                     }
                 }
             } else {
