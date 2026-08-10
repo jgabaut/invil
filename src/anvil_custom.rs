@@ -81,6 +81,20 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_vers
                 if !skip_recipes_parse {
                     if let Some(recipes) = anvil_table.get(ANVILCUST_RECIPES_KEYNAME) {
                         debug!("anvil_recipe: {{{recipes}}}");
+                        for (i, inner_v) in recipes.as_array().expect("Failed parsing array").iter().enumerate() {
+                            if inner_v.is_table() {
+                                let recipe_tab = inner_v.as_table().expect("Failed parsing table");
+                                for inner_k in recipe_tab.keys() {
+                                    if let Some(inner_v) = recipe_tab.get(inner_k) {
+                                        if inner_v.is_str() {
+                                            println!("Recipe: anvil_recipe[{}]_{}, Value: {}", i, inner_k, inner_v);
+                                        }
+                                    } else {
+                                        error!("Could not parse inner key {inner_k} for anvil_recipe[{}] table", i)
+                                    }
+                                }
+                            }
+                        }
                         todo!("Implement this");
                     } else {
                         error!("Missing ANVILCUST_RECIPES definition.");
