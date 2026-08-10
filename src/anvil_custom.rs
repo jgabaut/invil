@@ -13,19 +13,30 @@
  */
 use std::path::PathBuf;
 use std::time::Instant;
+use std::cmp::Ordering;
 use std::fs;
 use toml::Table;
 use regex::Regex;
+use crate::core::{SemVerKey, semver_compare, MIN_AMBOSO_V_CUST_RECIPES};
 
 pub const ANVILCUST_CUSTOM_BUILDER_KEYNAME: &str = "custombuilder";
+pub const ANVILCUST_RECIPES_KEYNAME: &str = "recipe";
+
+#[derive(Debug)]
+pub struct AnvilRecipe {
+    pub vers: SemVerKey,
+    pub conf: Option<String>,
+    pub build: String,
+}
 
 #[derive(Debug)]
 pub struct AnvilCustomEnv {
     /// Custom builder command string
     pub custom_builder: String,
+    pub recipes: Vec<AnvilRecipe>,
 }
 
-pub fn parse_anvilcustom_toml(stego_path: &PathBuf) -> Result<AnvilCustomEnv,String> {
+pub fn parse_anvilcustom_toml(stego_path: &PathBuf, anvil_version: &str) -> Result<AnvilCustomEnv,String> {
     let start_time = Instant::now();
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     //trace!("Pyproject contents: {{{}}}", pyproj);
@@ -34,7 +45,7 @@ pub fn parse_anvilcustom_toml(stego_path: &PathBuf) -> Result<AnvilCustomEnv,Str
         error!("Failed pop for {{{}}}", stego_dir.display());
         return Err(format!("Unexpected stego_dir value: {{{}}}", stego_dir.display()));
     }
-    return parse_anvilcustom_tomlvalue(&stego, stego_path, start_time);
+    return parse_anvilcustom_tomlvalue(&stego, stego_path, anvil_version, start_time);
 }
 
 fn has_reserved_char(input: &str) -> bool {
@@ -49,12 +60,13 @@ fn has_reserved_char(input: &str) -> bool {
     false
 }
 
-fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, start_time: Instant) -> Result<AnvilCustomEnv,String> {
+fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_version: &str, start_time: Instant) -> Result<AnvilCustomEnv,String> {
     let toml_value = stego_str.parse::<Table>();
     match toml_value {
         Ok(y) => {
             let mut anvilcustom_env: AnvilCustomEnv = AnvilCustomEnv {
                 custom_builder : "".to_string(),
+                recipes: Vec::new(),
             };
             trace!("Toml value: {{{}}}", y);
             if let Some(anvil_table) = y.get("anvil").and_then(|v| v.as_table()) {
@@ -70,6 +82,23 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, start_time
                 } else {
                     error!("Missing ANVILCUST_CUSTOM_BUILDER definition.");
                     return Err(format!("Missing anvil_custombuilder in {{{}}}", stego_path.display()));
+                }
+                let mut skip_recipes_parse = false;
+                match semver_compare(anvil_version, MIN_AMBOSO_V_CUST_RECIPES) {
+                    Ordering::Less => {
+                        warn!("Strict behaviour for v{}, skipping reading custom recipes from stego.lock", anvil_version);
+                        skip_recipes_parse = true;
+                    }
+                    Ordering::Equal | Ordering::Greater => {}
+                }
+                if !skip_recipes_parse {
+                    if let Some(recipes) = anvil_table.get(ANVILCUST_RECIPES_KEYNAME) {
+                        debug!("anvil_recipe: {{{recipes}}}");
+                        todo!("Implement this");
+                    } else {
+                        error!("Missing ANVILCUST_RECIPES definition.");
+                        return Err(format!("Missing anvil_recipe in {{{}}}", stego_path.display()));
+                    }
                 }
             } else {
                 error!("Missing anvil section.");

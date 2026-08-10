@@ -2368,7 +2368,7 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     debug!("Reading anvil_custombuilder at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
                     let mut stego_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
                     stego_path.push("stego.lock");
-                    let anvilcustom_env = parse_anvilcustom_toml(&stego_path);
+                    let anvilcustom_env = parse_anvilcustom_toml(&stego_path, &anvil_env.anvil_version);
                     match anvilcustom_env {
                         Ok(anvilcustom_env) => {
                             debug!("Done parse_anvilcustom_toml()");
