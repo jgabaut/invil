@@ -65,6 +65,7 @@ pub const MIN_AMBOSO_V_DENY_ANVILPY: &str = "2.0.5";
 pub const MIN_AMBOSO_V_CUSTKERN: &str = "2.1.0";
 pub const MIN_AMBOSO_V_DENY_ANVILCUST: &str = "2.0.9";
 pub const MIN_AMBOSO_V_CHECK_DETACHED: &str = "2.0.11";
+pub const MIN_AMBOSO_V_CUST_RECIPES: &str = "2.2.0";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 pub const ANVIL_DEFAULT_CONF_PATH: &str = ".anvil/anvil.toml";
 pub const RULELINE_MARK_CHAR: char = '\t';
@@ -1080,8 +1081,6 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_conf.anvil_version = anvil_v_str.to_string();
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
@@ -1093,12 +1092,23 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_conf.anvil_version = anvil_v_str.to_string();
+                        } else if anvil_v_str.starts_with("2.2") {
+                            trace!("Accepting preview version from stego.lock");
+                            match anvil_v_str {
+                                "2.2.0" => {
+                                    info!("Running as {{{}}}", anvil_v_str);
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
                         }
+                        trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                        anvil_conf.anvil_version = anvil_v_str.to_string();
                     } else {
                         error!("Invalid anvil_version: {{{}}}", anvil_v_str);
                         return Err("Invalid anvil_version".to_string());
@@ -1267,8 +1277,6 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_env.anvil_version = anvil_v_str.to_string();
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
@@ -1280,12 +1288,23 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_env.anvil_version = anvil_v_str.to_string();
+                        } else if anvil_v_str.starts_with("2.2") {
+                            trace!("Accepting preview version from stego.lock");
+                            match anvil_v_str {
+                                "2.2.0" => {
+                                    info!("Running as {{{}}}", anvil_v_str);
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
                         }
+                        trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                        anvil_env.anvil_version = anvil_v_str.to_string();
                     } else {
                         error!("Invalid anvil_version: {{{}}}", anvil_v_str);
                         return Err("Invalid anvil_version".to_string());
@@ -2117,6 +2136,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
             } else if x.starts_with("2.1") {
                 match x.as_str() {
                     "2.1.0" | "2.1.1" | "2.1.2" | "2.1.3" | "2.1.4" | "2.1.5" => {
+                        info!("Running as {}", x.as_str());
+                    }
+                    _ => {
+                        error!("Invalid anvil_version: {{{}}}", x);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                }
+                trace!("ANVIL_VERSION: {{{x}}}");
+            } else if x.starts_with("2.2") {
+                match x.as_str() {
+                    "2.2.0" => {
                         info!("Running as {}", x.as_str());
                     }
                     _ => {
