@@ -11,7 +11,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection, semver_compare, MIN_AMBOSO_V_PYKERN, MIN_AMBOSO_V_CHECK_DETACHED};
+use crate::core::{Args, AmbosoEnv, AmbosoMode, AmbosoLintMode, AnvilKern, INVIL_VERSION, INVIL_OS, EXPECTED_AMBOSO_API_LEVEL, parse_stego_toml, lex_stego_toml, SemVerKey, ANVIL_INTERPRETER_TAG_REGEX, RULE_REGEX, RULELINE_MARK_CHAR, RULEWARN_REGEX, cut_line_at_char, CutDirection, semver_compare, MIN_AMBOSO_V_PYKERN, MIN_AMBOSO_V_CHECK_DETACHED, MIN_AMBOSO_V_CUST_RECIPES};
 use crate::utils::try_parse_stego;
 
 use std::process::{Command, Stdio, exit};
@@ -28,7 +28,8 @@ use std::cmp::Ordering;
 
 #[cfg(feature = "anvilPy")]
 use crate::anvil_py::{ANVILPY_UNPACKDIR_NAME,unpack_srcdist, post_unpack};
-
+#[cfg(feature = "anvilCustom")]
+use crate::anvil_custom::find_anvilcustom_recipe;
 
 pub fn do_build(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
@@ -1659,10 +1660,10 @@ pub fn lex_makefile(file_path: impl AsRef<Path>, dbg_print: bool, skip_recap: bo
 
 fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_path: PathBuf, target_path: PathBuf, bin: String, head_was_detached: bool, do_postbuild: bool) -> Result<String,String> {
     let output;
-    let build_step_command;
+    let build_step_command: String;
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
-            build_step_command = "make";
+            build_step_command = "make".to_string();
         }
         AnvilKern::AnvilPy => {
             let mut use_python_build = true;
@@ -1676,16 +1677,31 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                 }
             }
             if use_python_build {
-                build_step_command = "python";
+                build_step_command = "python".to_string();
             } else {
-                build_step_command = "make";
+                build_step_command = "make".to_string();
             }
         }
         AnvilKern::Custom => {
             #[cfg(feature = "anvilCustom")] {
                 match &env.anvilcustom_env {
                     Some(cust_env) => {
-                        build_step_command = &cust_env.custom_builder;
+                        match semver_compare(&env.anvil_version, MIN_AMBOSO_V_CUST_RECIPES) {
+                            Ordering::Less => {
+                                build_step_command = cust_env.custom_builder.clone();
+                            },
+                            _ => {
+                                match find_anvilcustom_recipe(&cust_env, query) {
+                                    Some(recipe) => {
+                                        build_step_command = recipe.build.clone();
+                                    },
+                                    None => {
+                                        error!("Could not find recipe for {}", query);
+                                        return Err(format!("Missing recipe for {}", query));
+                                    }
+                                };
+                            }
+                        }
                     }
                     None => {
                         error!("Missing anvilcustom_env");
@@ -1696,7 +1712,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
             #[cfg(not(feature = "anvilCustom"))] {
                 // Handle AnvilCustom case when the feature is not enabled
                 error!("AnvilCustom kern feature is not enabled");
-                return Err("AnvilCustom kern feauture is not enabled".to_string());
+                return Err("AnvilCustom kern feature is not enabled".to_string());
             }
         }
     }
@@ -1704,7 +1720,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
     match env.anvil_kern {
         AnvilKern::AmbosoC => {
             if args.no_rebuild {
-                let mut cmd = Command::new(build_step_command);
+                let mut cmd = Command::new(&build_step_command);
                 for arg in &args.extra_args {
                     cmd.arg(arg);
                 }
@@ -1726,7 +1742,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         }
         AnvilKern::AnvilPy => {
             debug!("Running \'{build_step_command}\'");
-            output = Command::new(build_step_command)
+            output = Command::new(&build_step_command)
                 .arg("-m")  // Using -o bin_path would allow skipping the mv command
                 .arg("build")
                 .output()
@@ -1734,7 +1750,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
         }
         AnvilKern::Custom => {
             // "custom_builder" "target_d" "builds_dir" "bin_name" "q_tag" "stego_dir"
-            let mut cmd = Command::new(build_step_command);
+            let mut cmd = Command::new(&build_step_command);
 
             cmd.arg(target_path.clone())
             .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))

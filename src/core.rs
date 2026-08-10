@@ -2655,7 +2655,7 @@ fn is_semver(input: &str) -> bool {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemVerKey(pub String);
 
 impl Ord for SemVerKey {

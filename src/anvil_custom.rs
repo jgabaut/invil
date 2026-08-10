@@ -25,7 +25,7 @@ pub const ANVILCUST_RECIPE_CONF_KEYNAME: &str = "conf";
 pub const ANVILCUST_RECIPE_BUILD_KEYNAME: &str = "build";
 pub const ANVILCUST_RECIPE_VERS_KEYNAME: &str = "vers";
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AnvilRecipe {
     pub vers: SemVerKey,
     pub conf: Option<String>,
@@ -171,4 +171,14 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_vers
 
 pub fn sort_anvilcustom_env(env: &mut AnvilCustomEnv) {
     env.recipes.sort();
+}
+
+pub fn find_anvilcustom_recipe(env: &AnvilCustomEnv, query: &str) -> Option<AnvilRecipe> {
+    for recipe in &env.recipes {
+        match semver_compare(&recipe.vers.0, query) {
+            Ordering::Less => continue,
+            _ => return Some(recipe.clone()),
+        };
+    }
+    None
 }
