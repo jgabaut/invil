@@ -106,16 +106,18 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_vers
                                     };
                                     let recipe_tab = inner_v.as_table().expect("Failed parsing table");
                                     if let Some(conf) = recipe_tab.get(ANVILCUST_RECIPE_CONF_KEYNAME) {
-                                        recipe.conf = Some(conf.to_string());
+                                        let conf_str = conf.to_string();
+                                        recipe.conf = Some(conf_str.trim_matches('"').to_string());
                                     }
                                     if let Some(build) = recipe_tab.get(ANVILCUST_RECIPE_BUILD_KEYNAME) {
-                                        recipe.build = build.to_string();
+                                        let build_str = build.to_string();
+                                        recipe.build = build_str.trim_matches('"').to_string();
                                     } else {
                                         error!("Missing anvil_recipe[{}]_build", i);
                                         return Err(format!("Missing anvil_recipe[{}]_build definition", i));
                                     }
                                     if let Some(vers) = recipe_tab.get(ANVILCUST_RECIPE_VERS_KEYNAME) {
-                                        recipe.vers = SemVerKey(vers.to_string());
+                                        recipe.vers = SemVerKey(vers.to_string().trim_matches('"').to_string());
                                     } else {
                                         error!("Missing anvil_recipe[{}]_vers", i);
                                         return Err(format!("Missing anvil_recipe[{}]_vers definition", i));
