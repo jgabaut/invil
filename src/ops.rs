@@ -1752,11 +1752,67 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
             // "custom_builder" "target_d" "builds_dir" "bin_name" "q_tag" "stego_dir"
             let mut cmd = Command::new(&build_step_command);
 
-            cmd.arg(target_path.clone())
-            .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
-            .arg(bin.clone())
-            .arg(query)
-            .arg(env.stego_dir.clone().expect("failed initialising stego_dir"));
+            match semver_compare(&env.anvil_version, MIN_AMBOSO_V_CUST_RECIPES) {
+                Ordering::Less => {
+                    cmd.arg(target_path.clone())
+                    .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
+                    .arg(bin.clone())
+                    .arg(query)
+                    .arg(env.stego_dir.clone().expect("failed initialising stego_dir"));
+                },
+                _ => {
+                    match &env.anvilcustom_env {
+                        Some(cust_env) => {
+                            match find_anvilcustom_recipe(&cust_env, query) {
+                                Some(recipe) => {
+                                    if let Some(conf) = recipe.conf {
+                                        let mut conf_cmd = Command::new(&conf);
+                                        match &args.config {
+                                            Some(config_arg) => {
+                                                conf_cmd.args(config_arg.split_whitespace());
+                                            }
+                                            None => {}
+                                        }
+                                        let conf_output = conf_cmd.output().expect("failed to execute process");
+                                        match conf_output.status.code() {
+                                            Some(conf_ec) => {
+                                                if conf_ec == 0 {
+                                                    debug!("{{{}}} succeded with status: {}", conf, conf_ec.to_string());
+                                                } else {
+                                                    warn!("{{{}}} failed with status: {}", conf, conf_ec.to_string());
+                                                    io::stdout().write_all(&conf_output.stdout).unwrap();
+                                                    io::stderr().write_all(&conf_output.stderr).unwrap();
+                                                    return Err(format!("{{{conf}}} failed"));
+                                                }
+                                            }
+                                            None => {
+                                                error!("{{{}}} command failed", conf);
+                                                io::stdout().write_all(&conf_output.stdout).unwrap();
+                                                io::stderr().write_all(&conf_output.stderr).unwrap();
+                                                return Err(format!("{{{conf}}} command failed"));
+                                            }
+                                        }
+                                    } else {
+                                        cmd.arg(target_path.clone())
+                                        .arg(env.builds_dir.clone().expect("failed initialising builds_dir"))
+                                        .arg(bin.clone())
+                                        .arg(query)
+                                        .arg(env.stego_dir.clone().expect("failed initialising stego_dir"));
+                                    }
+                                },
+                                None => {
+                                    error!("Could not find recipe for {}", query);
+                                    return Err(format!("Missing recipe for {}", query));
+                                }
+                            };
+                        }
+                        None => {
+                            error!("Missing anvilcustom_env");
+                            return Err("Missing anvilcustom_env".to_string());
+                        }
+                    }
+                }
+            }
 
             for arg in &args.extra_args {
                 cmd.arg(arg);
