@@ -1769,7 +1769,12 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                                         let mut conf_cmd = Command::new(&conf);
                                         match &args.config {
                                             Some(config_arg) => {
-                                                conf_cmd.args(config_arg.split_whitespace());
+                                                if let Some(split_config_arg) = shlex::split(config_arg) {
+                                                    conf_cmd.args(split_config_arg);
+                                                } else {
+                                                    error!("Invalid shell syntax in {{{config_arg}}}");
+                                                    return Err(format!("Invalid shell syntax: {{{config_arg}}}"));
+                                                }
                                             }
                                             None => {}
                                         }

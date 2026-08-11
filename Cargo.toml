@@ -32,6 +32,7 @@ git2 = "0.21.0"
 is_executable = "1.0.6"
 log = "0.4.33"
 regex = "1.13.1"
+shlex = "2.0.1"
 tar = { version = "0.4.46", optional = true }
 toml = "1.1.4"
 tracing-subscriber = "0.3.23"
