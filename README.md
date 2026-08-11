@@ -23,7 +23,7 @@
   - Generate new projects supporting the build tool using `invil init <DIR>`
   - Generate a basic header+impl containing project info, such as time of current commit
 
-  It's (\*) on par with the original implementation, as of `amboso` `2.1.3`.
+  It's (\*) on par with the original implementation, as of `amboso` `2.2.0`.
   Check the [next section](#supported_amboso) for more support info.
   Check [this section](#extended_amboso) for info about extensions to `amboso 2.0.4`.
 
@@ -122,9 +122,23 @@
     - Example usage (make sure this is in your `stego.lock`):
       ```toml
       [ anvil ]
-      version = "2.1.0"
+      version = "2.2.0"
       kern = "custom"
-      custombuilder="./my_builder"
+      recipe = [
+          {
+              vers = "0.1.0",
+              build = "./build.sh"
+          },
+          {
+              vers = "0.9.0",
+              build = "make"
+          },
+          {
+              vers = "0.1.0",
+              conf = "./configure",
+              build = "make"
+          }
+      ]
       ```
 ## Extensions to amboso 2.0
 
