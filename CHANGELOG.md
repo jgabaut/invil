@@ -5,6 +5,7 @@
 ### Changed
 
 - Drop simplelog dep, using tracing_subscriber instead
+- Bump deps
 
 ## [0.2.31] - 2026-07-02
 
