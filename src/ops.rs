@@ -1824,8 +1824,15 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
             }
 
             debug!("Running \'{:?}\'", cmd);
-            output = cmd.output()
-                .expect("failed to execute process");
+            match cmd.output() {
+                Ok(out) => {
+                    output = out;
+                }
+                Err(e) => {
+                    error!("Could not run {{{:?}}}: {e}", cmd);
+                    return Err(format!("Error on running {{{:?}}}: {e}", cmd));
+                }
+            }
         }
     }
     match output.status.code() {
