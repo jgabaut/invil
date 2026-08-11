@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.34] - Unreleased
+
+### Added
+
+- Add support for anvil_recipe with custom kern
+
 ## [0.2.33] - 2026-08-24
 
 ### Changed
