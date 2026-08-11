@@ -174,6 +174,9 @@ pub fn sort_anvilcustom_env(env: &mut AnvilCustomEnv) {
 }
 
 pub fn find_anvilcustom_recipe(env: &AnvilCustomEnv, query: &str) -> Option<AnvilRecipe> {
+    if query.is_empty() {
+        return env.recipes.last().cloned();
+    }
     for recipe in &env.recipes {
         match semver_compare(&recipe.vers.0, query) {
             Ordering::Less => continue,
