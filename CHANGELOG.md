@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.32] - 2026-08-12
+
+### Changed
+
+- Drop simplelog dep, using tracing_subscriber instead
+- Bump deps
+- Bump expected amboso version to 2.1.4
+
 ## [0.2.31] - 2026-07-02
 
 ### Changed
