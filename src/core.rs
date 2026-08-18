@@ -2744,7 +2744,7 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
-    let allow_nonstr_values = false;
+    let allow_nonstr_values = true;
     match toml_value {
         Ok(y) => {
             trace!("Toml value: {{{}}}", y);
@@ -2761,6 +2761,18 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
                                     for (i, inner_v) in val.as_array().expect("Failed parsing array").iter().enumerate() {
                                         if inner_v.is_str() {
                                             println!("Arrvalue: {}_{}[{}], Value: {}", t.0, key, i, inner_v);
+                                        } else if inner_v.is_table() {
+                                            let tab = inner_v.as_table().expect("Failed parsing in-array table");
+                                            for inner_k in tab.keys() {
+                                                if let Some(inner_v) = tab.get(inner_k) {
+                                                    if inner_v.is_str() {
+                                                        println!("In-Arr Structvalue: {}_{}_{}[{}], Value: {}", t.0, key, i, inner_k, inner_v);
+                                                    }
+                                                } else {
+                                                    error!("Could not parse inner key {inner_k} for table {key}")
+                                                }
+
+                                            }
                                         }
                                     }
                                 } else if val.is_table() {
