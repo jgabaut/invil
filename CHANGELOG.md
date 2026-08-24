@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.33] - 2026-08-24
+
+### Changed
+
+- Bump expected amboso version to 2.1.5
+
 ## [0.2.32] - 2026-08-12
 
 ### Changed
