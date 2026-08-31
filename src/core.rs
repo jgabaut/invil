@@ -2767,6 +2767,12 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
                                                 if let Some(inner_v) = tab.get(inner_k) {
                                                     if inner_v.is_str() {
                                                         println!("In-Arr Structvalue: {}_{}_{}[{}], Value: {}", t.0, key, i, inner_k, inner_v);
+                                                    } else if inner_v.is_array() {
+                                                        for (j, inner_inner_v) in inner_v.as_array().expect("Failed parsing array").iter().enumerate() {
+                                                            if inner_inner_v.is_str() {
+                                                                println!("In-Arr Structvalue: {}_{}_{}[{}_{}], Value: {}", t.0, key, i, inner_k, j, inner_inner_v);
+                                                            }
+                                                        }
                                                     }
                                                 } else {
                                                     error!("Could not parse inner key {inner_k} for table {key}")
