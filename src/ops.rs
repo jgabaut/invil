@@ -1766,6 +1766,33 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                             match find_anvilcustom_recipe(&cust_env, query) {
                                 Some(recipe) => {
                                     if let Some(conf) = recipe.conf {
+                                        let conf_path = Path::new(&conf);
+                                        if !conf_path.exists() && recipe.prep.is_some() {
+                                            debug!("Running prep {}", recipe.prep.as_ref().unwrap());
+                                            let mut prep_cmd = Command::new(&recipe.prep.as_ref().unwrap());
+                                            let prep_output = prep_cmd.output().expect("failed to execute process");
+                                            match prep_output.status.code() {
+                                                Some(prep_ec) => {
+                                                    if prep_ec == 0 {
+                                                        debug!("{{{}}} succeded with status: {}", recipe.prep.unwrap(), prep_ec.to_string());
+                                                    } else {
+                                                        warn!("{{{}}} failed with status: {}", recipe.prep.as_ref().unwrap(), prep_ec.to_string());
+                                                        io::stdout().write_all(&prep_output.stdout).unwrap();
+                                                        io::stderr().write_all(&prep_output.stderr).unwrap();
+                                                        return Err(format!("{{{}}} failed", recipe.prep.unwrap()));
+                                                    }
+                                                },
+                                                None => {
+                                                    error!("{{{}}} command failed", recipe.prep.as_ref().unwrap());
+                                                    io::stdout().write_all(&prep_output.stdout).unwrap();
+                                                    io::stderr().write_all(&prep_output.stderr).unwrap();
+                                                    return Err(format!("{{{}}} command failed", recipe.prep.unwrap()));
+                                                }
+                                            }
+                                        } else if !conf_path.exists() {
+                                            error!("Custom configurer does not exist: {}", conf);
+                                            return Err(format!("Custom configurer does not exist: {}", conf));
+                                        }
                                         let mut conf_cmd = Command::new(&conf);
                                         match &args.config {
                                             Some(config_arg) => {

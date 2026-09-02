@@ -21,6 +21,7 @@ use crate::core::{SemVerKey, semver_compare, MIN_AMBOSO_V_CUST_RECIPES};
 
 pub const ANVILCUST_CUSTOM_BUILDER_KEYNAME: &str = "custombuilder";
 pub const ANVILCUST_RECIPES_KEYNAME: &str = "recipe";
+pub const ANVILCUST_RECIPE_PREP_KEYNAME: &str = "prep";
 pub const ANVILCUST_RECIPE_CONF_KEYNAME: &str = "conf";
 pub const ANVILCUST_RECIPE_BUILD_KEYNAME: &str = "build";
 pub const ANVILCUST_RECIPE_VERS_KEYNAME: &str = "vers";
@@ -28,6 +29,7 @@ pub const ANVILCUST_RECIPE_VERS_KEYNAME: &str = "vers";
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AnvilRecipe {
     pub vers: SemVerKey,
+    pub prep: Option<String>,
     pub conf: Option<String>,
     pub build: String,
 }
@@ -100,11 +102,16 @@ fn parse_anvilcustom_tomlvalue(stego_str: &str, stego_path: &PathBuf, anvil_vers
                             for (i, inner_v) in recipes.as_array().expect("Failed parsing array").iter().enumerate() {
                                 if inner_v.is_table() {
                                     let mut recipe = AnvilRecipe {
+                                        prep: None,
                                         conf: None,
                                         vers: SemVerKey("".to_string()),
                                         build: "".to_string(),
                                     };
                                     let recipe_tab = inner_v.as_table().expect("Failed parsing table");
+                                    if let Some(prep) = recipe_tab.get(ANVILCUST_RECIPE_PREP_KEYNAME) {
+                                        let prep_str = prep.to_string();
+                                        recipe.prep = Some(prep_str.trim_matches('"').to_string());
+                                    }
                                     if let Some(conf) = recipe_tab.get(ANVILCUST_RECIPE_CONF_KEYNAME) {
                                         let conf_str = conf.to_string();
                                         recipe.conf = Some(conf_str.trim_matches('"').to_string());
