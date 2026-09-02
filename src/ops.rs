@@ -1789,6 +1789,10 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                                                     return Err(format!("{{{}}} command failed", recipe.prep.unwrap()));
                                                 }
                                             }
+                                            if !conf_path.exists() {
+                                                error!("Failed prep for configurer: {{{}}}", conf_path.display());
+                                                return Err(format!("Failed prep for configurer: {{{}}}", conf_path.display()));
+                                            }
                                         } else if !conf_path.exists() {
                                             error!("Custom configurer does not exist: {}", conf);
                                             return Err(format!("Custom configurer does not exist: {}", conf));
