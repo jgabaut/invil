@@ -1765,7 +1765,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                         Some(cust_env) => {
                             match find_anvilcustom_recipe(&cust_env, query) {
                                 Some(recipe) => {
-                                    if let Some(conf) = recipe.conf {
+                                    if let Some(ref conf) = recipe.conf {
                                         let conf_path = Path::new(&conf);
                                         if !conf_path.exists() && recipe.prep.is_some() {
                                             debug!("Running prep {}", recipe.prep.as_ref().unwrap());
@@ -1774,7 +1774,7 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                                             match prep_output.status.code() {
                                                 Some(prep_ec) => {
                                                     if prep_ec == 0 {
-                                                        debug!("{{{}}} succeded with status: {}", recipe.prep.unwrap(), prep_ec.to_string());
+                                                        debug!("{{{}}} succeded with status: {}", recipe.prep.as_ref().unwrap(), prep_ec.to_string());
                                                     } else {
                                                         warn!("{{{}}} failed with status: {}", recipe.prep.as_ref().unwrap(), prep_ec.to_string());
                                                         io::stdout().write_all(&prep_output.stdout).unwrap();
@@ -1830,6 +1830,34 @@ fn build_step(args: &Args, env: &AmbosoEnv, cflg_str: String, query: &str, bin_p
                                         .arg(bin.clone())
                                         .arg(query)
                                         .arg(env.stego_dir.clone().expect("failed initialising stego_dir"));
+                                    }
+                                    let build_path = Path::new(&build_step_command);
+                                    if !build_path.exists() && recipe.prep.is_some() && recipe.conf.is_none() {
+                                        debug!("Running prep {}", recipe.prep.as_ref().unwrap());
+                                        let mut prep_cmd = Command::new(&recipe.prep.as_ref().unwrap());
+                                        let prep_output = prep_cmd.output().expect("failed to execute process");
+                                        match prep_output.status.code() {
+                                            Some(prep_ec) => {
+                                                if prep_ec == 0 {
+                                                    debug!("{{{}}} succeded with status: {}", recipe.prep.unwrap(), prep_ec.to_string());
+                                                } else {
+                                                    warn!("{{{}}} failed with status: {}", recipe.prep.as_ref().unwrap(), prep_ec.to_string());
+                                                    io::stdout().write_all(&prep_output.stdout).unwrap();
+                                                    io::stderr().write_all(&prep_output.stderr).unwrap();
+                                                    return Err(format!("{{{}}} failed", recipe.prep.unwrap()));
+                                                }
+                                            },
+                                            None => {
+                                                error!("{{{}}} command failed", recipe.prep.as_ref().unwrap());
+                                                io::stdout().write_all(&prep_output.stdout).unwrap();
+                                                io::stderr().write_all(&prep_output.stderr).unwrap();
+                                                return Err(format!("{{{}}} command failed", recipe.prep.unwrap()));
+                                            }
+                                        }
+                                        if !build_path.exists() {
+                                            error!("Failed prep for builder: {{{}}}", build_step_command);
+                                            return Err(format!("Failed prep for builder: {{{}}}", build_step_command));
+                                        }
                                     }
                                 },
                                 None => {
