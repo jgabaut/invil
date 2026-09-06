@@ -266,7 +266,7 @@ pub enum AmbosoLintMode {
     NajloQuiet,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AnvilKern {
     AmbosoC,
     AnvilPy,
@@ -403,6 +403,13 @@ pub enum Commands {
     },
     /// Tries building latest tag
     Build,
+    /// Generates C header + impl for supported project
+    GenC {
+        /// picks the directory for the generated files
+        dir: Option<PathBuf>,
+        /// picks the target version for the generated files
+        query: Option<String>
+    },
     /// Prepare a new anvil project
     Init {
         /// picks a specific kern
@@ -641,6 +648,31 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                     error!("do_query() failed in handle_amboso_env(). Err: {}", e);
                     exit(1);
                 }
+            }
+        }
+        Some(Commands::GenC { dir, query }) => {
+            if dir.is_some() {
+                if query.is_some() {
+                    if env.bin.is_some() {
+                        let res = gen_header(&dir.as_ref().unwrap(), env.anvil_kern, &query.as_ref().unwrap(), &env.bin.as_ref().unwrap());
+                        match res {
+                            Ok(_) => {
+                                info!("C header gen successful for {{{:?}}}.", query);
+                                exit(0);
+                            }
+                            Err(e) => {
+                                error!("C header gen failed for {{{:?}}}.\nError was:    {e}", query);
+                                exit(1);
+                            }
+                        }
+                    } else {
+                        todo!("Implement C gen bin error");
+                    }
+                } else {
+                    todo!("Implement C gen query error");
+                }
+            } else {
+                todo!("Implement C gen dir error");
             }
         }
         Some(Commands::Build) => {
