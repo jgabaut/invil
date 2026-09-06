@@ -121,6 +121,9 @@ pub fn print_subcommand_args(args: &Args) {
         Some(Commands::Build) => {
             debug!("Doing quick build command")
         }
+        Some(Commands::GenC { dir: _, query: _ }) => {
+            debug!("Doing C generation command")
+        }
         Some(Commands::Init { kern, init_dir, template_name }) => {
             if kern.is_some() {
                 debug!("Passed kern: {}", kern.as_ref().expect("Missing kern"));
