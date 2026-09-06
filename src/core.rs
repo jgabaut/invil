@@ -666,13 +666,16 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                             }
                         }
                     } else {
-                        todo!("Implement C gen bin error");
+                        error!("Missing bin name for C gen");
+                        exit(1);
                     }
                 } else {
-                    todo!("Implement C gen query error");
+                    error!("Missing tag query for C gen");
+                    exit(1);
                 }
             } else {
-                todo!("Implement C gen dir error");
+                error!("Missing dir name for C gen");
+                exit(1);
             }
         }
         Some(Commands::Build) => {
