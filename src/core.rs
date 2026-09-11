@@ -266,11 +266,17 @@ pub enum AmbosoLintMode {
     NajloQuiet,
 }
 
-#[derive(Copy, Clone, Debug, clap::Subcommand)]
+#[derive(Clone, Debug, clap::Subcommand)]
 pub enum StegoMode {
-    Parse,
-    Lex,
-    Lint,
+    Parse {
+        file: PathBuf
+    },
+    Lex {
+        file: PathBuf
+    },
+    Lint {
+        file: PathBuf
+    },
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -688,6 +694,9 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 error!("Missing dir name for C gen");
                 exit(1);
             }
+        }
+        Some(Commands::Stego { mode } ) => {
+            todo!("Implement stego subcommand: {{{:?}}}", mode);
         }
         Some(Commands::Build) => {
             match env.run_mode {
