@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
-use crate::ops::{do_build, do_run, do_delete, do_query, gen_header};
+use crate::ops::{do_build, do_run, do_delete, do_query, gen_header, handle_linter_flag};
 
 #[cfg(feature = "anvilPy")]
 use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
@@ -701,7 +701,16 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
             }
         }
         Some(Commands::Stego { mode } ) => {
-            todo!("Implement stego subcommand: {{{:?}}}", mode);
+            let (stego_path, lint_mode) = match mode {
+                StegoMode::Parse{ file } => (file.clone(), AmbosoLintMode::FullCheck),
+                StegoMode::Lex{ file } => (file.clone(), AmbosoLintMode::Lex),
+                StegoMode::Lint{ file } => (file.clone(), AmbosoLintMode::LintOnly),
+            };
+            if let Err(e) = handle_linter_flag(&stego_path, &lint_mode) {
+                error!("{e}");
+                exit(1);
+            }
+            exit(0);
         }
         Some(Commands::Build) => {
             match env.run_mode {
