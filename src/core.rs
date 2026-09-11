@@ -266,6 +266,13 @@ pub enum AmbosoLintMode {
     NajloQuiet,
 }
 
+#[derive(Copy, Clone, Debug, clap::Subcommand)]
+pub enum StegoMode {
+    Parse,
+    Lex,
+    Lint,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AnvilKern {
     AmbosoC,
@@ -409,6 +416,10 @@ pub enum Commands {
         dir: Option<PathBuf>,
         /// picks the target version for the generated files
         query: Option<String>
+    },
+    Stego {
+        #[command(subcommand)]
+        mode: StegoMode,
     },
     /// Prepare a new anvil project
     Init {

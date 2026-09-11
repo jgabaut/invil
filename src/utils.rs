@@ -124,6 +124,9 @@ pub fn print_subcommand_args(args: &Args) {
         Some(Commands::GenC { dir: _, query: _ }) => {
             debug!("Doing C generation command")
         }
+        Some(Commands::Stego { mode }) => {
+            debug!("Doing stegoparser: {{{:?}}}", mode)
+        }
         Some(Commands::Init { kern, init_dir, template_name }) => {
             if kern.is_some() {
                 debug!("Passed kern: {}", kern.as_ref().expect("Missing kern"));
