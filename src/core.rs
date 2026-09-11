@@ -268,12 +268,15 @@ pub enum AmbosoLintMode {
 
 #[derive(Clone, Debug, clap::Subcommand)]
 pub enum StegoMode {
+    /// Parse the stego file
     Parse {
         file: PathBuf
     },
+    /// Lex the stego file
     Lex {
         file: PathBuf
     },
+    /// Lint the stego file
     Lint {
         file: PathBuf
     },
@@ -423,7 +426,9 @@ pub enum Commands {
         /// picks the target version for the generated files
         query: Option<String>
     },
+    /// Parses a stego file
     Stego {
+        /// picks a specific mode
         #[command(subcommand)]
         mode: StegoMode,
     },
