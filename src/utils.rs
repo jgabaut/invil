@@ -127,6 +127,9 @@ pub fn print_subcommand_args(args: &Args) {
         Some(Commands::Stego { mode }) => {
             debug!("Doing stegoparser: {{{:?}}}", mode)
         }
+        Some(Commands::Delete { tag }) => {
+            debug!("Doing delete command: {{{tag}}}");
+        }
         Some(Commands::Init { kern, init_dir, template_name }) => {
             if kern.is_some() {
                 debug!("Passed kern: {}", kern.as_ref().expect("Missing kern"));
