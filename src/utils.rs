@@ -118,8 +118,20 @@ pub fn print_subcommand_args(args: &Args) {
                 debug!("Not printing testing lists...");
             }
         }
-        Some(Commands::Build) => {
-            debug!("Doing quick build command")
+        Some(Commands::Build { tag }) => {
+            debug!("Doing build command {{{:?}}}", tag)
+        }
+        Some(Commands::Cgen { dir: _, query: _ }) => {
+            debug!("Doing C generation command")
+        }
+        Some(Commands::Stego { mode }) => {
+            debug!("Doing stegoparser: {{{:?}}}", mode)
+        }
+        Some(Commands::Delete { tag }) => {
+            debug!("Doing delete command: {{{tag}}}");
+        }
+        Some(Commands::Purge) => {
+            debug!("Doing purge command");
         }
         Some(Commands::Init { kern, init_dir, template_name }) => {
             if kern.is_some() {

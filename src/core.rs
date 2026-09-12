@@ -16,13 +16,13 @@ use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
-use crate::ops::{do_build, do_run, do_delete, do_query, gen_header};
+use crate::ops::{do_build, do_run, do_delete, do_purge, do_query, gen_header, handle_linter_flag};
 
 #[cfg(feature = "anvilPy")]
 use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
 
 #[cfg(feature = "anvilCustom")]
-use crate::anvil_custom::{parse_anvilcustom_toml, AnvilCustomEnv};
+use crate::anvil_custom::{parse_anvilcustom_toml, AnvilCustomEnv, sort_anvilcustom_env};
 
 use crate::exit;
 use std::cmp::Ordering;
@@ -53,7 +53,7 @@ pub const ANVIL_BONEDIR_KEYNAME: &str = "testsdir";
 pub const ANVIL_KULPODIR_KEYNAME: &str = "errortestsdir";
 pub const ANVIL_VERSION_KEYNAME: &str = "version";
 pub const ANVIL_KERN_KEYNAME: &str = "kern";
-pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.1.5";
+pub const EXPECTED_AMBOSO_API_LEVEL: &str = "2.2.0";
 pub const MIN_AMBOSO_V_EXTENSIONS: &str = "2.0.1";
 pub const MIN_AMBOSO_V_STEGO_NOFORCE: &str = "2.0.3";
 pub const MIN_AMBOSO_V_STEGODIR: &str = "2.0.3";
@@ -65,6 +65,7 @@ pub const MIN_AMBOSO_V_DENY_ANVILPY: &str = "2.0.5";
 pub const MIN_AMBOSO_V_CUSTKERN: &str = "2.1.0";
 pub const MIN_AMBOSO_V_DENY_ANVILCUST: &str = "2.0.9";
 pub const MIN_AMBOSO_V_CHECK_DETACHED: &str = "2.0.11";
+pub const MIN_AMBOSO_V_CUST_RECIPES: &str = "2.2.0";
 pub const ANVIL_INTERPRETER_TAG_REGEX: &str = "stego.lock$";
 pub const ANVIL_DEFAULT_CONF_PATH: &str = ".anvil/anvil.toml";
 pub const RULELINE_MARK_CHAR: char = '\t';
@@ -265,7 +266,23 @@ pub enum AmbosoLintMode {
     NajloQuiet,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, clap::Subcommand)]
+pub enum StegoMode {
+    /// Parse the stego file
+    Parse {
+        file: PathBuf
+    },
+    /// Lex the stego file
+    Lex {
+        file: PathBuf
+    },
+    /// Lint the stego file
+    Lint {
+        file: PathBuf
+    },
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum AnvilKern {
     AmbosoC,
     AnvilPy,
@@ -400,8 +417,30 @@ pub enum Commands {
         build: bool,
         query: Option<String>
     },
-    /// Tries building latest tag
-    Build,
+    /// Tries building provided or latest tag
+    Build {
+        tag: Option<String>
+    },
+    /// Generates C header + impl for supported project
+    Cgen {
+        /// picks the directory for the generated files
+        dir: Option<PathBuf>,
+        /// picks the target version for the generated files
+        query: Option<String>
+    },
+    /// Parses a stego file
+    Stego {
+        /// picks a specific mode
+        #[command(subcommand)]
+        mode: StegoMode,
+    },
+    /// Deletes binary for a built tag
+    Delete {
+        /// picks the tag for the binary to delete
+        tag: String
+    },
+    /// Deletes all binaries for built tags
+    Purge,
     /// Prepare a new anvil project
     Init {
         /// picks a specific kern
@@ -538,46 +577,11 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
             }
             if env.do_purge {
-                match runmode {
-                    AmbosoMode::GitMode => {
-                        debug!("Doing purge for git mode");
-                        let mut args_copy = args.clone();
-                        for tag in env.gitmode_versions_table.keys() {
-                            args_copy.tag = Some(tag.to_string());
-                            let delete_res = do_delete(env,&args_copy);
-                            match delete_res {
-                                Ok(s) => {
-                                    trace!("{}", s);
-                                }
-                                Err(e) => {
-                                    warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
-                                }
-                            }
-                        }
-                    }
-                    AmbosoMode::BaseMode => {
-                        debug!("Doing purge for base mode");
-                        let mut args_copy = args.clone();
-                        for tag in env.basemode_versions_table.keys() {
-                            args_copy.tag = Some(tag.to_string());
-                            let delete_res = do_delete(env,&args_copy);
-                            match delete_res {
-                                Ok(s) => {
-                                    trace!("{}", s);
-                                }
-                                Err(e) => {
-                                    warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
-                                }
-                            }
-                        }
-                    }
-                    AmbosoMode::TestMode => {
-                        todo!("Purge op for test mode");
-                    }
-                    AmbosoMode::TestMacro => {
-                        todo!("Purge op for test macro mode");
-                    }
+                if let Err(e) = do_purge(env, args) {
+                    error!("{e}");
+                    exit(1);
                 }
+                exit(0);
             }
 
             /*
@@ -642,65 +646,140 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 }
             }
         }
-        Some(Commands::Build) => {
-            match env.run_mode {
-                Some(AmbosoMode::GitMode) => {
-                    let latest_tag = env.gitmode_versions_table.last_key_value(); //.max_by(|a, b| semver_compare(a.unwrap(), b));
-                    match latest_tag {
-                        Some(lt) => {
-                            info!("Latest tag: {}", lt.0);
-                            args.tag = Some(lt.0.to_string());
-                            let build_res = do_build(env, args);
-                            match build_res {
-                                Ok(s) => {
-                                    info!("Done quick build command. Res: {s}");
-                                    exit(0);
-                                }
-                                Err(e) => {
-                                    error!("Failed quick build command. Err: {e}");
-                                    exit(1);
-                                }
+        Some(Commands::Cgen { dir, query }) => {
+            if dir.is_some() {
+                if query.is_some() {
+                    if env.bin.is_some() {
+                        let res = gen_header(&dir.as_ref().unwrap(), env.anvil_kern, &query.as_ref().unwrap(), &env.bin.as_ref().unwrap());
+                        match res {
+                            Ok(_) => {
+                                info!("C header gen successful for {{{:?}}}.", query);
+                                exit(0);
+                            }
+                            Err(e) => {
+                                error!("C header gen failed for {{{:?}}}.\nError was:    {e}", query);
+                                exit(1);
                             }
                         }
-                        None => {
-                            error!("Could not find latest tag");
-                            exit(1);
+                    } else {
+                        error!("Missing bin name for C gen");
+                        exit(1);
+                    }
+                } else {
+                    error!("Missing tag query for C gen");
+                    exit(1);
+                }
+            } else {
+                error!("Missing dir name for C gen");
+                exit(1);
+            }
+        }
+        Some(Commands::Stego { mode } ) => {
+            let (stego_path, lint_mode) = match mode {
+                StegoMode::Parse{ file } => (file.clone(), AmbosoLintMode::FullCheck),
+                StegoMode::Lex{ file } => (file.clone(), AmbosoLintMode::Lex),
+                StegoMode::Lint{ file } => (file.clone(), AmbosoLintMode::LintOnly),
+            };
+            if let Err(e) = handle_linter_flag(&stego_path, &lint_mode) {
+                error!("{e}");
+                exit(1);
+            }
+            exit(0);
+        }
+        Some(Commands::Delete { tag } ) => {
+            args.tag = Some(tag.to_string());
+            if let Err(e) = do_delete(&env, &args) {
+                error!("Failed delete subcommand for {{{tag}}}: {e}");
+                exit(1);
+            } else {
+                info!("Success deleting {{{tag}}}");
+                exit(0);
+            }
+        }
+        Some(Commands::Purge) => {
+            if let Err(e) = do_purge(&env, &args) {
+                error!("Failed purge subcommand: {e}");
+                exit(1);
+            } else {
+                info!("Success purging");
+                exit(0);
+            }
+        }
+        Some(Commands::Build { tag }) => {
+            if let Some(t) = tag {
+                match env.run_mode {
+                    Some(AmbosoMode::GitMode) => {
+                        if env.gitmode_versions_table.contains_key(&SemVerKey(t.to_string())) {
+                        } else {
                         }
                     }
+                    Some(AmbosoMode::BaseMode) => {
+                        if env.basemode_versions_table.contains_key(&SemVerKey(t.to_string())) {
+                        } else {
+                        }
+                    }
+                    _ => {}
                 }
-                Some(AmbosoMode::BaseMode) => {
-                    let latest_tag = env.basemode_versions_table.last_key_value(); //keys().max_by(|a, b| semver_compare(a, b));
-                    match latest_tag {
-                        Some(lt) => {
-                            info!("Latest tag: {}", lt.0);
-                            args.tag = Some(lt.0.to_string());
-                            let build_res = do_build(env, args);
-                            match build_res {
-                                Ok(s) => {
-                                    info!("Done quick build command. Res: {s}");
-                                    exit(0);
-                                }
-                                Err(e) => {
-                                    error!("Failed quick build command. Err: {e}");
-                                    exit(1);
+            } else {
+                match env.run_mode {
+                    Some(AmbosoMode::GitMode) => {
+                        let latest_tag = env.gitmode_versions_table.last_key_value(); //.max_by(|a, b| semver_compare(a.unwrap(), b));
+                        match latest_tag {
+                            Some(lt) => {
+                                info!("Latest tag: {}", lt.0);
+                                args.tag = Some(lt.0.to_string());
+                                let build_res = do_build(env, args);
+                                match build_res {
+                                    Ok(s) => {
+                                        info!("Done quick build command. Res: {s}");
+                                        exit(0);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed quick build command. Err: {e}");
+                                        exit(1);
+                                    }
                                 }
                             }
-                        }
-                        None => {
-                            error!("Could not find latest tag");
-                            exit(1);
+                            None => {
+                                error!("Could not find latest tag");
+                                exit(1);
+                            }
                         }
                     }
-                }
-                Some(AmbosoMode::TestMode) => {
-                    todo!("Build command for test mode")
-                }
-                Some(AmbosoMode::TestMacro) => {
-                    todo!("Build command for test macro")
-                }
-                None => {
-                    error!("Missing runmode for build command");
-                    exit(0);
+                    Some(AmbosoMode::BaseMode) => {
+                        let latest_tag = env.basemode_versions_table.last_key_value(); //keys().max_by(|a, b| semver_compare(a, b));
+                        match latest_tag {
+                            Some(lt) => {
+                                info!("Latest tag: {}", lt.0);
+                                args.tag = Some(lt.0.to_string());
+                                let build_res = do_build(env, args);
+                                match build_res {
+                                    Ok(s) => {
+                                        info!("Done quick build command. Res: {s}");
+                                        exit(0);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed quick build command. Err: {e}");
+                                        exit(1);
+                                    }
+                                }
+                            }
+                            None => {
+                                error!("Could not find latest tag");
+                                exit(1);
+                            }
+                        }
+                    }
+                    Some(AmbosoMode::TestMode) => {
+                        todo!("Build command for test mode")
+                    }
+                    Some(AmbosoMode::TestMacro) => {
+                        todo!("Build command for test macro")
+                    }
+                    None => {
+                        error!("Missing runmode for build command");
+                        exit(0);
+                    }
                 }
             }
         }
@@ -1080,8 +1159,6 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_conf.anvil_version = anvil_v_str.to_string();
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
@@ -1093,12 +1170,23 @@ fn parse_invil_tomlvalue(invil_str: &str, start_time: Instant) -> Result<AmbosoC
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_conf.anvil_version = anvil_v_str.to_string();
+                        } else if anvil_v_str.starts_with("2.2") {
+                            trace!("Accepting preview version from stego.lock");
+                            match anvil_v_str {
+                                "2.2.0" => {
+                                    info!("Running as {{{}}}", anvil_v_str);
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
                         }
+                        trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                        anvil_conf.anvil_version = anvil_v_str.to_string();
                     } else {
                         error!("Invalid anvil_version: {{{}}}", anvil_v_str);
                         return Err("Invalid anvil_version".to_string());
@@ -1267,8 +1355,6 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_env.anvil_version = anvil_v_str.to_string();
                         } else if anvil_v_str.starts_with("2.1") {
                             trace!("Accepting preview version from stego.lock");
                             match anvil_v_str {
@@ -1280,12 +1366,23 @@ fn parse_stego_tomlvalue(stego_str: &str, amboso_dir_path: &Path, stego_dir: Pat
                                     return Err("Invalid anvil_version".to_string());
                                 }
                             }
-                            trace!("ANVIL_VERSION: {{{anvil_version}}}");
-                            anvil_env.anvil_version = anvil_v_str.to_string();
+                        } else if anvil_v_str.starts_with("2.2") {
+                            trace!("Accepting preview version from stego.lock");
+                            match anvil_v_str {
+                                "2.2.0" => {
+                                    info!("Running as {{{}}}", anvil_v_str);
+                                }
+                                _ => {
+                                    error!("Invalid anvil_version: {{{anvil_version}}}");
+                                    return Err("Invalid anvil_version".to_string());
+                                }
+                            }
                         } else {
                             error!("Invalid anvil_version: {{{anvil_version}}}");
                             return Err("Invalid anvil_version".to_string());
                         }
+                        trace!("ANVIL_VERSION: {{{anvil_version}}}");
+                        anvil_env.anvil_version = anvil_v_str.to_string();
                     } else {
                         error!("Invalid anvil_version: {{{}}}", anvil_v_str);
                         return Err("Invalid anvil_version".to_string());
@@ -2125,6 +2222,17 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     }
                 }
                 trace!("ANVIL_VERSION: {{{x}}}");
+            } else if x.starts_with("2.2") {
+                match x.as_str() {
+                    "2.2.0" => {
+                        info!("Running as {}", x.as_str());
+                    }
+                    _ => {
+                        error!("Invalid anvil_version: {{{}}}", x);
+                        return Err("Invalid anvil_version".to_string());
+                    }
+                }
+                trace!("ANVIL_VERSION: {{{x}}}");
             } else {
                 match semver_compare(x, MIN_AMBOSO_V_LEGACYPARSE) {
                     Ordering::Less => {
@@ -2338,11 +2446,13 @@ pub fn check_passed_args(args: &mut Args) -> Result<AmbosoEnv,String> {
                     debug!("Reading anvil_custombuilder at {{{}}}", anvil_env.stego_dir.clone().expect("Failed initialising stego_dir").display());
                     let mut stego_path = anvil_env.stego_dir.clone().expect("Failed initialising stego_dir");
                     stego_path.push("stego.lock");
-                    let anvilcustom_env = parse_anvilcustom_toml(&stego_path);
+                    let anvilcustom_env = parse_anvilcustom_toml(&stego_path, &anvil_env.anvil_version);
                     match anvilcustom_env {
-                        Ok(anvilcustom_env) => {
+                        Ok(mut anvilcustom_env) => {
                             debug!("Done parse_anvilcustom_toml()");
                             debug!("{:?}", anvilcustom_env);
+                            sort_anvilcustom_env(&mut anvilcustom_env);
+                            debug!("Sorted: {:?}", anvilcustom_env);
                             anvil_env.anvilcustom_env = Some(anvilcustom_env);
                         }
                         Err(e) => {
@@ -2623,7 +2733,7 @@ fn is_semver(input: &str) -> bool {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemVerKey(pub String);
 
 impl Ord for SemVerKey {
@@ -2712,7 +2822,7 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
     let stego = fs::read_to_string(stego_path).expect("Could not read {stego_path} contents");
     trace!("Stego contents: {{{}}}", stego);
     let toml_value = stego.parse::<Table>();
-    let allow_nonstr_values = false;
+    let allow_nonstr_values = true;
     match toml_value {
         Ok(y) => {
             trace!("Toml value: {{{}}}", y);
@@ -2729,6 +2839,24 @@ pub fn lex_stego_toml(stego_path: &PathBuf) -> Result<String,String> {
                                     for (i, inner_v) in val.as_array().expect("Failed parsing array").iter().enumerate() {
                                         if inner_v.is_str() {
                                             println!("Arrvalue: {}_{}[{}], Value: {}", t.0, key, i, inner_v);
+                                        } else if inner_v.is_table() {
+                                            let tab = inner_v.as_table().expect("Failed parsing in-array table");
+                                            for inner_k in tab.keys() {
+                                                if let Some(inner_v) = tab.get(inner_k) {
+                                                    if inner_v.is_str() {
+                                                        println!("In-Arr Structvalue: {}_{}_{}[{}], Value: {}", t.0, key, i, inner_k, inner_v);
+                                                    } else if inner_v.is_array() {
+                                                        for (j, inner_inner_v) in inner_v.as_array().expect("Failed parsing array").iter().enumerate() {
+                                                            if inner_inner_v.is_str() {
+                                                                println!("In-Arr Structvalue: {}_{}_{}[{}_{}], Value: {}", t.0, key, i, inner_k, j, inner_inner_v);
+                                                            }
+                                                        }
+                                                    }
+                                                } else {
+                                                    error!("Could not parse inner key {inner_k} for table {key}")
+                                                }
+
+                                            }
                                         }
                                     }
                                 } else if val.is_table() {

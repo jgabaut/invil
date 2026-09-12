@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.34] - Unreleased
+
+### Added
+
+- Add support for anvil_recipe with custom kern
+- Add support for stego, cgen, delete, purge subcommands
+
+### Changed
+
+- Collect purge op into op_purge()
+
 ## [0.2.33] - 2026-08-24
 
 ### Changed
