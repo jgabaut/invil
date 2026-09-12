@@ -420,7 +420,7 @@ pub enum Commands {
     /// Tries building latest tag
     Build,
     /// Generates C header + impl for supported project
-    GenC {
+    Cgen {
         /// picks the directory for the generated files
         dir: Option<PathBuf>,
         /// picks the target version for the generated files
@@ -672,7 +672,7 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 }
             }
         }
-        Some(Commands::GenC { dir, query }) => {
+        Some(Commands::Cgen { dir, query }) => {
             if dir.is_some() {
                 if query.is_some() {
                     if env.bin.is_some() {

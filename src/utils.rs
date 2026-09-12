@@ -121,7 +121,7 @@ pub fn print_subcommand_args(args: &Args) {
         Some(Commands::Build) => {
             debug!("Doing quick build command")
         }
-        Some(Commands::GenC { dir: _, query: _ }) => {
+        Some(Commands::Cgen { dir: _, query: _ }) => {
             debug!("Doing C generation command")
         }
         Some(Commands::Stego { mode }) => {
