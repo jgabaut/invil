@@ -432,6 +432,11 @@ pub enum Commands {
         #[command(subcommand)]
         mode: StegoMode,
     },
+    /// Deletes binary for a built tag
+    Delete {
+        /// picks the tag for the binary to delete
+        tag: String
+    },
     /// Prepare a new anvil project
     Init {
         /// picks a specific kern
@@ -711,6 +716,16 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 exit(1);
             }
             exit(0);
+        }
+        Some(Commands::Delete { tag } ) => {
+            args.tag = Some(tag.to_string());
+            if let Err(e) = do_delete(&env, &args) {
+                error!("Failed delete subcommand for {{{tag}}}: {e}");
+                exit(1);
+            } else {
+                info!("Success deleting {{{tag}}}");
+                exit(0);
+            }
         }
         Some(Commands::Build) => {
             match env.run_mode {
