@@ -620,6 +620,71 @@ pub fn do_delete(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     }
 }
 
+pub fn do_purge(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
+    match env.run_mode {
+        Some(ref runmode) => {
+            match runmode {
+                AmbosoMode::GitMode => {
+                    debug!("Doing purge for git mode");
+                    let mut args_copy = args.clone();
+                    let mut res = 0;
+                    for tag in env.gitmode_versions_table.keys() {
+                        args_copy.tag = Some(tag.to_string());
+                        let delete_res = do_delete(env,&args_copy);
+                        match delete_res {
+                            Ok(s) => {
+                                trace!("{}", s);
+                            }
+                            Err(e) => {
+                                warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
+                                res += 1;
+                            }
+                        }
+                    }
+                    if res == 0 {
+                        Ok("Purge success".to_string())
+                    } else {
+                        Err(format!("Purge error: {res} failures"))
+                    }
+                }
+                AmbosoMode::BaseMode => {
+                    debug!("Doing purge for base mode");
+                    let mut args_copy = args.clone();
+                    let mut res = 0;
+                    for tag in env.basemode_versions_table.keys() {
+                        args_copy.tag = Some(tag.to_string());
+                        let delete_res = do_delete(env,&args_copy);
+                        match delete_res {
+                            Ok(s) => {
+                                trace!("{}", s);
+                            }
+                            Err(e) => {
+                                warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
+                                res += 1;
+                            }
+                        }
+                    }
+                    if res == 0 {
+                        Ok("Purge success".to_string())
+                    } else {
+                        Err(format!("Purge error: {res} failures"))
+                    }
+                }
+                AmbosoMode::TestMode => {
+                    todo!("Purge op for test mode");
+                }
+                AmbosoMode::TestMacro => {
+                    todo!("Purge op for test macro mode");
+                }
+            }
+        }
+        None => {
+            error!("Invalid: None env.run_mode");
+            Err("Invalid None env.run_mode".to_string())
+        }
+    }
+}
+
 pub fn do_query(env: &AmbosoEnv, args: &Args) -> Result<String,String> {
     match args.tag {
         Some(ref q) => {

@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::time::Instant;
 use std::env;
-use crate::ops::{do_build, do_run, do_delete, do_query, gen_header, handle_linter_flag};
+use crate::ops::{do_build, do_run, do_delete, do_purge, do_query, gen_header, handle_linter_flag};
 
 #[cfg(feature = "anvilPy")]
 use crate::anvil_py::{parse_pyproject_toml, AnvilPyEnv};
@@ -437,6 +437,8 @@ pub enum Commands {
         /// picks the tag for the binary to delete
         tag: String
     },
+    /// Deletes all binaries for a built tags
+    Purge,
     /// Prepare a new anvil project
     Init {
         /// picks a specific kern
@@ -573,46 +575,11 @@ pub fn handle_amboso_env(env: &mut AmbosoEnv, args: &mut Args) {
                 }
             }
             if env.do_purge {
-                match runmode {
-                    AmbosoMode::GitMode => {
-                        debug!("Doing purge for git mode");
-                        let mut args_copy = args.clone();
-                        for tag in env.gitmode_versions_table.keys() {
-                            args_copy.tag = Some(tag.to_string());
-                            let delete_res = do_delete(env,&args_copy);
-                            match delete_res {
-                                Ok(s) => {
-                                    trace!("{}", s);
-                                }
-                                Err(e) => {
-                                    warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
-                                }
-                            }
-                        }
-                    }
-                    AmbosoMode::BaseMode => {
-                        debug!("Doing purge for base mode");
-                        let mut args_copy = args.clone();
-                        for tag in env.basemode_versions_table.keys() {
-                            args_copy.tag = Some(tag.to_string());
-                            let delete_res = do_delete(env,&args_copy);
-                            match delete_res {
-                                Ok(s) => {
-                                    trace!("{}", s);
-                                }
-                                Err(e) => {
-                                    warn!("do_purge(): Delete failed for tag {{{}}}. Err: {}", tag, e);
-                                }
-                            }
-                        }
-                    }
-                    AmbosoMode::TestMode => {
-                        todo!("Purge op for test mode");
-                    }
-                    AmbosoMode::TestMacro => {
-                        todo!("Purge op for test macro mode");
-                    }
+                if let Err(e) = do_purge(env, args) {
+                    error!("{e}");
+                    exit(1);
                 }
+                exit(0);
             }
 
             /*
@@ -724,6 +691,15 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 exit(1);
             } else {
                 info!("Success deleting {{{tag}}}");
+                exit(0);
+            }
+        }
+        Some(Commands::Purge) => {
+            if let Err(e) = do_purge(&env, &args) {
+                error!("Failed purge subcommand: {e}");
+                exit(1);
+            } else {
+                info!("Success purging");
                 exit(0);
             }
         }
