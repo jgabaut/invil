@@ -437,7 +437,7 @@ pub enum Commands {
         /// picks the tag for the binary to delete
         tag: String
     },
-    /// Deletes all binaries for a built tags
+    /// Deletes all binaries for built tags
     Purge,
     /// Prepare a new anvil project
     Init {
