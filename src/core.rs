@@ -417,8 +417,10 @@ pub enum Commands {
         build: bool,
         query: Option<String>
     },
-    /// Tries building latest tag
-    Build,
+    /// Tries building provided or latest tag
+    Build {
+        tag: Option<String>
+    },
     /// Generates C header + impl for supported project
     Cgen {
         /// picks the directory for the generated files
@@ -703,65 +705,81 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 exit(0);
             }
         }
-        Some(Commands::Build) => {
-            match env.run_mode {
-                Some(AmbosoMode::GitMode) => {
-                    let latest_tag = env.gitmode_versions_table.last_key_value(); //.max_by(|a, b| semver_compare(a.unwrap(), b));
-                    match latest_tag {
-                        Some(lt) => {
-                            info!("Latest tag: {}", lt.0);
-                            args.tag = Some(lt.0.to_string());
-                            let build_res = do_build(env, args);
-                            match build_res {
-                                Ok(s) => {
-                                    info!("Done quick build command. Res: {s}");
-                                    exit(0);
-                                }
-                                Err(e) => {
-                                    error!("Failed quick build command. Err: {e}");
-                                    exit(1);
-                                }
-                            }
-                        }
-                        None => {
-                            error!("Could not find latest tag");
-                            exit(1);
+        Some(Commands::Build { tag }) => {
+            if let Some(t) = tag {
+                match env.run_mode {
+                    Some(AmbosoMode::GitMode) => {
+                        if env.gitmode_versions_table.contains_key(&SemVerKey(t.to_string())) {
+                        } else {
                         }
                     }
-                }
-                Some(AmbosoMode::BaseMode) => {
-                    let latest_tag = env.basemode_versions_table.last_key_value(); //keys().max_by(|a, b| semver_compare(a, b));
-                    match latest_tag {
-                        Some(lt) => {
-                            info!("Latest tag: {}", lt.0);
-                            args.tag = Some(lt.0.to_string());
-                            let build_res = do_build(env, args);
-                            match build_res {
-                                Ok(s) => {
-                                    info!("Done quick build command. Res: {s}");
-                                    exit(0);
-                                }
-                                Err(e) => {
-                                    error!("Failed quick build command. Err: {e}");
-                                    exit(1);
-                                }
-                            }
-                        }
-                        None => {
-                            error!("Could not find latest tag");
-                            exit(1);
+                    Some(AmbosoMode::BaseMode) => {
+                        if env.basemode_versions_table.contains_key(&SemVerKey(t.to_string())) {
+                        } else {
                         }
                     }
+                    _ => {}
                 }
-                Some(AmbosoMode::TestMode) => {
-                    todo!("Build command for test mode")
-                }
-                Some(AmbosoMode::TestMacro) => {
-                    todo!("Build command for test macro")
-                }
-                None => {
-                    error!("Missing runmode for build command");
-                    exit(0);
+            } else {
+                match env.run_mode {
+                    Some(AmbosoMode::GitMode) => {
+                        let latest_tag = env.gitmode_versions_table.last_key_value(); //.max_by(|a, b| semver_compare(a.unwrap(), b));
+                        match latest_tag {
+                            Some(lt) => {
+                                info!("Latest tag: {}", lt.0);
+                                args.tag = Some(lt.0.to_string());
+                                let build_res = do_build(env, args);
+                                match build_res {
+                                    Ok(s) => {
+                                        info!("Done quick build command. Res: {s}");
+                                        exit(0);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed quick build command. Err: {e}");
+                                        exit(1);
+                                    }
+                                }
+                            }
+                            None => {
+                                error!("Could not find latest tag");
+                                exit(1);
+                            }
+                        }
+                    }
+                    Some(AmbosoMode::BaseMode) => {
+                        let latest_tag = env.basemode_versions_table.last_key_value(); //keys().max_by(|a, b| semver_compare(a, b));
+                        match latest_tag {
+                            Some(lt) => {
+                                info!("Latest tag: {}", lt.0);
+                                args.tag = Some(lt.0.to_string());
+                                let build_res = do_build(env, args);
+                                match build_res {
+                                    Ok(s) => {
+                                        info!("Done quick build command. Res: {s}");
+                                        exit(0);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed quick build command. Err: {e}");
+                                        exit(1);
+                                    }
+                                }
+                            }
+                            None => {
+                                error!("Could not find latest tag");
+                                exit(1);
+                            }
+                        }
+                    }
+                    Some(AmbosoMode::TestMode) => {
+                        todo!("Build command for test mode")
+                    }
+                    Some(AmbosoMode::TestMacro) => {
+                        todo!("Build command for test macro")
+                    }
+                    None => {
+                        error!("Missing runmode for build command");
+                        exit(0);
+                    }
                 }
             }
         }

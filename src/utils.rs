@@ -118,8 +118,8 @@ pub fn print_subcommand_args(args: &Args) {
                 debug!("Not printing testing lists...");
             }
         }
-        Some(Commands::Build) => {
-            debug!("Doing quick build command")
+        Some(Commands::Build { tag }) => {
+            debug!("Doing build command {{{:?}}}", tag)
         }
         Some(Commands::Cgen { dir: _, query: _ }) => {
             debug!("Doing C generation command")
