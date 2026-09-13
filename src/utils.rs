@@ -121,6 +121,9 @@ pub fn print_subcommand_args(args: &Args) {
         Some(Commands::Build { tag }) => {
             debug!("Doing build command {{{:?}}}", tag)
         }
+        Some(Commands::Run { tag }) => {
+            debug!("Doing run command {{{}}}", tag)
+        }
         Some(Commands::Cgen { dir: _, query: _ }) => {
             debug!("Doing C generation command")
         }
