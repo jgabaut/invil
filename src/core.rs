@@ -421,6 +421,10 @@ pub enum Commands {
     Build {
         tag: Option<String>
     },
+    /// Runs binary for a build tag
+    Run {
+        tag: String
+    },
     /// Generates C header + impl for supported project
     Cgen {
         /// picks the directory for the generated files
@@ -705,8 +709,51 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 exit(0);
             }
         }
+        Some(Commands::Run { tag }) => {
+            args.tag = Some(tag.to_string());
+            match env.run_mode {
+                Some(AmbosoMode::GitMode) => {
+                    if env.gitmode_versions_table.contains_key(&SemVerKey(tag.to_string())) {
+                        let res = do_run(env, args);
+                        match res {
+                            Ok(s) => {
+                                info!("Done quick run command. Res: {s}");
+                                exit(0);
+                            }
+                            Err(e) => {
+                                error!("Failed quick run command. Err: {e}");
+                                exit(1);
+                            }
+                        }
+                    } else {
+                        error!("Invalid query: {{{:?}}}", tag);
+                        exit(1);
+                    }
+                }
+                Some(AmbosoMode::BaseMode) => {
+                    if env.basemode_versions_table.contains_key(&SemVerKey(tag.to_string())) {
+                        let res = do_run(env, args);
+                        match res {
+                            Ok(s) => {
+                                info!("Done quick run command. Res: {s}");
+                                exit(0);
+                            }
+                            Err(e) => {
+                                error!("Failed quick run command. Err: {e}");
+                                exit(1);
+                            }
+                        }
+                    } else {
+                        error!("Invalid query: {{{:?}}}", tag);
+                        exit(1);
+                    }
+                }
+                _ => {}
+            }
+        }
         Some(Commands::Build { tag }) => {
             if let Some(t) = tag {
+                args.tag = Some(t.to_string());
                 match env.run_mode {
                     Some(AmbosoMode::GitMode) => {
                         if env.gitmode_versions_table.contains_key(&SemVerKey(t.to_string())) {
