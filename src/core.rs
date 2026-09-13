@@ -710,12 +710,38 @@ fn handle_subcommand(args: &mut Args, env: &mut AmbosoEnv) {
                 match env.run_mode {
                     Some(AmbosoMode::GitMode) => {
                         if env.gitmode_versions_table.contains_key(&SemVerKey(t.to_string())) {
+                            let build_res = do_build(env, args);
+                            match build_res {
+                                Ok(s) => {
+                                    info!("Done quick build command. Res: {s}");
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("Failed quick build command. Err: {e}");
+                                    exit(1);
+                                }
+                            }
                         } else {
+                            error!("Invalid query: {{{:?}}}", tag);
+                            exit(1);
                         }
                     }
                     Some(AmbosoMode::BaseMode) => {
                         if env.basemode_versions_table.contains_key(&SemVerKey(t.to_string())) {
+                            let build_res = do_build(env, args);
+                            match build_res {
+                                Ok(s) => {
+                                    info!("Done quick build command. Res: {s}");
+                                    exit(0);
+                                }
+                                Err(e) => {
+                                    error!("Failed quick build command. Err: {e}");
+                                    exit(1);
+                                }
+                            }
                         } else {
+                            error!("Invalid query: {{{:?}}}", tag);
+                            exit(1);
                         }
                     }
                     _ => {}
