@@ -10,6 +10,7 @@
 ### Changed
 
 - Collect purge op into op_purge()
+- Bump deps
 
 ## [0.2.33] - 2026-08-24
 
